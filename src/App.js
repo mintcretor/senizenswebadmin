@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Patient from './pages/Patient';
 import MainLayout from './layouts/MainLayout'; // 1. Import Layout เข้ามา
 import AddPatient from './pages/AddPatient';
+import ThaiServiceForm from './pages/VNPatient';
 function App() {
   return (
     <Router>
@@ -18,6 +19,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/Patient" element={<Patient />} />
           <Route path="/AddPatient" element={<AddPatient />} />
+          <Route path="/VNPatient" element={<ThaiServiceForm />} />
           {/* สามารถเพิ่ม Route อื่นๆ ที่ต้องการ Sidebar ที่นี่ได้เลย */}
         </Route>
       </Routes>
