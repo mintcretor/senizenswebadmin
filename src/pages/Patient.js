@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Search, Download, Upload, X, FileText, AlertCircle, CheckCircle, Menu, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Download, Upload, X, FileText, AlertCircle, CheckCircle, Menu, Plus, RefreshCw, Trash2, ClipboardPlus, Edit, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 
 const Patient = () => {
+  // State declarations
   const [searchTerm, setSearchTerm] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -14,149 +15,274 @@ const Patient = () => {
   const [columnMapping, setColumnMapping] = useState({});
   const [showColumnMapping, setShowColumnMapping] = useState(false);
   const [previewData, setPreviewData] = useState([]);
+  const [fullExcelData, setFullExcelData] = useState([]);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const navigate = useNavigate();
-  // ข้อมูลผู้รับบริการจำลอง (ในการใช้งานจริงควรดึงจาก API)
-  const mockPatientData = [
-    {
-      hn: '12015601',
-      prefix: 'นาย',
-      first_name: 'สุนิจ',
-      last_name: 'สนายกาย',
-      first_name_en: 'Sunij',
-      last_name_en: 'Sanayagai',
-      gender: 'ชาย',
-      age: '35',
-      id_card: '1234567890123',
-      passport: '',
-      birth_date: '15/03/1988',
-      phone: '053-123456',
-      mobile: '081-2345678',
-      nationality: 'ไทย',
-      ethnicity: 'ไทย',
-      religion: 'พุทธ',
-      marital_status: 'โสด',
-      allergies: 'ไม่มี',
-      occupation: 'พนักงานบริษัท',
-      house_number: '123',
-      village: '5',
-      subdistrict: 'เมืองชาย',
-      district: 'เมือง',
-      province: 'เชียงราย',
-      postal_code: '57000'
-    },
-    {
-      hn: '12015602',
-      prefix: 'นาง',
-      first_name: 'สมใส',
-      last_name: 'ใจดี',
-      first_name_en: 'Somsai',
-      last_name_en: 'Jaidee',
-      gender: 'หญิง',
-      age: '28',
-      id_card: '1234567890124',
-      passport: '',
-      birth_date: '22/07/1995',
-      phone: '053-234567',
-      mobile: '082-3456789',
-      nationality: 'ไทย',
-      ethnicity: 'ไทย',
-      religion: 'พุทธ',
-      marital_status: 'แต่งงาน',
-      allergies: 'แพ้ยาปฏิชีวนะ',
-      occupation: 'ครู',
-      house_number: '456',
-      village: '2',
-      subdistrict: 'รอบเวียง',
-      district: 'เมือง',
-      province: 'เชียงราย',
-      postal_code: '57000'
-    },
-    {
-      hn: '12015603',
-      prefix: 'นาย',
-      first_name: 'วิชัย',
-      last_name: 'รุ่งเรือง',
-      first_name_en: 'Wichai',
-      last_name_en: 'Rungruang',
-      gender: 'ชาย',
-      age: '42',
-      id_card: '1234567890125',
-      passport: '',
-      birth_date: '10/12/1981',
-      phone: '053-345678',
-      mobile: '083-4567890',
-      nationality: 'ไทย',
-      ethnicity: 'ไทย',
-      religion: 'พุทธ',
-      marital_status: 'แต่งงาน',
-      allergies: 'แพ้อาหารทะเล',
-      occupation: 'นักธุรกิจ',
-      house_number: '789',
-      village: '1',
-      subdistrict: 'บ้านดู่',
-      district: 'เมือง',
-      province: 'เชียงราย',
-      postal_code: '57000'
-    },
-    {
-      hn: '12015604',
-      prefix: 'นางสาว',
-      first_name: 'มาลี',
-      last_name: 'สวยงาม',
-      first_name_en: 'Malee',
-      last_name_en: 'Suaynam',
-      gender: 'หญิง',
-      age: '25',
-      id_card: '1234567890126',
-      passport: '',
-      birth_date: '05/09/1998',
-      phone: '053-456789',
-      mobile: '084-5678901',
-      nationality: 'ไทย',
-      ethnicity: 'ไทย',
-      religion: 'พุทธ',
-      marital_status: 'โสด',
-      allergies: 'ไม่มี',
-      occupation: 'พนักงานธนาคาร',
-      house_number: '321',
-      village: '3',
-      subdistrict: 'แม่กรณ์',
-      district: 'เมือง',
-      province: 'เชียงราย',
-      postal_code: '57000'
-    },
-    {
-      hn: '12015605',
-      prefix: 'นาย',
-      first_name: 'สมชาย',
-      last_name: 'มั่นคง',
-      first_name_en: 'Somchai',
-      last_name_en: 'Mankong',
-      gender: 'ชาย',
-      age: '55',
-      id_card: '1234567890127',
-      passport: '',
-      birth_date: '20/01/1968',
-      phone: '053-567890',
-      mobile: '085-6789012',
-      nationality: 'ไทย',
-      ethnicity: 'ไทย',
-      religion: 'พุทธ',
-      marital_status: 'แต่งงาน',
-      allergies: 'แพ้ยาแอสไพริน',
-      occupation: 'ข้าราชการเกษียณ',
-      house_number: '654',
-      village: '7',
-      subdistrict: 'นางแล',
-      district: 'เมือง',
-      province: 'เชียงราย',
-      postal_code: '57000'
-    }
-  ];
 
-  // ฟิลด์ในฐานข้อมูลที่ต้องการ
+  // API Related States
+  const [patientData, setPatientData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPatients, setTotalPatients] = useState(0);
+  const [paginationLoading, setPaginationLoading] = useState(false);
+  const PATIENTS_PER_PAGE = 100;
+
+  const navigate = useNavigate();
+
+  // API Configuration
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
+  // API Functions
+  const fetchPatients = async (page = 1, search = '') => {
+    try {
+      if (page === 1 && !search) {
+        setLoading(true);
+      } else {
+        setPaginationLoading(true);
+      }
+      setError(null);
+
+      // Use page parameter instead of calculating offset in frontend
+      const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
+
+      const response = await fetch(`${API_BASE_URL}/patients?page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API Response:', data); // Debug log
+
+      // Handle your backend response structure
+      if (data.success && data.data && data.pagination) {
+        const patients = data.data;
+        const { total, totalPages } = data.pagination;
+
+        setPatientData(patients);
+        setTotalPatients(total);
+        setTotalPages(totalPages);
+        setCurrentPage(page);
+      } else {
+        throw new Error('Invalid response format from server');
+      }
+
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+      setError('ไม่สามารถโหลดข้อมูลผู้รับบริการได้: ' + error.message);
+
+      // Fallback to mock data for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Using fallback data for development');
+        const mockData = generateMockPatients(page, search);
+        setPatientData(mockData.data);
+        setTotalPatients(mockData.total);
+        setTotalPages(Math.ceil(mockData.total / PATIENTS_PER_PAGE));
+        setCurrentPage(page);
+      }
+    } finally {
+      setLoading(false);
+      setPaginationLoading(false);
+    }
+  };
+
+  // Mock data generator for development/testing
+  const generateMockPatients = (page, search) => {
+    const totalMockPatients = 350; // Simulate 350 patients
+    const mockPatients = [];
+
+    for (let i = 1; i <= totalMockPatients; i++) {
+      const patient = {
+        id: i,
+        hn: `HN${String(i).padStart(6, '0')}`,
+        prefix: i % 2 === 0 ? 'นาย' : 'นางสาว',
+        first_name: `ชื่อ${i}`,
+        last_name: `นามสกุล${i}`,
+        age: Math.floor(Math.random() * 60) + 20,
+        gender: i % 2 === 0 ? 'ชาย' : 'หญิง',
+        phone: `08${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
+        created_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
+      };
+      mockPatients.push(patient);
+    }
+
+    // Filter by search if provided
+    let filteredPatients = mockPatients;
+    if (search) {
+      filteredPatients = mockPatients.filter(patient => {
+        const fullName = `${patient.first_name} ${patient.last_name}`;
+        return fullName.toLowerCase().includes(search.toLowerCase()) ||
+          patient.hn.toLowerCase().includes(search.toLowerCase());
+      });
+    }
+
+    // Paginate
+    const start = (page - 1) * PATIENTS_PER_PAGE;
+    const end = start + PATIENTS_PER_PAGE;
+    const paginatedData = filteredPatients.slice(start, end);
+
+    return {
+      data: paginatedData,
+      total: filteredPatients.length
+    };
+  };
+
+  const refreshPatients = async () => {
+    try {
+      setRefreshing(true);
+      await fetchPatients(currentPage, searchTerm);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Handle search with pagination reset
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== '') {
+        setCurrentPage(1);
+        fetchPatients(1, searchTerm);
+      } else {
+        fetchPatients(currentPage, '');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+  };
+
+  // Pagination handlers
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages && !paginationLoading) {
+      fetchPatients(newPage, searchTerm);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      handlePageChange(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      handlePageChange(currentPage + 1);
+    }
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      const start = Math.max(1, currentPage - 2);
+      const end = Math.min(totalPages, start + maxVisiblePages - 1);
+
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push('...');
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (end < totalPages) {
+        if (end < totalPages - 1) pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+  const handleDeletePatient = async (patientId, patientName) => {
+
+    if (window.confirm(`คุณต้องการลบข้อมูลของ "${patientName}" ใช่หรือไม่?`)) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/patients/${patientId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete patient');
+        }
+
+        // Refresh current page after deletion
+        await fetchPatients(currentPage, searchTerm);
+        alert('ลบข้อมูลผู้รับบริการเรียบร้อยแล้ว');
+
+      } catch (error) {
+        console.error('Error deleting patient:', error);
+        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
+      }
+    }
+  };
+
+  const importPatientsToAPI = async (importedData) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/patients/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          patients: importedData,
+          columnMapping: columnMapping
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to import patients');
+      }
+
+      const result = await response.json();
+      return result;
+
+    } catch (error) {
+      console.error('Error importing patients:', error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients(1, '');
+  }, []);
+
+  // Debug component to show pagination state
+  const DebugInfo = () => {
+    if (process.env.NODE_ENV !== 'development') return null;
+
+    return (
+      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
+        <strong>Debug Info:</strong> Page {currentPage}/{totalPages} | Total: {totalPatients} | Showing: {safePatientData.length} | Loading: {loading ? 'Yes' : 'No'} | PagLoading: {paginationLoading ? 'Yes' : 'No'}
+      </div>
+    );
+  };
+
   const databaseFields = [
     { key: 'hn', label: 'HN', required: true },
     { key: 'first_name', label: 'ชื่อ', required: true },
@@ -178,13 +304,28 @@ const Patient = () => {
     { key: 'postal_code', label: 'รหัสไปรษณีย์', required: false },
   ];
 
-  // ฟังก์ชัน Export Excel
   const handleExportClick = async () => {
     try {
       setExporting(true);
-      
-      // เตรียมข้อมูลสำหรับ export
-      const exportData = mockPatientData.map(patient => ({
+
+      // Export all patients using page-based approach
+      const response = await fetch(`${API_BASE_URL}/patients?page=1&limit=10000`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch all patients for export');
+      }
+
+      const data = await response.json();
+      const allPatients = (data.success && data.data) ? data.data : [];
+
+      // Prepare data for export
+      const exportData = allPatients.map(patient => ({
         'HN': patient.hn,
         'คำนำหน้า': patient.prefix,
         'ชื่อ': patient.first_name,
@@ -206,83 +347,57 @@ const Patient = () => {
         'อาชีพ': patient.occupation,
         'บ้านเลขที่': patient.house_number,
         'หมู่': patient.village,
-        'ตำบล': patient.subdistrict,
-        'อำเภอ': patient.district,
-        'จังหวัด': patient.province,
+        'ตำบล': patient.subdistrict || patient.sub_district_name,
+        'อำเภอ': patient.district || patient.district_name,
+        'จังหวัด': patient.province || patient.province_name,
         'รหัสไปรษณีย์': patient.postal_code
       }));
 
-      // จำลองการประมวลผล
+      // Simulate processing time
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // สร้าง workbook
+      // Create workbook
       const wb = XLSX.utils.book_new();
-      
-      // สร้าง worksheet จากข้อมูล
       const ws = XLSX.utils.json_to_sheet(exportData);
-      
-      // ปรับความกว้างของคอลัมน์
+
+      // Set column widths
       const colWidths = [
-        { wch: 12 }, // HN
-        { wch: 10 }, // คำนำหน้า
-        { wch: 15 }, // ชื่อ
-        { wch: 15 }, // นามสกุล
-        { wch: 15 }, // ชื่ออังกฤษ
-        { wch: 15 }, // นามสกุลอังกฤษ
-        { wch: 8 },  // เพศ
-        { wch: 8 },  // อายุ
-        { wch: 17 }, // บัตรประชาชน
-        { wch: 15 }, // พาสปอร์ต
-        { wch: 12 }, // วันเกิด
-        { wch: 15 }, // เบอร์ติดต่อ
-        { wch: 15 }, // เบอร์มือถือ
-        { wch: 10 }, // สัญชาติ
-        { wch: 10 }, // เชื้อชาติ
-        { wch: 10 }, // ศาสนา
-        { wch: 12 }, // สถานะ
-        { wch: 20 }, // แพ้ยา
-        { wch: 20 }, // อาชีพ
-        { wch: 12 }, // บ้านเลขที่
-        { wch: 8 },  // หมู่
-        { wch: 15 }, // ตำบล
-        { wch: 15 }, // อำเภอ
-        { wch: 15 }, // จังหวัด
-        { wch: 12 }  // รหัสไปรษณีย์
+        { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+        { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 17 }, { wch: 15 },
+        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
+        { wch: 10 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 12 },
+        { wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }
       ];
       ws['!cols'] = colWidths;
 
-      // เพิ่ม worksheet เข้า workbook
       XLSX.utils.book_append_sheet(wb, ws, 'รายชื่อผู้รับบริการ');
-      
-      // สร้างชื่อไฟล์พร้อมวันที่
+
+      // Generate filename with current date
       const today = new Date();
       const dateStr = today.toLocaleDateString('th-TH', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
       }).replace(/\//g, '-');
-      
+
       const filename = `รายชื่อผู้รับบริการ_${dateStr}.xlsx`;
-      
-      // ดาวน์โหลดไฟล์
+
       XLSX.writeFile(wb, filename);
-      
-      // แสดงข้อความสำเร็จ
+
       setTimeout(() => {
-        alert(`Export ข้อมูลสำเร็จ!\nจำนวน ${mockPatientData.length} ราย\nไฟล์: ${filename}`);
+        alert(`Export ข้อมูลสำเร็จ!\nจำนวน ${allPatients.length} ราย\nไฟล์: ${filename}`);
         setExporting(false);
       }, 500);
-      
+
     } catch (error) {
       console.error('Export error:', error);
-      alert('เกิดข้อผิดพลาดในการ Export ข้อมูล');
+      alert('เกิดข้อผิดพลาดในการ Export ข้อมูล: ' + error.message);
       setExporting(false);
     }
   };
 
   const handleAddPatient = () => {
-      navigate('/AddPatient');
-    console.log('Navigate to add patient page');
+    navigate('/AddPatient');
   };
 
   const handleImportClick = () => {
@@ -294,6 +409,7 @@ const Patient = () => {
     setExcelColumns([]);
     setColumnMapping({});
     setPreviewData([]);
+    setFullExcelData([]);
   };
 
   const parseExcelFile = async (file) => {
@@ -301,20 +417,26 @@ const Patient = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          const mockColumns = [
-            'HN', 'คำนำหน้า', 'ชื่อ', 'นามสกุล', 'ชื่อภาษาอังกฤษ', 
-            'นามสกุลภาษาอังกฤษ', 'เพศ', 'อายุ', 'บัตรประชาชน', 
-            'เลขพาสปอร์ต', 'วันเกิด', 'เบอร์ติดต่อ', 'เบอร์มือถือ', 
-            'สัญชาติ', 'เชื้อชาติ', 'ศาสนา', 'สถานะ', 'แพ้ยา', 'อาชีพ', 
-            'บ้านเลขที่', 'หมู่', 'ตำบล', 'อำเภอ', 'จังหวัด', 'รหัสไปรษณีย์'
-          ];
-          
-          const mockPreviewData = [
-            ['12015601', 'นาย', 'สุนิจ', 'สนายกาย', 'Sunij', 'Sanayagai', 'ชาย', '35', '1234567890123', '', '15/03/1988', '053-123456', '081-2345678', 'ไทย', 'ไทย', 'พุทธ', 'โสด', 'ไม่มี', 'พนักงานบริษัท', '123', '5', 'เมืองชาย', 'เมือง', 'เชียงราย', '57000'],
-            ['12015602', 'นาง', 'สมใส', 'ใจดี', 'Somsai', 'Jaidee', 'หญิง', '28', '1234567890124', '', '22/07/1995', '053-234567', '082-3456789', 'ไทย', 'ไทย', 'พุทธ', 'แต่งงาน', 'แพ้ยาปฏิชีวนะ', 'ครู', '456', '2', 'รอบเวียง', 'เมือง', 'เชียงราย', '57000']
-          ];
-          
-          resolve({ columns: mockColumns, preview: mockPreviewData });
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+            header: 1,
+            raw: false,
+            defval: ''
+          });
+
+          if (jsonData.length < 2) {
+            throw new Error('ไฟล์ Excel ไม่มีข้อมูล');
+          }
+
+          const columns = jsonData[0] || [];
+          const dataRows = jsonData.slice(1);
+          const preview = dataRows.slice(0, 5);
+
+          resolve({ columns, preview, fullData: dataRows });
         } catch (error) {
           reject(error);
         }
@@ -331,18 +453,20 @@ const Patient = () => {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.ms-excel'
       ];
-      
+
       if (allowedTypes.includes(file.type)) {
         setSelectedFile(file);
         setImportStatus('parsing');
-        
+
         try {
-          const { columns, preview } = await parseExcelFile(file);
+          const { columns, preview, fullData } = await parseExcelFile(file);
           setExcelColumns(columns);
           setPreviewData(preview);
+          setFullExcelData(fullData);
           setShowColumnMapping(true);
           setImportStatus('');
-          
+
+          // Auto-mapping logic
           const autoMapping = {};
           columns.forEach(col => {
             const colLower = col.toLowerCase();
@@ -350,24 +474,12 @@ const Patient = () => {
             else if (colLower.includes('ชื่อ') && !colLower.includes('นาม') && !colLower.includes('อังกฤษ')) autoMapping['first_name'] = col;
             else if (colLower.includes('นามสกุล') && !colLower.includes('อังกฤษ')) autoMapping['last_name'] = col;
             else if (colLower.includes('บัตรประชาชน') || colLower.includes('เลขประจำตัว')) autoMapping['id_card'] = col;
-            else if (colLower.includes('วันเกิด')) autoMapping['birth_date'] = col;
-            else if (colLower.includes('อายุ')) autoMapping['age'] = col;
-            else if (colLower.includes('เพศ')) autoMapping['gender'] = col;
-            else if (colLower.includes('ศาสนา')) autoMapping['religion'] = col;
-            else if (colLower.includes('สัญชาติ')) autoMapping['nationality'] = col;
-            else if (colLower.includes('เชื้อชาติ')) autoMapping['ethnicity'] = col;
-            else if (colLower.includes('เบอร์') || colLower.includes('โทร')) autoMapping['phone'] = col;
-            else if (colLower.includes('บ้านเลขที่')) autoMapping['house_number'] = col;
-            else if (colLower.includes('หมู่')) autoMapping['village'] = col;
-            else if (colLower.includes('ตำบล')) autoMapping['subdistrict'] = col;
-            else if (colLower.includes('อำเภอ')) autoMapping['district'] = col;
-            else if (colLower.includes('จังหวัด')) autoMapping['province'] = col;
-            else if (colLower.includes('รหัสไปรษณีย์')) autoMapping['postal_code'] = col;
           });
           setColumnMapping(autoMapping);
         } catch (error) {
           setImportStatus('error');
           console.error('Error parsing Excel file:', error);
+          alert('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + error.message);
         }
       } else {
         setImportStatus('error');
@@ -389,21 +501,39 @@ const Patient = () => {
     return missingFields;
   };
 
-  const simulateImport = async () => {
-    setImporting(true);
-    setImportStatus('importing');
-    
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      setImportProgress(i);
-    }
-    
-    setImportStatus('success');
-    setImporting(false);
-    
-    setTimeout(() => {
-      setShowImportModal(false);
-    }, 2000);
+  const processImportData = () => {
+    const processedData = [];
+
+    fullExcelData.forEach((row) => {
+      const patientRecord = {};
+      let hasRequiredData = true;
+
+      const requiredDbFields = databaseFields.filter(f => f.required).map(f => f.key);
+      for (const dbField of requiredDbFields) {
+        const excelColumn = columnMapping[dbField];
+        const columnIndex = excelColumns.indexOf(excelColumn);
+        if (columnIndex === -1 || !row[columnIndex]) {
+          hasRequiredData = false;
+          break;
+        }
+      }
+
+      if (hasRequiredData) {
+        Object.entries(columnMapping).forEach(([dbField, excelColumn]) => {
+          const columnIndex = excelColumns.indexOf(excelColumn);
+          if (columnIndex !== -1) {
+            patientRecord[dbField] = row[columnIndex] || '';
+          }
+        });
+
+        patientRecord.import_batch = new Date().toISOString();
+        patientRecord.created_at = new Date().toISOString();
+
+        processedData.push(patientRecord);
+      }
+    });
+
+    return processedData;
   };
 
   const handleImport = async () => {
@@ -419,148 +549,290 @@ const Patient = () => {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('columnMapping', JSON.stringify(columnMapping));
-      
-      await simulateImport();
+      setImporting(true);
+      setImportStatus('importing');
+
+      const importData = processImportData();
+
+      if (importData.length === 0) {
+        throw new Error('ไม่พบข้อมูลที่ถูกต้องสำหรับนำเข้า กรุณาตรวจสอบว่าไฟล์มีข้อมูลครบถ้วนในคอลัมน์ที่จำเป็น');
+      }
+
+      for (let i = 0; i <= 70; i += 10) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        setImportProgress(i);
+      }
+
+      await importPatientsToAPI(importData);
+
+      for (let i = 80; i <= 100; i += 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setImportProgress(i);
+      }
+
+      setImportStatus('success');
+      setImporting(false);
+
+      // Refresh to first page after import
+      setCurrentPage(1);
+      await fetchPatients(1, searchTerm);
+
+      setTimeout(() => {
+        setShowImportModal(false);
+      }, 2000);
+
     } catch (error) {
       console.error('Import error:', error);
       setImportStatus('error');
       setImporting(false);
+      alert('เกิดข้อผิดพลาดในการ Import: ' + error.message);
     }
   };
 
-  const patientImageUrl = 'https://i.imgur.com/u15jJzF.png';
+  const handleAddAnVn = (patient) => {
+    navigate(`/an-vn/add`, {
+      state: { patient }
+    });
+  };
 
-  // สร้างรายการผู้ป่วยจากข้อมูลจำลอง
-  const services = mockPatientData.flatMap(patient => [
-    {
-      id: `HN: ${patient.hn}`,
-      name: `${patient.prefix}${patient.first_name} ${patient.last_name}`,
-      status: 'AN: 25546',
-      department: 'ศูนย์ฟื้นฟูหลอดเลือดและสมอง',
-      type: 'package'
-    },
-    {
-      id: `HN: ${patient.hn}`,
-      name: `${patient.prefix}${patient.first_name} ${patient.last_name}`,
-      status: 'VN: 001',
-      department: 'คลินิคไตเทียม',
-      type: 'hospital'
-    }
-  ]);
+  const handleEditPatient = (patient) => {
+    navigate(`/EditPatient/${patient.id}`, {
+      state: { patient }
+    });
+  };
 
-  const filteredServices = services.filter(service =>
-    service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    service.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const patientImageUrl = '/images/logo.png';
+  const safePatientData = Array.isArray(patientData) ? patientData : [];
 
-  const ServiceCard = ({ service, index }) => (
-    <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-all duration-200 h-fit">
-      <div className="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
-        {/* Patient Image - Hidden on mobile, shown on tablet and up */}
-        <div className="hidden sm:block flex-shrink-0">
-          <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-100 rounded-lg overflow-hidden">
-            <img
-              src={patientImageUrl}
-              alt="รูปภาพคนไข้"
-              className="w-full h-full object-cover"
-            />
+  const PatientCard = ({ patient }) => {
+    const fullName = `${patient.prefix || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
+
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-all duration-200">
+        <div className="flex items-start space-x-4">
+          <div className="flex-shrink-0">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-100 rounded-lg overflow-hidden">
+              <img
+                src={patientImageUrl}
+                alt="รูปภาพคนไข้"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
-            {/* Patient Info */}
-            <div className="flex-1 min-w-0 mb-3 sm:mb-0">
-              <div className="flex items-start justify-between sm:block">
-                <div>
-                  <p className="text-xs text-gray-500 font-mono mb-1">{service.id}</p>
-                  <h3 className="font-semibold text-gray-900 text-base sm:text-lg leading-tight mb-2">
-                    {service.name}
-                  </h3>
-                </div>
-                
-                {/* Mobile Image - Only shown on mobile */}
-                <div className="sm:hidden flex-shrink-0 ml-3">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
-                    <img
-                      src={patientImageUrl}
-                      alt="รูปภาพคนไข้"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-gray-500 font-mono mb-1">HN: {patient.hn}</p>
+                <h3
+                  className="font-semibold text-gray-900 text-base sm:text-lg leading-tight truncate hover:text-blue-600 transition-colors cursor-pointer"
+                  title={fullName}
+                  onClick={() => handleEditPatient(patient)}
+                >
+                  {fullName}
+                </h3>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
+                  <span>อายุ: {patient.age || '-'} ปี</span>
+                  <span>เพศ: {patient.gender || '-'}</span>
                 </div>
               </div>
 
-              {/* Department Info */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-gray-600">แผนก:</span>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 max-w-full">
-                  <span className="truncate">{service.department}</span>
-                </span>
+              <div className="flex-shrink-0 ml-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePatient(patient.id, fullName);
+                  }}
+                  className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"
+                  title="ลบข้อมูล"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
-            {/* Status and Action */}
-            <div className="flex items-center justify-between sm:flex-col sm:items-end sm:space-y-2 sm:ml-4">
-              <div className="flex items-center space-x-2 sm:flex-col sm:space-x-0 sm:space-y-2">
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                  service.type === 'package' 
-                    ? 'bg-pink-100 text-pink-800' 
-                    : 'bg-green-100 text-green-800'
-                }`}>
-                  {service.status}
-                </span>
-                
-                {service.type === 'package' && (
-                  <button className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black px-4 py-2 rounded-lg font-bold text-sm transition-all duration-200 transform hover:scale-105 shadow-md">
-                    Package
-                  </button>
-                )}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-sm text-gray-500 mb-3">
+                เบอร์ติดต่อ: <span className="font-medium text-gray-700">{patient.mobile || patient.phone || '-'}</span>
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddAnVn(patient);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="เพิ่ม AN/VN"
+                >
+                  <ClipboardPlus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">เพิ่ม </span>AN/VN
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditPatient(patient);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="ดู/แก้ไขประวัติ"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">ดู/</span>แก้ไข
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Compact Pagination Component for Header
+  const CompactPaginationComponent = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center space-x-2 text-sm">
+        <button
+          onClick={handlePreviousPage}
+          disabled={currentPage === 1 || paginationLoading}
+          className="p-1.5 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="หน้าก่อนหน้า"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        <div className="flex items-center space-x-1">
+          <span className="text-gray-600">หน้า</span>
+          <select
+            value={currentPage}
+            onChange={(e) => handlePageChange(parseInt(e.target.value))}
+            disabled={paginationLoading}
+            className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+          >
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <option key={page} value={page}>{page}</option>
+            ))}
+          </select>
+          <span className="text-gray-600">จาก {totalPages}</span>
+        </div>
+
+        <button
+          onClick={handleNextPage}
+          disabled={currentPage === totalPages || paginationLoading}
+          className="p-1.5 rounded-md border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="หน้าถัดไป"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+
+        {paginationLoading && (
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent ml-2"></div>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">กำลังโหลดข้อมูลผู้รับบริการ...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && safePatientData.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">เกิดข้อผิดพลาด</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => fetchPatients(1, '')}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            ลองใหม่
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-4 sm:px-6 sm:py-6">
-          {/* Title and Mobile Menu */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-              รายชื่อผู้รับบริการ
-            </h1>
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="sm:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <Menu className="h-5 w-5 text-gray-600" />
-            </button>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
+                รายชื่อผู้รับบริการ
+              </h1>
+              {error && (
+                <div className="flex items-center text-yellow-600 text-sm">
+                  <AlertCircle className="h-4 w-4 mr-1" />
+                  ใช้ข้อมูลสำรอง
+                </div>
+              )}
+              {/* Compact Pagination in Header */}
+              <div className="hidden sm:block">
+                <CompactPaginationComponent />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={refreshPatients}
+                disabled={refreshing}
+                className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                title="รีเฟรชข้อมูล"
+              >
+                <RefreshCw className={`h-5 w-5 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="sm:hidden p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <Menu className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
           </div>
 
-          {/* Search Bar */}
+          {/* Mobile Pagination */}
+          <div className="sm:hidden mb-4">
+            <CompactPaginationComponent />
+          </div>
+
           <div className="relative mb-4">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
             </div>
             <input
               type="text"
-              placeholder="ค้นหา ชื่อ นามสกุล หรื่อ HN"
+              placeholder="ค้นหา ชื่อ นามสกุล หรือ HN"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="block w-full pl-10 pr-4 py-3 text-base border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white transition-colors"
             />
           </div>
 
-          {/* Action Buttons - Desktop */}
+          {/* Status Info */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 text-sm text-gray-600">
+            <div>
+              หน้า {currentPage} จาก {totalPages} | แสดง {safePatientData.length} รายการ จากทั้งหมด {totalPatients} ผู้รับบริการ
+            </div>
+            {error && (
+              <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded mt-2 sm:mt-0">
+                โหมดออฟไลน์
+              </span>
+            )}
+          </div>
+
           <div className="hidden sm:flex flex-wrap gap-3">
             <button
               onClick={handleAddPatient}
@@ -569,18 +841,16 @@ const Patient = () => {
               <Plus className="h-4 w-4 mr-2" />
               เพิ่มผู้รับบริการ
             </button>
-            
-            <button 
+            <button
               onClick={handleImportClick}
               className="inline-flex items-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm"
             >
               <Upload className="h-4 w-4 mr-2" />
               Import Excel
             </button>
-            
-            <button 
+            <button
               onClick={handleExportClick}
-              disabled={exporting}
+              disabled={exporting || totalPatients === 0}
               className="inline-flex items-center px-4 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
               {exporting ? (
@@ -591,46 +861,23 @@ const Patient = () => {
               ) : (
                 <>
                   <Download className="h-4 w-4 mr-2" />
-                  Export Excel
+                  Export Excel ({totalPatients} ราย)
                 </>
               )}
             </button>
           </div>
-
-          {/* Mobile Action Menu */}
           {showMobileMenu && (
             <div className="sm:hidden mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
               <div className="grid grid-cols-1 gap-3">
-                <button
-                  onClick={() => {
-                    handleAddPatient();
-                    setShowMobileMenu(false);
-                  }}
-                  className="flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
-                >
+                <button onClick={() => { handleAddPatient(); setShowMobileMenu(false); }} className="flex items-center justify-center px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
                   <Plus className="h-4 w-4 mr-2" />
                   เพิ่มผู้รับบริการ
                 </button>
-                
-                <button 
-                  onClick={() => {
-                    handleImportClick();
-                    setShowMobileMenu(false);
-                  }}
-                  className="flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-                >
+                <button onClick={() => { handleImportClick(); setShowMobileMenu(false); }} className="flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
                   <Upload className="h-4 w-4 mr-2" />
                   Import Excel
                 </button>
-                
-                <button 
-                  onClick={() => {
-                    handleExportClick();
-                    setShowMobileMenu(false);
-                  }}
-                  disabled={exporting}
-                  className="flex items-center justify-center px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                <button onClick={() => { handleExportClick(); setShowMobileMenu(false); }} disabled={exporting || totalPatients === 0} className="flex items-center justify-center px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                   {exporting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
@@ -639,7 +886,7 @@ const Patient = () => {
                   ) : (
                     <>
                       <Download className="h-4 w-4 mr-2" />
-                      Export Excel
+                      Export Excel ({totalPatients} ราย)
                     </>
                   )}
                 </button>
@@ -692,7 +939,7 @@ const Patient = () => {
                           </p>
                         </label>
                       </div>
-                      
+
                       {selectedFile && (
                         <div className="mt-4 p-4 bg-green-50 rounded-lg flex items-center space-x-3">
                           <FileText className="h-6 w-6 text-green-600 flex-shrink-0" />
@@ -758,7 +1005,7 @@ const Patient = () => {
                     {/* Column Mapping */}
                     <div className="mb-6">
                       <h4 className="text-lg font-medium text-gray-900 mb-6">จับคู่คอลัมน์ข้อมูล</h4>
-                      
+
                       {/* Preview Data */}
                       <div className="mb-8 p-6 bg-gray-50 rounded-xl">
                         <h5 className="text-base font-medium text-gray-700 mb-4">ตัวอย่างข้อมูลจากไฟล์:</h5>
@@ -848,7 +1095,7 @@ const Patient = () => {
                       <span className="text-base font-medium text-blue-600">{importProgress}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4">
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-blue-500 to-blue-600 h-4 rounded-full transition-all duration-300 ease-out"
                         style={{ width: `${importProgress}%` }}
                       ></div>
@@ -866,7 +1113,7 @@ const Patient = () => {
                     </div>
                   </div>
                 )}
-                
+
                 {importStatus === 'error' && (
                   <div className="mb-8 p-6 bg-red-50 border border-red-200 rounded-xl flex items-start space-x-4">
                     <AlertCircle className="h-8 w-8 text-red-600 flex-shrink-0 mt-1" />
@@ -911,42 +1158,129 @@ const Patient = () => {
 
       {/* Content */}
       <div className="px-4 py-6 sm:px-6">
-        {/* Results Summary */}
-        {searchTerm && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800">
-              พบ <strong>{filteredServices.length}</strong> รายการจากการค้นหา "{searchTerm}"
-            </p>
+        <DebugInfo />
+
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            {searchTerm ? (
+              <>พบ <strong>{safePatientData.length}</strong> รายการจากการค้นหา "{searchTerm}"</>
+            ) : (
+              <>แสดง {((currentPage - 1) * PATIENTS_PER_PAGE) + 1} ถึง {Math.min(currentPage * PATIENTS_PER_PAGE, totalPatients)} จากทั้งหมด {totalPatients} รายการ</>
+            )}
+          </p>
+        </div>
+
+        {/* Loading indicator for pagination */}
+        {paginationLoading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mx-auto mb-2"></div>
+            <p className="text-gray-600">กำลังโหลดข้อมูล...</p>
           </div>
         )}
 
         {/* Patient Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-          {filteredServices.map((service, index) => (
-            <ServiceCard key={`${service.id}-${index}`} service={service} index={index} />
-          ))}
-        </div>
+        {!paginationLoading && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+            {safePatientData.map((patient) => (
+              <PatientCard key={patient.id} patient={patient} />
+            ))}
+          </div>
+        )}
 
-        {/* Empty State */}
-        {filteredServices.length === 0 && (
+        {/* Empty States */}
+        {!paginationLoading && safePatientData.length === 0 && totalPatients > 0 && (
           <div className="text-center py-16">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="h-8 w-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">ไม่พบข้อมูลที่ค้นหา</h3>
-            <p className="text-gray-500 mb-6">ลองเปลี่ยนคำค้นหาหรือเพิ่มผู้รับบริการใหม่</p>
+            <p className="text-gray-500 mb-6">ลองเปลี่ยนคำค้นหาหรือเคลียร์การค้นหา</p>
             <button
-              onClick={handleAddPatient}
-              className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              onClick={() => {
+                setSearchTerm('');
+                setCurrentPage(1);
+                fetchPatients(1, '');
+              }}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              เพิ่มผู้รับบริการ
+              เคลียร์การค้นหา
             </button>
+          </div>
+        )}
+
+        {!paginationLoading && totalPatients === 0 && !loading && (
+          <div className="text-center py-16">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">ยังไม่มีข้อมูลผู้รับบริการ</h3>
+            <p className="text-gray-500 mb-6">เริ่มต้นด้วยการเพิ่มผู้รับบริการใหม่หรือ Import จากไฟล์ Excel</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleAddPatient}
+                className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                เพิ่มผู้รับบริการ
+              </button>
+              <button
+                onClick={handleImportClick}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Excel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination - Keep bottom pagination for additional navigation */}
+        {!paginationLoading && totalPages > 1 && (
+          <div className="mt-8 bg-white border-t border-gray-200">
+            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-6">
+              <div className="text-sm text-gray-700 mb-4 sm:mb-0">
+                แสดง {((currentPage - 1) * PATIENTS_PER_PAGE) + 1} ถึง {Math.min(currentPage * PATIENTS_PER_PAGE, totalPatients)} จากทั้งหมด {totalPatients} รายการ
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1 || paginationLoading}
+                  className="p-2 rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                {getPageNumbers().map((page, index) => (
+                  <button
+                    key={index}
+                    onClick={() => typeof page === 'number' && handlePageChange(page)}
+                    disabled={page === '...' || paginationLoading}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium ${page === currentPage
+                        ? 'bg-blue-600 text-white'
+                        : page === '...'
+                          ? 'text-gray-400 cursor-default'
+                          : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
+                      } ${paginationLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages || paginationLoading}
+                  className="p-2 rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Floating Action Button for Mobile */}
+      {/* Floating Add Button */}
       <div className="sm:hidden fixed bottom-6 right-6 z-30">
         <button
           onClick={handleAddPatient}

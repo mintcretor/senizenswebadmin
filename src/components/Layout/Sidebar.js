@@ -1,32 +1,24 @@
-
 import React from 'react';
 import {
   Home,
   Users,
   Settings,
   Bell,
-  HelpCircle
+  HelpCircle,
+  HeartPulse, // Stroke Center
+  PersonStanding, // Physical Therapy
+  Droplets, // Dialysis
+  Sparkles, // Wellness
 } from 'lucide-react';
 
-// ในการทำให้ลิงก์มีสถานะ 'active' และ 'inactive'
-// เราต้องทราบว่าหน้าปัจจุบันคือหน้าไหน
-// วิธีที่ง่ายที่สุดคือการใช้ window.location.pathname
-// ซึ่งจะบอกเราว่า URL ของหน้าปัจจุบันคืออะไร
 const Sidebar = ({ isSidebarOpen }) => {
   const currentPath = window.location.pathname;
 
   const getLinkClass = (path) => {
-    // ตรวจสอบว่า path ที่รับมาตรงกับ URL ปัจจุบันหรือไม่
     const isActive = currentPath === path;
-    
-    // คลาสพื้นฐานสำหรับทุกๆ ลิงก์
     const baseClasses = 'flex items-center space-x-3 p-2 rounded-lg transition-colors';
-    
-    // คลาสที่จะถูกเพิ่มเข้ามาเมื่อเป็น 'active' หรือ 'inactive'
     const activeClass = 'bg-slate-700';
     const inactiveClass = 'hover:bg-slate-700';
-    
-    // ใช้ Template literals เพื่อรวมคลาสเข้าด้วยกัน
     return `${baseClasses} ${isActive ? activeClass : inactiveClass}`;
   };
 
@@ -46,7 +38,6 @@ const Sidebar = ({ isSidebarOpen }) => {
       <div className="p-4">
         {isSidebarOpen && <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3">Quick Access</h3>}
         <nav className="space-y-2">
-          {/* ใช้ฟังก์ชัน getLinkClass() ในการกำหนด className */}
           <a href="/dashboard" className={getLinkClass('/dashboard')}>
             <Home size={20} />
             {isSidebarOpen && <span>Dashboard</span>}
@@ -54,6 +45,22 @@ const Sidebar = ({ isSidebarOpen }) => {
           <a href="/Patient" className={getLinkClass('/Patient')}>
             <Users size={20} />
             {isSidebarOpen && <span>Patient</span>}
+          </a>
+          <a href="/stroke-center" className={getLinkClass('/stroke-center')}>
+            <HeartPulse size={20} />
+            {isSidebarOpen && <span>ศูนย์ฟื้นฟูโรคหลอดเลือดสมอง</span>}
+          </a>
+          <a href="/physical-therapy" className={getLinkClass('/physical-therapy')}>
+            <PersonStanding size={20} />
+            {isSidebarOpen && <span>กายภาพบำบัด</span>}
+          </a>
+          <a href="/dialysis-center" className={getLinkClass('/dialysis-center')}>
+            <Droplets size={20} />
+            {isSidebarOpen && <span>ศูนย์ไตเทียม</span>}
+          </a>
+          <a href="/wellness" className={getLinkClass('/wellness')}>
+            <Sparkles size={20} />
+            {isSidebarOpen && <span>สุขภาพและความงาม</span>}
           </a>
           <a href="/Settings" className={getLinkClass('/Settings')}>
             <Settings size={20} />
@@ -66,15 +73,15 @@ const Sidebar = ({ isSidebarOpen }) => {
       <div className="mt-auto p-4 border-t border-slate-700">
         {isSidebarOpen && <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3">Account</h3>}
         <nav className="space-y-2">
-          <a href="#" className={getLinkClass('/notifications')}>
+          <a href="/notifications" className={getLinkClass('/notifications')}>
             <Bell size={20} />
             {isSidebarOpen && <span>Notifications</span>}
           </a>
-          <a href="#" className={getLinkClass('/account-settings')}>
+          <a href="/account-settings" className={getLinkClass('/account-settings')}>
             <Settings size={20} />
             {isSidebarOpen && <span>Settings</span>}
           </a>
-          <a href="#" className={getLinkClass('/faq')}>
+          <a href="/faq" className={getLinkClass('/faq')}>
             <HelpCircle size={20} />
             {isSidebarOpen && <span>FAQ</span>}
           </a>

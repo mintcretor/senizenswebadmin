@@ -1,17 +1,126 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, Upload } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-// FileUpload Component
-const FileUpload = () => {
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
 
-  const handleFileSelect = (event) => {
+
+import React, { useState, useEffect } from 'react';
+import { X, Plus, Trash2, Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+
+// Import API functions (you would create these in a separate file)
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
+// API Helper functions
+const apiRequest = async (endpoint, options = {}) => {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const config = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  };
+
+  try {
+    const response = await fetch(url, config);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('API Request Error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const uploadPatientImage = async (file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/patients/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('Image Upload Error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+
+
+
+const checkHNExists = async (hn) => {
+  return await apiRequest(`/patients/check-hn/${hn}`);
+};
+
+const getGeneratedHN = async () => {
+  return await apiRequest('/patients/generate-next-hn');
+};
+
+const getProvinces = async () => {
+  return await apiRequest('/location/provinces');
+};
+
+const getDistricts = async (provinceId) => {
+  return await apiRequest(`/location/districts/${provinceId}`);
+};
+
+const getSubDistricts = async (districtId) => {
+  return await apiRequest(`/location/sub-districts/${districtId}`);
+};
+
+// Age calculation function
+const calculateAge = (birthDate) => {
+  if (!birthDate) return '';
+
+  const today = new Date();
+  const birth = new Date(birthDate);
+
+  if (isNaN(birth.getTime())) return '';
+
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+
+  return age >= 0 ? age.toString() : '';
+};
+
+// FileUpload Component - Made Responsive
+const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(existingImageUrl || null);
+  const [uploadStatus, setUploadStatus] = useState(null);
+
+  const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (file && file.type.startsWith('image/')) {
       setSelectedFile(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
+
+      setUploadStatus('uploading');
+      const result = await uploadPatientImage(file);
+
+      if (result.success && result.data) {
+        setUploadStatus('success');
+        onFileUpload(result.data.imageUrl);
+      } else {
+        setUploadStatus('error');
+        console.error('Upload failed:', result.error);
+      }
     }
   };
 
@@ -23,21 +132,41 @@ const FileUpload = () => {
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
+        disabled={isUploading}
       />
       <label
         htmlFor="imageUpload"
-        className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+        className="cursor-pointer flex flex-col items-center justify-center w-full h-32 sm:h-40 md:h-48 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
       >
         {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt="Preview"
-            className="w-full h-full object-cover rounded-lg"
-          />
+          <div className="relative w-full h-full">
+            <img
+              src={previewUrl}
+              alt="Preview"
+              className="w-full h-full object-cover rounded-lg"
+            />
+            {uploadStatus === 'uploading' && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                <div className="text-white text-xs sm:text-sm">กำลังอัพโหลด...</div>
+              </div>
+            )}
+            {uploadStatus === 'success' && (
+              <div className="absolute top-1 right-1 sm:top-2 sm:right-2">
+                <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6 text-green-500" />
+              </div>
+            )}
+            {uploadStatus === 'error' && (
+              <div className="absolute top-1 right-1 sm:top-2 sm:right-2">
+                <AlertCircle className="w-4 h-4 sm:w-6 sm:h-6 text-red-500" />
+              </div>
+            )}
+          </div>
         ) : (
           <>
-            <Upload className="w-8 h-8 text-gray-400 mb-2" />
-            <p className="text-sm text-gray-500">คลิกเพื่ออัพโหลดรูปภาพ</p>
+            <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400 mb-2" />
+            <p className="text-xs sm:text-sm text-gray-500 text-center px-2">
+              คลิกเพื่ออัพโหลดรูปภาพ
+            </p>
           </>
         )}
       </label>
@@ -45,50 +174,118 @@ const FileUpload = () => {
   );
 };
 
-// InputField Component
-const InputField = ({ label, placeholder, type = "text", value, onChange }) => {
+// InputField Component - Made Responsive
+const InputField = ({ label, placeholder, type = "text", value, onChange, error, onBlur, required = false, readOnly = false }) => {
   return (
     <div className="flex flex-col">
-      <label className="text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
       <input
         type={type}
         placeholder={placeholder}
-        value={value}
+        value={value || ''}
         onChange={onChange}
-        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        onBlur={onBlur}
+        readOnly={readOnly}
+        className={`px-2 py-2 sm:px-3 sm:py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${error ? 'border-red-500' : 'border-gray-300'
+          } ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
       />
+      {error && <span className="text-red-500 text-xs mt-1">{error}</span>}
     </div>
   );
 };
 
-// SelectField Component
-const SelectField = ({ label, options, value, onChange, placeholder }) => {
+// SelectField Component - Made Responsive with disabled support
+const SelectField = ({ label, options, value, onChange, placeholder, error, required = false, loading = false, disabled = false }) => {
+  const safeOptions = options || [];
+
   return (
     <div className="flex flex-col">
-      <label className="text-sm font-medium text-gray-700 mb-2">{label}</label>
+      <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
       <select
-        value={value}
+        value={value || ''}
         onChange={onChange}
-        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        disabled={loading || disabled}
+        className={`px-2 py-2 sm:px-3 sm:py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${error ? 'border-red-500' : 'border-gray-300'
+          } ${(loading || disabled) ? 'bg-gray-100 cursor-not-allowed' : ''}`}
       >
-        <option value="">{placeholder}</option>
-        {options.map((option, index) => (
-          <option key={index} value={option.value}>
+        <option value="">
+          {loading ? 'กำลังโหลด...' :
+            disabled ? 'กรุณาเลือกข้อมูลก่อนหน้า' :
+              placeholder}
+        </option>
+        {safeOptions.map((option, index) => (
+          <option key={option.value || index} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
+      {error && <span className="text-red-500 text-xs mt-1">{error}</span>}
     </div>
   );
 };
 
-const PatientForm = () => {
+// Toast notification component - Made Responsive
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`fixed top-4 right-4 left-4 sm:left-auto sm:right-4 sm:w-auto max-w-sm p-3 sm:p-4 rounded-lg shadow-lg z-50 ${type === 'success' ? 'bg-green-500' :
+      type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+      } text-white`}>
+      <div className="flex items-center space-x-2">
+        {type === 'success' && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
+        {type === 'error' && <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5" />}
+        <span className="text-sm sm:text-base flex-1">{message}</span>
+        <button onClick={onClose} className="ml-2 flex-shrink-0">
+          <X className="w-3 h-3 sm:w-4 sm:h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PatientForm = ({ mode = "add" }) => {
+  const navigate = useNavigate();
+
+  // Modal states
+  const { id } = useParams(); // รับ patient ID จาก URL
   const [isAllergyModalOpen, setIsAllergyModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isVNModalOpen, setIsVNModalOpen] = useState(false);
+  const [newPatientId, setNewPatientId] = useState(null);
+  const location = useLocation();
+  const patientFromState = location.state?.patient; // ข้อมูลที่ส่งมาจากหน้า Patient
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const shouldShowVNModal = mode === "add";
 
-  // ข้อมูลผู้ป่วย
+  // Loading states
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
+
+  // Data states
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [subDistricts, setSubDistricts] = useState([]);
+  const [imageUrl, setImageUrl] = useState(null);
+
+  // Toast notification
+  const [toast, setToast] = useState(null);
+
+  // Validation errors
+  const [errors, setErrors] = useState({});
+
+  // Patient data
   const [patientData, setPatientData] = useState({
     hn: '',
     idCard: '',
@@ -98,8 +295,8 @@ const PatientForm = () => {
     age: '',
     gender: '',
     religion: '',
-    nationality: '',
-    race: '',
+    nationality: 'ไทย',
+    race: 'ไทย',
     bloodGroup: '',
     houseNumber: '',
     village: '',
@@ -110,85 +307,18 @@ const PatientForm = () => {
     contactPhone: ''
   });
 
-  const navigate = useNavigate();
-  // ข้อมูลทดสอบการแพ้
-  const [allergies, setAllergies] = useState([
-    {
-      id: 1,
-      type: 'drug',
-      name: 'Penicillin',
-      severity: 'severe',
-      symptoms: 'ผื่นคันทั่วตัว, บวมที่ใบหน้าและลิ้น, หายใจลำบาก',
-      notes: 'เกิดอาการทันทีหลังฉีดยา ต้องหลีกเลี่ยงยากลุ่ม Beta-lactam ทั้งหมด'
-    },
-    {
-      id: 2,
-      type: 'food',
-      name: 'ถั่วลิสง',
-      severity: 'moderate',
-      symptoms: 'ผื่นแดง, คลื่นไส้, ปวดท้อง',
-      notes: 'เกิดอาการภายใน 30 นาทีหลังรับประทาน'
-    },
-    {
-      id: 3,
-      type: 'drug',
-      name: 'Aspirin',
-      severity: 'mild',
-      symptoms: 'ผื่นคัน, แสบคอ',
-      notes: 'สามารถใช้ Paracetamol แทนได้'
-    },
-    {
-      id: 4,
-      type: 'food',
-      name: 'กุ้ง',
-      severity: 'severe',
-      symptoms: 'บวมใบหน้า, คลื่นไส้, ถ่ายเหลว, หายใจลำบาก',
-      notes: 'แพ้อาหารทะเลทุกชนิด ต้องหลีกเลี่ยงอาหารที่มีส่วนผสมของอาหารทะเล'
-    },
-    {
-      id: 5,
-      type: 'drug',
-      name: 'Iodine (สารทึบแสง)',
-      severity: 'moderate',
-      symptoms: 'ผื่นแดง, คันตัว, ใจสั่น',
-      notes: 'เกิดขึ้นตอนเอ็กซ์เรย์ CT Scan ต้องแจ้งแพทย์ก่อนทำภาพวินิจฉัย'
-    },
-    {
-      id: 6,
-      type: 'food',
-      name: 'นม',
-      severity: 'mild',
-      symptoms: 'ปวดท้อง, ถ่ายเหลว, แก๊สในท้อง',
-      notes: 'Lactose Intolerance สามารถดื่มนมถั่วเหลืองแทนได้'
-    }
-  ]);
-
-  // ข้อมูลผู้ติดต่อฉุกเฉิน
-  const [emergencyContacts, setEmergencyContacts] = useState([
-    {
-      id: 1,
-      name: 'นางสาววรรณา ใจดี',
-      relationship: 'มารดา',
-      phone: '081-234-5678',
-      address: '123 หมู่ 5 ตำบลบ้านใหม่ อำเภอเมือง จังหวัดเชียงใหม่'
-    },
-    {
-      id: 2,
-      name: 'นายสมชาย ใจดี',
-      relationship: 'บิดา',
-      phone: '089-876-5432',
-      address: '123 หมู่ 5 ตำบลบ้านใหม่ อำเภอเมือง จังหวัดเชียงใหม่'
-    }
-  ]);
-
+  // Allergies data
+  const [allergies, setAllergies] = useState([]);
   const [newAllergy, setNewAllergy] = useState({
-    type: 'drug', // 'drug' or 'food'
+    type: 'drug',
     name: '',
-    severity: 'mild', // 'mild', 'moderate', 'severe'
+    severity: 'mild',
     symptoms: '',
     notes: ''
   });
 
+  // Emergency contacts data
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
   const [newContact, setNewContact] = useState({
     name: '',
     relationship: '',
@@ -196,7 +326,322 @@ const PatientForm = () => {
     address: ''
   });
 
-  // ฟังก์ชันเปิด/ปิด modal
+  // Load initial data
+  useEffect(() => {
+    if (mode === "edit") {
+      loadPatientDataForEdit();
+    } else {
+      // Add mode - โหลด generated HN เหมือนเดิม
+      loadProvinces();
+      loadGeneratedHN();
+    }
+  }, [mode, id]);
+
+  useEffect(() => {
+    if (mode === "edit" && initialDataLoaded && patientData.province) {
+      loadProvincesForEdit(patientData.province, patientData.district);
+    }
+  }, [initialDataLoaded, patientData.province, patientData.district]);
+
+  const savePatientData = async (patientData, allergies, emergencyContacts, imageUrl = null) => {
+    const payload = {
+      patientData: {
+        ...patientData,
+        imageUrl
+      },
+      allergies: allergies || [],
+      emergencyContacts: emergencyContacts || []
+    };
+
+    // เลือก HTTP method และ endpoint ตาม mode
+    const httpMethod = mode === "edit" ? 'PUT' : 'POST';
+    const endpoint = mode === "edit" ? `/patients/${id}` : '/patients';
+
+    return await apiRequest(endpoint, {
+      method: httpMethod,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(payload),
+    });
+  };
+
+  const getConfirmModalTitle = () => {
+    return mode === "edit" ? "ตรวจสอบการแก้ไขข้อมูล" : "ตรวจสอบข้อมูลก่อนบันทึก";
+  };
+
+  const getConfirmButtonText = () => {
+    return mode === "edit" ? "ยืนยันการแก้ไข" : "ยืนยันบันทึก";
+  };
+  const loadGeneratedHN = async () => {
+    if (mode === "add") {
+      setIsLoading(true);
+      const result = await getGeneratedHN();
+      if (result.success) {
+        setPatientData(prev => ({
+          ...prev,
+          hn: result.data.data.hn
+        }));
+      } else {
+        showToast('ไม่สามารถสร้าง HN อัตโนมัติได้ กรุณากรอกเอง', 'error');
+      }
+      setIsLoading(false);
+    }
+  };
+
+  const loadProvinces = async () => {
+    try {
+      const result = await getProvinces();
+      if (result.data.success && result.data.data) {
+        // API ส่งกลับมาเป็น result.data ไม่ใช่ result.data.data
+        setProvinces(result.data.data.map(province => ({
+          value: province.id, // API ส่งกลับมาเป็น value แล้ว
+          label: province.name_th  // API ส่งกลับมาเป็น label แล้ว
+        })));
+      } else {
+        console.error('Failed to load provinces:', result.error);
+        setProvinces([]);
+        showToast('ไม่สามารถโหลดข้อมูลจังหวัดได้', 'error');
+      }
+    } catch (error) {
+      console.error('Load provinces error:', error);
+      setProvinces([]);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+    }
+  };
+  const loadPatientDataForEdit = async () => {
+    try {
+      setIsLoading(true);
+
+      if (patientFromState) {
+        // ใช้ข้อมูลที่ส่งมาจาก location.state
+        populateFormData(patientFromState);
+      } else {
+        // Fetch ข้อมูลจาก API ด้วย patient ID
+        const result = await apiRequest(`/patients/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        console.log(result)
+        if (result.success && result.data) {
+          populateFormData(result.data.data || result.data);
+        } else {
+          showToast('ไม่สามารถโหลดข้อมูลผู้รับบริการได้', 'error');
+          navigate('/Patient');
+        }
+      }
+
+      // โหลด provinces และ dependent data
+      await loadProvinces();
+      setInitialDataLoaded(true);
+
+    } catch (error) {
+      console.error('Load patient data error:', error);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+      navigate('/Patient');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getSaveButtonText = () => {
+    if (isSaving) {
+      return mode === "edit" ? 'กำลังแก้ไข...' : 'กำลังบันทึก...';
+    }
+    return mode === "edit" ? 'แก้ไขข้อมูล' : 'บันทึกข้อมูล';
+  };
+  const populateFormData = (data) => {
+    setPatientData({
+      hn: data.hn || '',
+      idCard: data.id_card || data.idCard || '',
+      firstName: data.first_name || data.firstName || '',
+      lastName: data.last_name || data.lastName || '',
+      birthDate: data.birth_date || data.birthDate || '',
+      age: data.age || '',
+      gender: data.gender || '',
+      religion: data.religion || '',
+      nationality: data.nationality || 'ไทย',
+      race: data.ethnicity || data.race || 'ไทย',
+      bloodGroup: data.blood_type || data.bloodGroup || '',
+      houseNumber: data.house_number || data.houseNumber || '',
+      village: data.village || '',
+      subDistrict: data.subdistrict || data.subDistrict || '',
+      district: data.district || '',
+      province: data.province || '',
+      chronicDisease: data.chronic_disease || data.chronicDisease || '',
+      contactPhone: data.mobile || data.phone || data.contactPhone || ''
+    });
+
+    // ใส่ข้อมูล allergies และ emergency contacts ถ้ามี
+    if (data.allergies && Array.isArray(data.allergies)) {
+      setAllergies(data.allergies);
+    }
+    if (data.emergency_contacts && Array.isArray(data.emergency_contacts)) {
+      setEmergencyContacts(data.emergency_contacts);
+    }
+
+    // ใส่รูปภาพถ้ามี
+    if (data.imageUrl || data.image_url) {
+      const imageUrl = data.imageUrl || data.image_url;
+      setImageUrl(imageUrl);
+      // ส่ง imageUrl ไปยัง FileUpload component
+    }
+  };
+  // เพิ่มฟังก์ชันสำหรับโหลดอำเภอ
+  const loadDistricts = async (provinceId) => {
+    if (!provinceId) {
+      setDistricts([]);
+      setSubDistricts([]);
+      return;
+    }
+
+    try {
+      const result = await getDistricts(provinceId);
+      if (result.data.success && result.data.data) {
+        // setDistricts(result.data.data);
+
+        setDistricts(result.data.data.map(districts => ({
+          value: districts.id, // API ส่งกลับมาเป็น value แล้ว
+          label: districts.name_th  // API ส่งกลับมาเป็น label แล้ว
+        })));
+      } else {
+        setDistricts([]);
+        showToast('ไม่สามารถโหลดข้อมูลอำเภอได้', 'error');
+      }
+    } catch (error) {
+      console.error('Load districts error:', error);
+      setDistricts([]);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลอำเภอ', 'error');
+    }
+  };
+  const loadProvincesForEdit = async (provinceId, districtId) => {
+    await loadProvinces();
+
+    if (provinceId) {
+      await loadDistricts(provinceId);
+
+      if (districtId) {
+        await loadSubDistricts(districtId);
+      }
+    }
+  };
+  // เพิ่มฟังก์ชันสำหรับโหลดตำบล
+  const loadSubDistricts = async (districtId) => {
+    if (!districtId) {
+      setSubDistricts([]);
+      return;
+    }
+
+    try {
+      const result = await getSubDistricts(districtId);
+      if (result.data.success && result.data.data) {
+
+        setSubDistricts(result.data.data.map(subdistricts => ({
+          value: subdistricts.id, // API ส่งกลับมาเป็น value แล้ว
+          label: subdistricts.name_th  // API ส่งกลับมาเป็น label แล้ว
+        })));
+
+
+      } else {
+        setSubDistricts([]);
+        showToast('ไม่สามารถโหลดข้อมูลตำบลได้', 'error');
+      }
+    } catch (error) {
+      console.error('Load sub-districts error:', error);
+      setSubDistricts([]);
+      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลตำบล', 'error');
+    }
+  };
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!patientData.hn) newErrors.hn = 'กรุณากรอก HN';
+    if (!patientData.firstName) newErrors.firstName = 'กรุณากรอกชื่อ';
+    if (!patientData.lastName) newErrors.lastName = 'กรุณากรอกนามสกุล';
+
+    // ใน edit mode อาจไม่จำเป็นต้องมี idCard และ birthDate
+    if (mode === "add") {
+      if (!patientData.idCard) newErrors.idCard = 'กรุณากรอกเลขบัตรประชาชน';
+      if (!patientData.birthDate) newErrors.birthDate = 'กรุณากรอกวันเกิด';
+      if (!patientData.gender) newErrors.gender = 'กรุณาเลือกเพศ';
+    }
+
+    // validation patterns เหมือนเดิม
+    if (patientData.idCard && !/^\d{13}$/.test(patientData.idCard)) {
+      newErrors.idCard = 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleHNBlur = async () => {
+    if (patientData.hn && mode === "add") { // เช็ค HN ซ้ำเฉพาะ add mode
+      try {
+        const result = await checkHNExists(patientData.hn);
+        if (result.success && result.data && result.data.exists) {
+          setErrors(prev => ({ ...prev, hn: 'HN นี้มีอยู่ในระบบแล้ว' }));
+        } else if (result.success) {
+          setErrors(prev => ({ ...prev, hn: '' }));
+        }
+      } catch (error) {
+        console.error('HN check error:', error);
+      }
+    }
+  };
+
+  // แก้ไข updatePatientData ให้รองรับ cascading dropdown
+  const updatePatientData = (field, value) => {
+    setPatientData(prev => {
+      const newData = {
+        ...prev,
+        [field]: value
+      };
+
+      // Auto-calculate age when birth date changes
+      if (field === 'birthDate') {
+        newData.age = calculateAge(value);
+      }
+
+      // Reset dependent fields when province changes
+      if (field === 'province') {
+        newData.district = '';
+        newData.subDistrict = '';
+        loadDistricts(value);
+        setSubDistricts([]);
+      }
+
+      // Reset sub-district when district changes
+      if (field === 'district') {
+        newData.subDistrict = '';
+        loadSubDistricts(value);
+      }
+
+      return newData;
+    });
+
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
+  const handleImageUpload = (url) => {
+    console.log(url);
+    setImageUrl(url);
+    showToast('อัพโหลดรูปภาพสำเร็จ', 'success');
+  };
+
+  // Modal functions
   const openAllergyModal = () => setIsAllergyModalOpen(true);
   const closeAllergyModal = () => {
     setIsAllergyModalOpen(false);
@@ -220,149 +665,228 @@ const PatientForm = () => {
     });
   };
 
-  const openConfirmModal = () => setIsConfirmModalOpen(true);
-  const closeConfirmModal = () => setIsConfirmModalOpen(false);
+  const openConfirmModal = () => {
+    if (validateForm()) {
+      setIsConfirmModalOpen(true);
+    } else {
+      showToast('กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', 'error');
+    }
+  };
 
+  const closeConfirmModal = () => setIsConfirmModalOpen(false);
   const openVNModal = () => setIsVNModalOpen(true);
   const closeVNModal = () => setIsVNModalOpen(false);
 
-  // ฟังก์ชันเพิ่มข้อมูลการแพ้
+  // Add allergy
   const addAllergy = () => {
     if (newAllergy.name.trim()) {
-      setAllergies([...allergies, { ...newAllergy, id: Date.now() }]);
+      setAllergies(prev => [...(prev || []), { ...newAllergy, id: Date.now() }]);
       closeAllergyModal();
+      showToast('เพิ่มข้อมูลการแพ้สำเร็จ', 'success');
     }
   };
 
-  // ฟังก์ชันลบข้อมูลการแพ้
   const removeAllergy = (id) => {
-    setAllergies(allergies.filter(allergy => allergy.id !== id));
+    setAllergies(prev => (prev || []).filter(allergy => allergy.id !== id));
+    showToast('ลบข้อมูลการแพ้สำเร็จ', 'success');
   };
 
-  // ฟังก์ชันเพิ่มผู้ติดต่อฉุกเฉิน
+  // Add emergency contact
   const addContact = () => {
     if (newContact.name.trim() && newContact.relationship.trim() && newContact.phone.trim()) {
-      setEmergencyContacts([...emergencyContacts, { ...newContact, id: Date.now() }]);
+      if (!/^\d{10}$/.test(newContact.phone)) {
+        showToast('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก', 'error');
+        return;
+      }
+
+      setEmergencyContacts(prev => [...(prev || []), { ...newContact, id: Date.now() }]);
       closeContactModal();
+      showToast('เพิ่มผู้ติดต่อฉุกเฉินสำเร็จ', 'success');
+    } else {
+      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
     }
   };
 
-  // ฟังก์ชันลบผู้ติดต่อฉุกเฉิน
   const removeContact = (id) => {
-    setEmergencyContacts(emergencyContacts.filter(contact => contact.id !== id));
+    setEmergencyContacts(prev => (prev || []).filter(contact => contact.id !== id));
+    showToast('ลบผู้ติดต่อฉุกเฉินสำเร็จ', 'success');
   };
 
-  // ฟังก์ชันบันทึกข้อมูล
+  // Save data
   const handleSaveData = () => {
     openConfirmModal();
   };
 
-  // ฟังก์ชันยืนยันการบันทึก
-  const confirmSave = () => {
-    // จำลองการบันทึกข้อมูล
-    console.log('บันทึกข้อมูลผู้ป่วย:', {
-      patientData,
-      allergies,
-      emergencyContacts
-    });
+  const confirmSave = async () => {
+    setIsSaving(true);
+    try {
+      const result = await savePatientData(patientData, allergies, emergencyContacts, imageUrl);
 
-    closeConfirmModal();
-    openVNModal();
+      if (result.success) {
+        closeConfirmModal();
+
+        if (mode === "edit") {
+          // Edit mode - แสดงข้อความสำเร็จและกลับไปหน้า Patient
+          showToast('บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
+          setTimeout(() => {
+            navigate('/Patient');
+          }, 2000);
+        } else {
+          // Add mode - เปิด modal ถามว่าจะเพิ่ม VN หรือไม่
+          if (result.data.data && result.data.data.patientId) {
+            setNewPatientId(result.data.data.patientId);
+            openVNModal();
+            showToast('บันทึกข้อมูลผู้ป่วยสำเร็จ', 'success');
+          }
+        }
+      } else {
+        showToast(`เกิดข้อผิดพลาด: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // ฟังก์ชันไปหน้า AddPatientVN
   const goToAddPatientVN = () => {
     closeVNModal();
-    // จำลองการนำทางไปหน้า AddPatientVN
-    alert('นำทางไปหน้า AddPatientVN');
+    navigate('/VNPatient', { state: { patientId: newPatientId } });
   };
 
-  // ฟังก์ชันกลับไปหน้า Patient
   const goToPatientPage = () => {
-
-    navigate('/Patient');
     closeVNModal();
-    // จำลองการนำทางกลับไปหน้า Patient
-    //  alert('นำทางกลับไปหน้า Patient');
+    navigate('/patients');
   };
 
-  // ฟังก์ชันอัพเดตข้อมูลผู้ป่วย
-  const updatePatientData = (field, value) => {
-    setPatientData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  // Options
+  const genderOptions = [
+    { value: 'male', label: 'ชาย' },
+    { value: 'female', label: 'หญิง' },
+    { value: 'other', label: 'อื่นๆ' }
+  ];
+
+  const bloodGroupOptions = [
+    { value: 'A', label: 'A' },
+    { value: 'B', label: 'B' },
+    { value: 'AB', label: 'AB' },
+    { value: 'O', label: 'O' }
+  ];
+
+  const religionOptions = [
+    { value: 'buddhist', label: 'พุทธ' },
+    { value: 'christian', label: 'คริสต์' },
+    { value: 'islamic', label: 'อิสลาม' },
+    { value: 'hindu', label: 'ฮินดู' },
+    { value: 'other', label: 'อื่นๆ' }
+  ];
 
   return (
-    <div className="flex flex-col bg-gray-100 min-h-screen p-6">
-      {/* Form Sections Container */}
-      <div className="bg-white p-8 rounded-lg shadow-md">
+    <div className="flex flex-col bg-gray-100 min-h-screen p-2 sm:p-4 lg:p-6">
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
 
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            เพิ่มผู้รับบริการใหม่
-          </h1>
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg">
+            <div className="text-center text-sm sm:text-base">กำลังโหลด...</div>
+          </div>
         </div>
+      )}
 
+      {/* Form Container - Responsive */}
+      <div className="bg-white p-3 sm:p-6 lg:p-8 rounded-lg shadow-md">
         {/* Personal Info Section */}
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">ข้อมูลส่วนตัว</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Image Upload Column */}
-          <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg h-full">
-            <FileUpload />
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">ข้อมูลส่วนตัว</h2>
+
+        {/* Responsive Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+          {/* Image Upload Column - Responsive */}
+          <div className="flex flex-col items-center justify-center p-2 sm:p-4 border border-dashed border-gray-300 rounded-lg h-full order-first lg:order-none">
+            <FileUpload
+              onFileUpload={handleImageUpload}
+              isUploading={isImageUploading}
+            />
           </div>
 
-          {/* Form Fields Column */}
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Form Fields Column - Responsive Grid */}
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <InputField
-              label="Hn"
-              placeholder="Hn"
+              label="HN"
+              placeholder="HN"
               value={patientData.hn}
               onChange={(e) => updatePatientData('hn', e.target.value)}
+              onBlur={handleHNBlur}
+              error={errors.hn}
+              required
+              readOnly={true}
             />
             <InputField
               label="เลขบัตรประชาชน"
               placeholder="เลขบัตรประชาชน"
               value={patientData.idCard}
               onChange={(e) => updatePatientData('idCard', e.target.value)}
+              error={errors.idCard}
+              required
             />
             <InputField
               label="ชื่อ"
               placeholder="ชื่อ"
               value={patientData.firstName}
               onChange={(e) => updatePatientData('firstName', e.target.value)}
+              error={errors.firstName}
+              required
             />
             <InputField
               label="นามสกุล"
               placeholder="นามสกุล"
               value={patientData.lastName}
               onChange={(e) => updatePatientData('lastName', e.target.value)}
+              error={errors.lastName}
+              required
             />
             <InputField
               label="วัน / เดือน / ปีเกิด"
               placeholder="วัน / เดือน / ปีเกิด"
+              type="date"
               value={patientData.birthDate}
               onChange={(e) => updatePatientData('birthDate', e.target.value)}
+              error={errors.birthDate}
+              required
             />
             <InputField
-              label="อายุ"
-              placeholder="อายุ"
+              label="อายุ (ปี)"
+              placeholder="อายุจะคำนวนอัตโนมัติ"
+              type="number"
               value={patientData.age}
               onChange={(e) => updatePatientData('age', e.target.value)}
+              error={errors.age}
+              readOnly={true}
             />
-            <InputField
+            <SelectField
               label="เพศ"
-              placeholder="เพศ"
+              options={genderOptions}
               value={patientData.gender}
               onChange={(e) => updatePatientData('gender', e.target.value)}
+              placeholder="เลือกเพศ"
+              error={errors.gender}
+              required
             />
-            <InputField
+            <SelectField
               label="ศาสนา"
-              placeholder="ศาสนา"
+              options={religionOptions}
               value={patientData.religion}
               onChange={(e) => updatePatientData('religion', e.target.value)}
+              placeholder="เลือกศาสนา"
             />
+
             <InputField
               label="สัญชาติ"
               placeholder="สัญชาติ"
@@ -375,19 +899,20 @@ const PatientForm = () => {
               value={patientData.race}
               onChange={(e) => updatePatientData('race', e.target.value)}
             />
-            <InputField
+            <SelectField
               label="กรุ๊ปเลือด"
-              placeholder="กรุ๊ปเลือด"
+              options={bloodGroupOptions}
               value={patientData.bloodGroup}
               onChange={(e) => updatePatientData('bloodGroup', e.target.value)}
+              placeholder="เลือกกรุ๊ปเลือด"
             />
           </div>
         </div>
 
-        {/* Address Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">ที่อยู่ที่สามารถติดต่อได้ / Address</h2>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {/* Address Section - Responsive Grid with Cascading Dropdown */}
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">ที่อยู่ที่สามารถติดต่อได้</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <InputField
               label="บ้านเลขที่"
               placeholder="บ้านเลขที่"
@@ -400,34 +925,39 @@ const PatientForm = () => {
               value={patientData.village}
               onChange={(e) => updatePatientData('village', e.target.value)}
             />
-            <InputField
-              label="ตำบล"
-              placeholder="ตำบล"
-              value={patientData.subDistrict}
-              onChange={(e) => updatePatientData('subDistrict', e.target.value)}
-            />
-            <InputField
-              label="อำเภอ"
-              placeholder="อำเภอ"
-              value={patientData.district}
-              onChange={(e) => updatePatientData('district', e.target.value)}
-            />
-            <InputField
+            <SelectField
               label="จังหวัด"
-              placeholder="จังหวัด"
+              options={provinces}
               value={patientData.province}
               onChange={(e) => updatePatientData('province', e.target.value)}
+              placeholder="เลือกจังหวัด"
+            />
+            <SelectField
+              label="อำเภอ"
+              options={districts}
+              value={patientData.district}
+              onChange={(e) => updatePatientData('district', e.target.value)}
+              placeholder="เลือกอำเภอ"
+              disabled={!patientData.province}
+            />
+            <SelectField
+              label="ตำบล"
+              options={subDistricts}
+              value={patientData.subDistrict}
+              onChange={(e) => updatePatientData('subDistrict', e.target.value)}
+              placeholder="เลือกตำบล"
+              disabled={!patientData.district}
             />
           </div>
         </div>
 
-        {/* Allergy and Disease Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">ข้อมูลการแพ้</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Medical Info Section - Responsive */}
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-3 sm:mb-4">ข้อมูลทางการแพทย์</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <InputField
               label="โรคประจำตัว"
-              placeholder="โรคประจำตัว"
+              placeholder="โรคประจำตัว (ถ้ามี)"
               value={patientData.chronicDisease}
               onChange={(e) => updatePatientData('chronicDisease', e.target.value)}
             />
@@ -436,45 +966,47 @@ const PatientForm = () => {
               placeholder="เบอร์โทรศัพท์ติดต่อ"
               value={patientData.contactPhone}
               onChange={(e) => updatePatientData('contactPhone', e.target.value)}
+              error={errors.contactPhone}
             />
           </div>
 
-          <div className="mt-6">
-            <div className="flex justify-between items-center mb-4">
+          <div className="mt-4 sm:mt-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 space-y-2 sm:space-y-0">
+              <h3 className="text-base sm:text-lg font-medium text-gray-700">ข้อมูลการแพ้</h3>
               <button
                 onClick={openAllergyModal}
-                className="bg-green-500 text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center space-x-2"
+                className="bg-green-500 text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center space-x-2 text-sm sm:text-base w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4" />
                 <span>เพิ่มข้อมูลแพ้</span>
               </button>
             </div>
 
-            {/* Allergy Table */}
-            {allergies.length > 0 && (
+            {/* Allergy Table - Responsive */}
+            {Array.isArray(allergies) && allergies.length > 0 && (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full bg-white border border-gray-200 rounded-lg">
+                <table className="w-full bg-white border border-gray-200 rounded-lg text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อสิ่งที่แพ้</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ระดับความรุนแรง</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อาการ</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">หมายเหตุ</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การกระทำ</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ประเภท</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อสิ่งที่แพ้</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ระดับความรุนแรง</th>
+                      <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">อาการ</th>
+                      <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">หมายเหตุ</th>
+                      <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การกระทำ</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {allergies.map((allergy) => (
                       <tr key={allergy.id}>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${allergy.type === 'drug' ? 'bg-red-100 text-red-800' : 'bg-orange-100 text-orange-800'
                             }`}>
                             {allergy.type === 'drug' ? 'แพ้ยา' : 'แพ้อาหาร'}
                           </span>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{allergy.name}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        <td className="px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-20 sm:max-w-none truncate">{allergy.name}</td>
+                        <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${allergy.severity === 'severe' ? 'bg-red-100 text-red-800' :
                             allergy.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-green-100 text-green-800'
@@ -483,14 +1015,14 @@ const PatientForm = () => {
                               allergy.severity === 'moderate' ? 'ปานกลาง' : 'เล็กน้อย'}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{allergy.symptoms}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900">{allergy.notes}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="hidden sm:table-cell px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-32 truncate">{allergy.symptoms}</td>
+                        <td className="hidden md:table-cell px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-32 truncate">{allergy.notes}</td>
+                        <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                           <button
                             onClick={() => removeAllergy(allergy.id)}
-                            className="text-red-600 hover:text-red-800"
+                            className="text-red-600 hover:text-red-800 transition-colors p-1"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                           </button>
                         </td>
                       </tr>
@@ -502,50 +1034,49 @@ const PatientForm = () => {
           </div>
         </div>
 
-        {/* Emergency Contact Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">ข้อมูลญาติหรือผู้ติดต่อฉุกเฉิน</h2>
-
-          <div className="mb-4">
+        {/* Emergency Contact Section - Responsive */}
+        <div className="mt-6 sm:mt-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 space-y-2 sm:space-y-0">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">ผู้ติดต่อฉุกเฉิน</h2>
             <button
               onClick={openContactModal}
-              className="bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
+              className="bg-blue-500 text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2 text-sm sm:text-base w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
               <span>เพิ่มผู้ติดต่อฉุกเฉิน</span>
             </button>
           </div>
 
-          {/* Emergency Contacts Table */}
-          {emergencyContacts.length > 0 && (
+          {/* Emergency Contacts Table - Responsive */}
+          {Array.isArray(emergencyContacts) && emergencyContacts.length > 0 && (
             <div className="mt-4 overflow-x-auto">
-              <table className="w-full bg-white border border-gray-200 rounded-lg">
+              <table className="w-full bg-white border border-gray-200 rounded-lg text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ความสัมพันธ์</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เบอร์โทรศัพท์</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ที่อยู่</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การกระทำ</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ความสัมพันธ์</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เบอร์โทรศัพท์</th>
+                    <th className="hidden md:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ที่อยู่</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">การกระทำ</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {emergencyContacts.map((contact) => (
                     <tr key={contact.id}>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{contact.name}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                      <td className="px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 font-medium max-w-24 sm:max-w-none truncate">{contact.name}</td>
+                      <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                         <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                           {contact.relationship}
                         </span>
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{contact.phone}</td>
-                      <td className="px-4 py-4 text-sm text-gray-900">{contact.address}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{contact.phone}</td>
+                      <td className="hidden md:table-cell px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-32 truncate">{contact.address}</td>
+                      <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                         <button
                           onClick={() => removeContact(contact.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:text-red-800 transition-colors p-1"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                         </button>
                       </td>
                     </tr>
@@ -557,48 +1088,53 @@ const PatientForm = () => {
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-start space-x-4 mt-8">
+      {/* Action Buttons - Responsive */}
+      <div className="flex flex-col sm:flex-row justify-start space-y-3 sm:space-y-0 sm:space-x-4 mt-6 sm:mt-8">
         <button
           onClick={handleSaveData}
-          className="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors"
+          disabled={isSaving}
+          className="bg-green-600 text-white font-semibold py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
         >
-          บันทึกข้อมูล
+          {isSaving && (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          )}
+          <span>{getSaveButtonText()}</span>
         </button>
-        <button className="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition-colors">
+        <button
+          onClick={() => navigate('/Patient')}
+          className="bg-red-600 text-white font-semibold py-2 sm:py-3 px-4 sm:px-6 rounded-lg hover:bg-red-700 transition-colors text-sm sm:text-base"
+        >
           ยกเลิก
         </button>
       </div>
 
-      {/* Allergy Modal */}
+      {/* Allergy Modal - Responsive */}
       {isAllergyModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">เพิ่มข้อมูลการแพ้</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">เพิ่มข้อมูลการแพ้</h3>
               <button
                 onClick={closeAllergyModal}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
 
             <div className="space-y-4">
-              {/* Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการแพ้</label>
                 <select
                   value={newAllergy.type}
                   onChange={(e) => setNewAllergy({ ...newAllergy, type: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="drug">แพ้ยา</option>
                   <option value="food">แพ้อาหาร</option>
                 </select>
               </div>
 
-              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ชื่อ{newAllergy.type === 'drug' ? 'ยา' : 'อาหาร'}ที่แพ้
@@ -607,18 +1143,17 @@ const PatientForm = () => {
                   type="text"
                   value={newAllergy.name}
                   onChange={(e) => setNewAllergy({ ...newAllergy, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder={`กรอกชื่อ${newAllergy.type === 'drug' ? 'ยา' : 'อาหาร'}ที่แพ้`}
                 />
               </div>
 
-              {/* Severity */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ระดับความรุนแรง</label>
                 <select
                   value={newAllergy.severity}
                   onChange={(e) => setNewAllergy({ ...newAllergy, severity: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="mild">เล็กน้อย</option>
                   <option value="moderate">ปานกลาง</option>
@@ -626,42 +1161,39 @@ const PatientForm = () => {
                 </select>
               </div>
 
-              {/* Symptoms */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">อาการที่เกิดขึ้น</label>
                 <textarea
                   value={newAllergy.symptoms}
                   onChange={(e) => setNewAllergy({ ...newAllergy, symptoms: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows="3"
                   placeholder="อธิบายอาการที่เกิดขึ้น เช่น ผื่นคัน, บวม, หายใจลำบาก"
                 />
               </div>
 
-              {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
                 <textarea
                   value={newAllergy.notes}
                   onChange={(e) => setNewAllergy({ ...newAllergy, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows="2"
                   placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"
                 />
               </div>
             </div>
 
-            {/* Modal Buttons */}
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
               <button
                 onClick={closeAllergyModal}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={addAllergy}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
               >
                 เพิ่มข้อมูล
               </button>
@@ -670,40 +1202,38 @@ const PatientForm = () => {
         </div>
       )}
 
-      {/* Emergency Contact Modal */}
+      {/* Emergency Contact Modal - Responsive */}
       {isContactModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">เพิ่มผู้ติดต่อฉุกเฉิน</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">เพิ่มผู้ติดต่อฉุกเฉิน</h3>
               <button
                 onClick={closeContactModal}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
 
             <div className="space-y-4">
-              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อ-นามสกุล</label>
                 <input
                   type="text"
                   value={newContact.name}
                   onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="กรอกชื่อ-นามสกุล"
                 />
               </div>
 
-              {/* Relationship */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ความสัมพันธ์</label>
                 <select
                   value={newContact.relationship}
                   onChange={(e) => setNewContact({ ...newContact, relationship: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">เลือกความสัมพันธ์</option>
                   <option value="บิดา">บิดา</option>
@@ -725,42 +1255,39 @@ const PatientForm = () => {
                 </select>
               </div>
 
-              {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">เบอร์โทรศัพท์</label>
                 <input
                   type="tel"
                   value={newContact.phone}
                   onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="กรอกเบอร์โทรศัพท์"
                 />
               </div>
 
-              {/* Address */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ที่อยู่</label>
                 <textarea
                   value={newContact.address}
                   onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows="3"
                   placeholder="กรอกที่อยู่"
                 />
               </div>
             </div>
 
-            {/* Modal Buttons */}
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
               <button
                 onClick={closeContactModal}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={addContact}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
               >
                 เพิ่มข้อมูล
               </button>
@@ -769,78 +1296,78 @@ const PatientForm = () => {
         </div>
       )}
 
-      {/* Confirm Data Modal */}
+      {/* Confirm Data Modal - Responsive */}
       {isConfirmModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">ตรวจสอบข้อมูลก่อนบันทึก</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">ตรวจสอบข้อมูลก่อนบันทึก</h3>
               <button
                 onClick={closeConfirmModal}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 p-1"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
 
-            <div className="space-y-6">
-              {/* ข้อมูลส่วนตัว */}
+            <div className="space-y-4 sm:space-y-6 text-sm sm:text-base">
+              {/* Personal Info Review */}
               <div>
-                <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">ข้อมูลส่วนตัว</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div><span className="font-medium">HN:</span> {patientData.hn}</div>
-                  <div><span className="font-medium">เลขบัตรประชาชน:</span> {patientData.idCard}</div>
-                  <div><span className="font-medium">ชื่อ:</span> {patientData.firstName}</div>
-                  <div><span className="font-medium">นามสกุล:</span> {patientData.lastName}</div>
-                  <div><span className="font-medium">วันเกิด:</span> {patientData.birthDate}</div>
-                  <div><span className="font-medium">อายุ:</span> {patientData.age}</div>
-                  <div><span className="font-medium">เพศ:</span> {patientData.gender}</div>
-                  <div><span className="font-medium">ศาสนา:</span> {patientData.religion}</div>
-                  <div><span className="font-medium">สัญชาติ:</span> {patientData.nationality}</div>
-                  <div><span className="font-medium">เชื้อชาติ:</span> {patientData.race}</div>
-                  <div><span className="font-medium">กรุ๊ปเลือด:</span> {patientData.bloodGroup}</div>
+                <h4 className="text-sm sm:text-md font-semibold text-gray-700 mb-2 sm:mb-3 border-b pb-2">ข้อมูลส่วนตัว</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
+                  <div><span className="font-medium">HN:</span> {patientData.hn || '-'}</div>
+                  <div><span className="font-medium">เลขบัตรประชาชน:</span> {patientData.idCard || '-'}</div>
+                  <div><span className="font-medium">ชื่อ:</span> {patientData.firstName || '-'}</div>
+                  <div><span className="font-medium">นามสกุล:</span> {patientData.lastName || '-'}</div>
+                  <div><span className="font-medium">วันเกิด:</span> {patientData.birthDate || '-'}</div>
+                  <div><span className="font-medium">อายุ:</span> {patientData.age ? `${patientData.age} ปี` : '-'}</div>
+                  <div><span className="font-medium">เพศ:</span> {genderOptions.find(g => g.value === patientData.gender)?.label || '-'}</div>
+                  <div><span className="font-medium">ศาสนา:</span> {religionOptions.find(r => r.value === patientData.religion)?.label || '-'}</div>
+                  <div><span className="font-medium">สัญชาติ:</span> {patientData.nationality || '-'}</div>
+                  <div><span className="font-medium">เชื้อชาติ:</span> {patientData.race || '-'}</div>
+                  <div><span className="font-medium">กรุ๊ปเลือด:</span> {patientData.bloodGroup || '-'}</div>
                 </div>
               </div>
 
-              {/* ที่อยู่ */}
+
               <div>
-                <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">ที่อยู่</h4>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
-                  <div><span className="font-medium">บ้านเลขที่:</span> {patientData.houseNumber}</div>
-                  <div><span className="font-medium">หมู่:</span> {patientData.village}</div>
-                  <div><span className="font-medium">ตำบล:</span> {patientData.subDistrict}</div>
-                  <div><span className="font-medium">อำเภอ:</span> {patientData.district}</div>
-                  <div><span className="font-medium">จังหวัด:</span> {patientData.province}</div>
+                <h4 className="text-sm sm:text-md font-semibold text-gray-700 mb-2 sm:mb-3 border-b pb-2">ที่อยู่</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 text-xs sm:text-sm">
+                  <div><span className="font-medium">บ้านเลขที่:</span> {patientData.houseNumber || '-'}</div>
+                  <div><span className="font-medium">หมู่:</span> {patientData.village || '-'}</div>
+                  <div><span className="font-medium">จังหวัด:</span> {provinces.find(p => p.value == patientData.province)?.label || '-'}</div>
+                  <div><span className="font-medium">อำเภอ:</span> {districts.find(d => d.value == patientData.district)?.label || '-'}</div>
+                  <div><span className="font-medium">ตำบล:</span> {subDistricts.find(s => s.value == patientData.subDistrict)?.label || '-'}</div>
                 </div>
               </div>
 
-              {/* ข้อมูลการแพ้ */}
+              {/* Medical Info Review */}
               <div>
-                <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">ข้อมูลการแพ้และโรค</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-                  <div><span className="font-medium">โรคประจำตัว:</span> {patientData.chronicDisease}</div>
-                  <div><span className="font-medium">เบอร์โทรศัพท์:</span> {patientData.contactPhone}</div>
+                <h4 className="text-sm sm:text-md font-semibold text-gray-700 mb-2 sm:mb-3 border-b pb-2">ข้อมูลทางการแพทย์</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 text-xs sm:text-sm mb-4">
+                  <div><span className="font-medium">โรคประจำตัว:</span> {patientData.chronicDisease || '-'}</div>
+                  <div><span className="font-medium">เบอร์โทรศัพท์:</span> {patientData.contactPhone || '-'}</div>
                 </div>
 
-                {allergies.length > 0 && (
+                {Array.isArray(allergies) && allergies.length > 0 && (
                   <div>
-                    <h5 className="font-medium text-gray-600 mb-2">รายการสิ่งที่แพ้:</h5>
+                    <h5 className="font-medium text-gray-600 mb-2 text-xs sm:text-sm">รายการสิ่งที่แพ้:</h5>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm border border-gray-200">
+                      <table className="w-full text-xs sm:text-sm border border-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-3 py-2 text-left">ประเภท</th>
-                            <th className="px-3 py-2 text-left">ชื่อ</th>
-                            <th className="px-3 py-2 text-left">ความรุนแรง</th>
-                            <th className="px-3 py-2 text-left">อาการ</th>
+                            <th className="px-2 sm:px-3 py-2 text-left">ประเภท</th>
+                            <th className="px-2 sm:px-3 py-2 text-left">ชื่อ</th>
+                            <th className="px-2 sm:px-3 py-2 text-left">ความรุนแรง</th>
+                            <th className="hidden sm:table-cell px-2 sm:px-3 py-2 text-left">อาการ</th>
                           </tr>
                         </thead>
                         <tbody>
                           {allergies.map((allergy, index) => (
                             <tr key={index} className="border-t">
-                              <td className="px-3 py-2">{allergy.type === 'drug' ? 'แพ้ยา' : 'แพ้อาหาร'}</td>
-                              <td className="px-3 py-2">{allergy.name}</td>
-                              <td className="px-3 py-2">
+                              <td className="px-2 sm:px-3 py-2">{allergy.type === 'drug' ? 'แพ้ยา' : 'แพ้อาหาร'}</td>
+                              <td className="px-2 sm:px-3 py-2">{allergy.name}</td>
+                              <td className="px-2 sm:px-3 py-2">
                                 <span className={`px-2 py-1 text-xs rounded-full ${allergy.severity === 'severe' ? 'bg-red-100 text-red-800' :
                                   allergy.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
                                     'bg-green-100 text-green-800'
@@ -849,7 +1376,7 @@ const PatientForm = () => {
                                     allergy.severity === 'moderate' ? 'ปานกลาง' : 'เล็กน้อย'}
                                 </span>
                               </td>
-                              <td className="px-3 py-2">{allergy.symptoms}</td>
+                              <td className="hidden sm:table-cell px-2 sm:px-3 py-2">{allergy.symptoms}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -859,27 +1386,27 @@ const PatientForm = () => {
                 )}
               </div>
 
-              {/* ผู้ติดต่อฉุกเฉิน */}
-              {emergencyContacts.length > 0 && (
+              {/* Emergency Contacts Review */}
+              {Array.isArray(emergencyContacts) && emergencyContacts.length > 0 && (
                 <div>
-                  <h4 className="text-md font-semibold text-gray-700 mb-3 border-b pb-2">ผู้ติดต่อฉุกเฉิน</h4>
+                  <h4 className="text-sm sm:text-md font-semibold text-gray-700 mb-2 sm:mb-3 border-b pb-2">ผู้ติดต่อฉุกเฉิน</h4>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm border border-gray-200">
+                    <table className="w-full text-xs sm:text-sm border border-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-3 py-2 text-left">ชื่อ-นามสกุล</th>
-                          <th className="px-3 py-2 text-left">ความสัมพันธ์</th>
-                          <th className="px-3 py-2 text-left">เบอร์โทร</th>
-                          <th className="px-3 py-2 text-left">ที่อยู่</th>
+                          <th className="px-2 sm:px-3 py-2 text-left">ชื่อ-นามสกุล</th>
+                          <th className="px-2 sm:px-3 py-2 text-left">ความสัมพันธ์</th>
+                          <th className="px-2 sm:px-3 py-2 text-left">เบอร์โทร</th>
+                          <th className="hidden sm:table-cell px-2 sm:px-3 py-2 text-left">ที่อยู่</th>
                         </tr>
                       </thead>
                       <tbody>
                         {emergencyContacts.map((contact, index) => (
                           <tr key={index} className="border-t">
-                            <td className="px-3 py-2 font-medium">{contact.name}</td>
-                            <td className="px-3 py-2">{contact.relationship}</td>
-                            <td className="px-3 py-2">{contact.phone}</td>
-                            <td className="px-3 py-2">{contact.address}</td>
+                            <td className="px-2 sm:px-3 py-2 font-medium">{contact.name}</td>
+                            <td className="px-2 sm:px-3 py-2">{contact.relationship}</td>
+                            <td className="px-2 sm:px-3 py-2">{contact.phone}</td>
+                            <td className="hidden sm:table-cell px-2 sm:px-3 py-2 max-w-32 truncate">{contact.address}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -889,50 +1416,49 @@ const PatientForm = () => {
               )}
             </div>
 
-            {/* Modal Buttons */}
-            <div className="flex justify-end space-x-3 mt-6 border-t pt-4">
+            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 mt-4 sm:mt-6 border-t pt-4">
               <button
                 onClick={closeConfirmModal}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
               >
                 แก้ไข
               </button>
               <button
                 onClick={confirmSave}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-sm sm:text-base"
               >
-                ยืนยันบันทึก
+                {isSaving && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                )}
+                <span>{isSaving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* VN/AN Modal */}
+      {/* Success Modal - Responsive */}
       {isVNModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4">
             <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">บันทึกข้อมูลสำเร็จ!</h3>
-              <p className="text-gray-600 mb-6">ต้องการเปิดเลข VN/AN ให้กับผู้ป่วยรายนี้หรือไม่?</p>
+              <CheckCircle className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">บันทึกข้อมูลสำเร็จ</h3>
+              <p className="text-sm sm:text-base text-gray-600 mb-6">ข้อมูลผู้ป่วยได้ถูกบันทึกในระบบแล้ว</p>
 
-              <div className="flex justify-center space-x-3">
-                <button
-                  onClick={goToPatientPage}
-                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  ไม่เปิด
-                </button>
+              <div className="flex flex-col space-y-3">
                 <button
                   onClick={goToAddPatientVN}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
                 >
-                  เปิดเลข VN/AN
+                  เพิ่ม VN ใหม่
+                </button>
+                <button
+                  onClick={goToPatientPage}
+                  className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                >
+                  กลับหน้าผู้ป่วย
                 </button>
               </div>
             </div>
