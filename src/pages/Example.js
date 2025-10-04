@@ -47,7 +47,7 @@ const PatientProcedureForm = () => {
     setLoading(true);
     try {
       // Load patients
-      const response = await fetch(`${API_BASE_URL}/patients?page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`, {
+      const response = await fetch(`${API_BASE_URL}/patients`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
