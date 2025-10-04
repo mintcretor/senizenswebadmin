@@ -1,13 +1,17 @@
 // src/pages/Dashboard.js
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   UserPlus,
   FileSpreadsheet,
   Wrench,
   Users,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Dumbbell,
+  Clipboard,
+  BarChart3  // เพิ่มไอคอนนี้
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -16,6 +20,9 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // เพิ่ม navigate สำหรับการนำทาง
+  const navigate = useNavigate();
 
   // API Base URL - ปรับตามโปรเจคของคุณ
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -264,23 +271,73 @@ const Dashboard = () => {
             ))}
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <button className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors">
+          {/* Action Buttons - แถวแรก */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <button
+              onClick={() => navigate('/addpatient')}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
               <UserPlus size={24} />
               <span className="font-medium">ผู้รับริการใหม่</span>
             </button>
-            <button className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors">
+            <button
+              onClick={() => navigate('/an-vn/add/')}
+              className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
               <Users size={24} />
               <span className="font-medium">เปิดเลข VN/AN</span>
             </button>
-            <button className="bg-green-500 hover:bg-green-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors">
+            <button
+              onClick={() => navigate('/report')}
+              className="bg-green-500 hover:bg-green-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
               <FileSpreadsheet size={24} />
               <span className="font-medium">รายงาน</span>
             </button>
-            <button className="bg-red-500 hover:bg-red-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors">
+            <button
+              onClick={() => navigate('/settings')}
+              className="bg-red-500 hover:bg-red-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
               <Wrench size={24} />
               <span className="font-medium">การจัดการระบบ</span>
+            </button>
+          </div>
+
+          {/* Action Buttons - แถวที่สอง (ปุ่มใหม่) */}
+          {/* Action Buttons - แถวที่สอง (ปุ่มใหม่) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <button
+              onClick={() => navigate('/multidisciplinary')}
+              className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
+              <Users size={24} />
+              <span className="font-medium">รายงานสหวิชาชีพ</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/rehab')}
+              className="bg-teal-500 hover:bg-teal-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
+              <Dumbbell size={24} />
+              <span className="font-medium">รายงานกายภาพ</span>
+            </button>
+
+            {/* ปุ่มใหม่: บันทึกหัตถการ */}
+            <button
+              onClick={() => navigate('/procedure-form')}
+              className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
+              <Clipboard size={24} />
+              <span className="font-medium">บันทึกหัตถการ</span>
+            </button>
+
+            {/* ปุ่มใหม่: รายงานหัตถการ */}
+            <button
+              onClick={() => navigate('/procedure-report')}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
+              <BarChart3 size={24} />
+              <span className="font-medium">รายงานหัตถการ</span>
             </button>
           </div>
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useLocation } from 'react-router-dom';
+import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package } from 'lucide-react';
+import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
+
+
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -10,8 +11,12 @@ const formatThaiDate = (date) => {
 };
 export default function ThaiServiceForm() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const patientId = location.state?.patientId;
+  const { id } = useParams(); // จาก URL parameter
+  const [searchParams] = useSearchParams(); // จาก query parameter
+  const location = useLocation(); // จาก state
+  const patientId = id ||
+    searchParams.get('patientId') ||
+    location.state?.patientId;
   const [currentDate, setCurrentDate] = useState(formatThaiDate(new Date()));
   const [formData, setFormData] = useState({
     hn: '',
@@ -65,7 +70,22 @@ export default function ThaiServiceForm() {
   const [showHnSuggestions, setShowHnSuggestions] = useState(false);
   const [showFirstNameSuggestions, setShowFirstNameSuggestions] = useState(false);
   const [showLastNameSuggestions, setShowLastNameSuggestions] = useState(false);
-
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [availablePackages, setAvailablePackages] = useState([]);
+  const [selectedPackageForPatient, setSelectedPackageForPatient] = useState(null);
+  const [packageDiscount, setPackageDiscount] = useState({
+    type: 'percent', // 'percent' or 'amount'
+    value: 0
+  });
+  // เพิ่มใน state declarations
+  const [showMedicalModal, setShowMedicalModal] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [availableMedical, setAvailableMedical] = useState([]);
+  const [availableContracts, setAvailableContracts] = useState([]);
+  const [selectedMedical, setSelectedMedical] = useState(null);
+  const [selectedContract, setSelectedContract] = useState(null);
+  const [medicalDiscount, setMedicalDiscount] = useState({ type: 'percent', value: 0 });
+  const [contractDiscount, setContractDiscount] = useState({ type: 'percent', value: 0 });
   // API Helper functions
   const apiRequest = async (endpoint, options = {}) => {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -93,46 +113,49 @@ export default function ThaiServiceForm() {
     }
   };
 
-const generateAnVn = async (type, departmentCode = null) => {
-  try {
-    console.log(`Generating ${type} for department:`, departmentCode);
-    setGeneratingAnVn(true);
+  // ใน ThaiServiceForm.jsx
+  const generateAnVn = async (type, departmentCode = null) => {
+    try {
+      console.log(`Generating ${type} for department:`, departmentCode);
+      setGeneratingAnVn(true);
+      setError(null);
 
-    let endpoint = '';
-    let requestOptions = {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+      let endpoint = '';
+
+      if (type === 'AN') {
+        endpoint = '/service-registrations/generate-an';
+      } else if (type === 'VN') {
+        // ✅ ถูกต้อง - ส่ง departmentCode เป็น query parameter
+        endpoint = `/service-registrations/generate-vn?departmentCode=${encodeURIComponent(departmentCode)}`;
       }
-    };
 
-    if (type === 'AN') {
-      endpoint = '/generate-next-an';
-    } else if (type === 'VN') {
-      // สำหรับ VN ถ้ามี departmentCode ใส่เป็น query parameter
-      endpoint = departmentCode 
-        ? `/generate-next-vn?departmentCode=${encodeURIComponent(departmentCode)}`
-        : '/generate-next-vn';
-    }
+      console.log('Calling endpoint:', `${API_BASE_URL}${endpoint}`); // Debug
 
-    const response = await apiRequest(endpoint, requestOptions);
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
 
-    if (response.success) {
-      const result = response.data.data;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to generate ${type}`);
+      }
+
+      const result = await response.json();
       console.log(`Generated ${type}:`, result);
-      return type === 'AN' ? result.an : result.vn;
-    } else {
-      throw new Error(`Failed to generate ${type}: ${response.error}`);
-    }
-  } catch (err) {
-    console.error(`Error generating ${type}:`, err);
-    setError(`ไม่สามารถ generate ${type} ได้: ${err.message}`);
-    return '';
-  } finally {
-    setGeneratingAnVn(false);
-  }
-};
 
+      return result.data.number;
+
+    } catch (err) {
+      console.error(`Error generating ${type}:`, err);
+      setError(`ไม่สามารถ generate ${type} ได้: ${err.message}`);
+      return '';
+    } finally {
+      setGeneratingAnVn(false);
+    }
+  };
   // ปุ่ม Generate ใหม่
   const handleGenerateAnVn = async () => {
     if (!formData.clinicType) {
@@ -214,51 +237,48 @@ const generateAnVn = async (type, departmentCode = null) => {
   };
 
   // API Functions
-const fetchPatientById = async (id) => {
-  try {
-    setLoading(true);
-    setError(null);
+  const fetchPatientById = async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    const response = await apiRequest(`/patients/${id}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+      const response = await fetch(`${API_BASE_URL}/patients/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
 
-    if (!response.success) {
-      throw new Error(`Failed to fetch patient: ${response.error}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch patient: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch patient');
+      }
+
+      const patientData = result.data;
+      console.log('Patient data received:', patientData);
+
+      setFormData(prev => ({
+        ...prev,
+        hn: patientData.hn || '',
+        firstName: patientData.first_name || '',
+        lastName: patientData.last_name || '',
+        idNumber: patientData.id_card || '',
+      }));
+
+      setPreviewUrl(patientData.profile_image);
+
+    } catch (err) {
+      console.error('Fetch patient error:', err);
+      setError(`ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-
-    // แก้ไขการเข้าถึงข้อมูล
-    const patientData = response.data;
-    console.log('Patient data received:', patientData);
-
-    setFormData(prev => ({
-      ...prev,
-      hn: patientData.hn || '',
-      firstName: patientData.first_name || '',
-      lastName: patientData.last_name || '',
-      idNumber: patientData.id_card || '',
-      an: patientData.an || '',
-      clinicType: patientData.clinicType || prev.clinicType,
-    }));
-
-    // Set preview image
-    setPreviewUrl('http://localhost:3000/images/logo.png');
-    
-    // Set table data if exists
-    if (patientData.packages) setPackageData(patientData.packages);
-    if (patientData.medicalItems) setMedicalData(patientData.medicalItems);
-    if (patientData.contractItems) setContractData(patientData.contractItems);
-
-  } catch (err) {
-    console.error('Fetch patient error:', err);
-    setError(`ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const searchPatients = async (query, field) => {
     try {
@@ -284,6 +304,9 @@ const fetchPatientById = async (id) => {
   // Load departments และ patient data when component mounts
   useEffect(() => {
     fetchDepartments();
+    fetchAvailablePackages();
+    fetchAvailableMedical();     // เพิ่ม
+    fetchAvailableContracts();   // เพิ่ม
   }, []);
 
   useEffect(() => {
@@ -292,50 +315,63 @@ const fetchPatientById = async (id) => {
       fetchPatientById(patientId);
     }
   }, [patientId]);
+  const calculatePackagePrice = () => {
+    if (!selectedPackageForPatient) return 0;
 
+    const basePrice = selectedPackageForPatient.price;
+    let discountAmount = 0;
+
+    if (packageDiscount.type === 'percent') {
+      discountAmount = (basePrice * packageDiscount.value) / 100;
+    } else {
+      discountAmount = packageDiscount.value;
+    }
+
+    return Math.max(0, basePrice - discountAmount);
+  };
   // Auto-generate AN/VN เมื่อเลือกคลินิก
-useEffect(() => {
-  const autoGenerateAnVn = async () => {
-    // เพิ่มการตรวจสอบให้ครบถ้วนมากขึ้น
-    if (
-      formData.clinicType && 
-      departments.length > 0 && 
-      !formData.an && 
-      !patientId &&
-      !departmentsLoading &&
-      !generatingAnVn
-    ) {
-      const selectedDept = departments.find(dept => dept.code === formData.clinicType);
+  useEffect(() => {
+    const autoGenerateAnVn = async () => {
+      // เพิ่มการตรวจสอบให้ครบถ้วนมากขึ้น
+      if (
+        formData.clinicType &&
+        departments.length > 0 &&
+        !formData.an &&
+        !patientId &&
+        !departmentsLoading &&
+        !generatingAnVn
+      ) {
+        const selectedDept = departments.find(dept => dept.code === formData.clinicType);
 
-      if (selectedDept) {
-        let generatedNumber = '';
+        if (selectedDept) {
+          let generatedNumber = '';
 
-        try {
-          if (isStrokeCenter()) {
-            generatedNumber = await generateAnVn('AN');
-          } else {
-            generatedNumber = await generateAnVn('VN', selectedDept.code);
+          try {
+            if (isStrokeCenter()) {
+              generatedNumber = await generateAnVn('AN');
+            } else {
+              generatedNumber = await generateAnVn('VN', selectedDept.code);
+            }
+
+            if (generatedNumber) {
+              setFormData(prev => ({
+                ...prev,
+                an: generatedNumber
+              }));
+            }
+          } catch (error) {
+            console.error('Auto-generate failed:', error);
+            // ไม่ต้อง set error ที่นี่ เพราะ generateAnVn จะจัดการเองแล้ว
           }
-
-          if (generatedNumber) {
-            setFormData(prev => ({
-              ...prev,
-              an: generatedNumber
-            }));
-          }
-        } catch (error) {
-          console.error('Auto-generate failed:', error);
-          // ไม่ต้อง set error ที่นี่ เพราะ generateAnVn จะจัดการเองแล้ว
         }
       }
-    }
-  };
+    };
 
-  // ใช้ timeout เพื่อให้แน่ใจว่า departments โหลดเสร็จแล้ว
-  const timeoutId = setTimeout(autoGenerateAnVn, 100);
-  
-  return () => clearTimeout(timeoutId);
-}, [formData.clinicType, departments, departmentsLoading, generatingAnVn]);
+    // ใช้ timeout เพื่อให้แน่ใจว่า departments โหลดเสร็จแล้ว
+    const timeoutId = setTimeout(autoGenerateAnVn, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.clinicType, departments, departmentsLoading, generatingAnVn]);
 
   // Modal functions
   const openModal = (type) => {
@@ -403,43 +439,110 @@ useEffect(() => {
   const handleConfirmSave = async () => {
     try {
       setLoading(true);
+      setError(null);
 
       const selectedDept = departments.find(dept => dept.code === formData.clinicType);
-      const departmentId = selectedDept?.id;
 
-      const dataToSave = {
-        patientId: patientId,
-        formData: {
-          ...formData,
-          departmentId
-        },
-        packages: packageData,
-        medicalItems: medicalData,
-        contractItems: contractData,
-        selectedFile: selectedFile
+      if (!selectedDept) {
+        throw new Error('กรุณาเลือกคลินิก');
+      }
+
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!formData.hn) {
+        throw new Error('กรุณากรอก HN');
+      }
+
+      if (!formData.an) {
+        throw new Error('กรุณา generate AN/VN');
+      }
+
+      // กำหนด patient type
+      const patientType = isStrokeCenter() ? 'AN' : 'VN';
+
+      // สร้าง payload สำหรับ Service Registration
+      const payload = {
+        patientId: patientId, // จาก URL หรือ state
+        departmentId: selectedDept.id,
+        patientType: patientType,
+        admissionId: null, // ถ้ามีให้ใส่
+        drugIntolerance: null, // ถ้ามีให้ใส่
+        profileImage: previewUrl,
+        registrationDate: new Date().toISOString().split('T')[0],
+        registrationTime: new Date().toTimeString().slice(0, 8),
+        createdBy: 1 // ใช้ user ID จริง
       };
 
-      console.log("--- Data to be saved ---");
-      console.log(dataToSave);
+      // ถ้าเป็น Stroke Center (AN) ต้องมี contract data
+      if (isStrokeCenter()) {
+        payload.contractData = {
+          startDate: formData.date,
+          endDate: formData.toDate,
+          roomType: formData.building,
+          billingType: formData.floor,
+          basePrice: parseInt(formData.price) || 0,
+          totalPrice: calculateTotalPrice(),
+          notes: null,
 
-      const response = await fetch(`${API_BASE_URL}/patient-services`, {
+          // Packages
+          packages: packageData.map(pkg => ({
+            id: pkg.packageId || pkg.id,
+            name: pkg.name,
+            originalPrice: pkg.originalPrice || pkg.price,
+            discountType: pkg.discount?.type || null,
+            discountValue: pkg.discount?.value || 0,
+            finalPrice: pkg.price
+          })),
+
+          // Medical Supplies
+          medicalSupplies: medicalData.map(med => ({
+            id: med.medicalId || med.id,
+            name: med.name,
+            originalPrice: med.originalPrice || med.price,
+            discountType: med.discount?.type || null,
+            discountValue: med.discount?.value || 0,
+            finalPrice: med.price
+          })),
+
+          // Contract Items
+          contractItems: contractData.map(con => ({
+            id: con.contractId || con.id,
+            name: con.name,
+            category: con.category,
+            originalPrice: con.originalPrice || con.price,
+            discountType: con.discount?.type || null,
+            discountValue: con.discount?.value || 0,
+            finalPrice: con.price
+          }))
+        };
+      }
+
+      console.log('Payload to send:', payload);
+
+      // เรียก API
+      const response = await fetch(`${API_BASE_URL}/service-registrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}` // ถ้ามี auth
         },
-        body: JSON.stringify(dataToSave)
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        throw new Error(`Save failed: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const result = await response.json();
       console.log('Save successful:', result);
 
+      // แสดงข้อความสำเร็จ
+      alert(`บันทึกสำเร็จ! ${result.data.serviceNumber}`);
+
       setShowConfirmationModal(false);
 
-      const clinicPath = selectedDept?.code || 'general-clinic';
+      // Navigate กลับไปหน้าคลินิก
+      const clinicPath = selectedDept?.code.toLowerCase() || 'general-clinic';
       navigate(`/${clinicPath}`);
 
     } catch (err) {
@@ -454,6 +557,15 @@ useEffect(() => {
     setShowConfirmationModal(false);
   };
 
+  const calculateTotalPrice = () => {
+    const basePrice = parseInt(formData.price) || 0;
+    const packageTotal = packageData.reduce((sum, item) => sum + item.price, 0);
+    const medicalTotal = medicalData.reduce((sum, item) => sum + item.price, 0);
+    const contractTotal = contractData.reduce((sum, item) => sum + item.price, 0);
+
+    return basePrice + packageTotal + medicalTotal + contractTotal;
+  };
+
   const populateFromPatient = (selectedPatient) => {
     setFormData(prev => ({
       ...prev,
@@ -466,7 +578,6 @@ useEffect(() => {
 
   // ตรวจสอบเงื่อนไขการแสดง AN/VN และส่วนอื่นๆ
   const isStrokeCenter = () => {
-    console.log('Checking if stroke center for clinicType:', formData.clinicType);
     const selectedDept = departments.find(dept => dept.code === formData.clinicType);
     return selectedDept?.code === 'STROKE';
   };
@@ -531,6 +642,70 @@ useEffect(() => {
       if (field === 'firstName') setShowFirstNameSuggestions(false);
       if (field === 'lastName') setShowLastNameSuggestions(false);
     }, 200);
+  };
+
+
+  const fetchAvailablePackages = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/packages?active=true`);
+      const result = await response.json();
+
+      if (result.success) {
+        setAvailablePackages(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching packages:', error);
+    }
+  };
+  const fetchAvailableMedical = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/medical?active=true`);
+      const result = await response.json();
+      if (result.success) {
+        setAvailableMedical(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching medical supplies:', error);
+    }
+  };
+
+  const fetchAvailableContracts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contracts?active=true`);
+      const result = await response.json();
+      if (result.success) {
+        setAvailableContracts(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching contracts:', error);
+    }
+  };
+  const calculateMedicalPrice = () => {
+    if (!selectedMedical) return 0;
+    const basePrice = selectedMedical.price;
+    let discountAmount = 0;
+
+    if (medicalDiscount.type === 'percent') {
+      discountAmount = (basePrice * medicalDiscount.value) / 100;
+    } else {
+      discountAmount = medicalDiscount.value;
+    }
+
+    return Math.max(0, basePrice - discountAmount);
+  };
+
+  const calculateContractPrice = () => {
+    if (!selectedContract) return 0;
+    const basePrice = selectedContract.price;
+    let discountAmount = 0;
+
+    if (contractDiscount.type === 'percent') {
+      discountAmount = (basePrice * contractDiscount.value) / 100;
+    } else {
+      discountAmount = contractDiscount.value;
+    }
+
+    return Math.max(0, basePrice - discountAmount);
   };
 
   // Show loading state
@@ -628,55 +803,55 @@ useEffect(() => {
               </div>
 
               {/* AN/VN Field พร้อมปุ่ม Generate */}
-             <div className="flex flex-col">
-  <label className="text-sm font-medium text-gray-700 mb-2">
-    {isStrokeCenter() ? 'AN' : 'VN'}
-  </label>
-  
-  {/* Mobile: Stack vertically, Desktop: Side by side */}
-  <div className="flex flex-col sm:flex-row gap-2">
-    <input
-      type="text"
-      name="an"
-      value={formData.an}
-      onChange={handleInputChange}
-      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      placeholder={isStrokeCenter() ? 'AN จะถูก generate อัตโนมัติ' : 'VN จะถูก generate อัตโนมัติ'}
-    />
-    <button
-      type="button"
-      onClick={handleGenerateAnVn}
-      className="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed sm:w-auto w-full justify-center flex items-center"
-      disabled={!formData.clinicType || generatingAnVn}
-      title="Generate ใหม่"
-    >
-      {generatingAnVn ? (
-        <>
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-          <span className="sm:hidden">กำลัง Generate...</span>
-        </>
-      ) : (
-        <>
-          <RefreshCw className="w-4 h-4 sm:mr-0 mr-2" />
-          <span className="sm:hidden">Generate ใหม่</span>
-        </>
-      )}
-    </button>
-  </div>
-  
-  {formData.an && (
-    <p className="text-xs text-green-600 mt-1 break-all">
-      {isStrokeCenter() ?
-        `AN: ${formData.an} (Format: IPD + YYMMDD + NNNN)` :
-        `VN: ${formData.an} (Format: VN + YYMMDD + DeptCode + NNN)`
-      }
-    </p>
-  )}
-  
-  {generatingAnVn && (
-    <p className="text-xs text-blue-600 mt-1">กำลัง generate เลข...</p>
-  )}
-</div>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-2">
+                  {isStrokeCenter() ? 'AN' : 'VN'}
+                </label>
+
+                {/* Mobile: Stack vertically, Desktop: Side by side */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    name="an"
+                    value={formData.an}
+                    onChange={handleInputChange}
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={isStrokeCenter() ? 'AN จะถูก generate อัตโนมัติ' : 'VN จะถูก generate อัตโนมัติ'}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGenerateAnVn}
+                    className="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed sm:w-auto w-full justify-center flex items-center"
+                    disabled={!formData.clinicType || generatingAnVn}
+                    title="Generate ใหม่"
+                  >
+                    {generatingAnVn ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        <span className="sm:hidden">กำลัง Generate...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 sm:mr-0 mr-2" />
+                        <span className="sm:hidden">Generate ใหม่</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {formData.an && (
+                  <p className="text-xs text-green-600 mt-1 break-all">
+                    {isStrokeCenter() ?
+                      `AN: ${formData.an} (Format: IPD + YYMMDD + NNNN)` :
+                      `VN: ${formData.an} (Format: VN + YYMMDD + DeptCode + NNN)`
+                    }
+                  </p>
+                )}
+
+                {generatingAnVn && (
+                  <p className="text-xs text-blue-600 mt-1">กำลัง generate เลข...</p>
+                )}
+              </div>
 
               {/* First Name Field with Autocomplete */}
               <div className="flex flex-col relative">
@@ -865,13 +1040,22 @@ useEffect(() => {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">คอร์สแพ็คเกจกายภาพ</h2>
-                    <button
-                      onClick={() => openModal('package')}
-                      className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      เพิ่ม
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowPackageModal(true)}
+                        className="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                      >
+                        <Package className="w-4 h-4" />
+                        เลือกจากแพ็คเกจ
+                      </button>
+                      <button
+                        onClick={() => openModal('package')}
+                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        เพิ่มเอง
+                      </button>
+                    </div>
                   </div>
 
                   <div className="border border-blue-300 rounded-lg overflow-hidden">
@@ -893,8 +1077,26 @@ useEffect(() => {
                           packageData.map((item, index) => (
                             <tr key={item.id} className="border-t border-blue-300">
                               <td className="px-4 py-3 border-r border-blue-300">{index + 1}</td>
-                              <td className="px-4 py-3 border-r border-blue-300">{item.name}</td>
-                              <td className="px-4 py-3 border-r border-blue-300">{item.price.toLocaleString()}</td>
+                              <td className="px-4 py-3 border-r border-blue-300">
+                                <div>
+                                  <div>{item.name}</div>
+                                  {item.discount && item.discount.value > 0 && (
+                                    <div className="text-xs text-red-600 mt-1">
+                                      ส่วนลด: {item.discount.type === 'percent'
+                                        ? `${item.discount.value}%`
+                                        : `${item.discount.value.toLocaleString()} บาท`}
+                                      {item.originalPrice && (
+                                        <span className="line-through text-gray-400 ml-2">
+                                          {item.originalPrice.toLocaleString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 border-r border-blue-300">
+                                {item.price.toLocaleString()}
+                              </td>
                               <td className="px-4 py-3">
                                 <div className="flex gap-2">
                                   <button
@@ -923,13 +1125,22 @@ useEffect(() => {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">รายการเหมาเวชภัณฑ์</h2>
-                    <button
-                      onClick={() => openModal('medical')}
-                      className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      เพิ่ม
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowMedicalModal(true)}
+                        className="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                      >
+                        <Package className="w-4 h-4" />
+                        เลือกจากรายการ
+                      </button>
+                      <button
+                        onClick={() => openModal('medical')}
+                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        เพิ่มเอง
+                      </button>
+                    </div>
                   </div>
 
                   <div className="border border-gray-300 rounded-lg overflow-hidden">
@@ -981,13 +1192,22 @@ useEffect(() => {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">รายการเหมา</h2>
-                    <button
-                      onClick={() => openModal('contract')}
-                      className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      เพิ่ม
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowContractModal(true)}
+                        className="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                      >
+                        <Package className="w-4 h-4" />
+                        เลือกจากรายการ
+                      </button>
+                      <button
+                        onClick={() => openModal('contract')}
+                        className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        เพิ่มเอง
+                      </button>
+                    </div>
                   </div>
 
                   <div className="border border-gray-300 rounded-lg overflow-hidden">
@@ -1057,7 +1277,527 @@ useEffect(() => {
           </div>
         </div>
       </div>
+      {/* Package Selection Modal */}
+      {showPackageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">เลือกแพ็คเกจ</h2>
+              <button
+                onClick={() => {
+                  setShowPackageModal(false);
+                  setSelectedPackageForPatient(null);
+                  setPackageDiscount({ type: 'percent', value: 0 });
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
 
+            <div className="p-6 space-y-6">
+              {/* Package List */}
+              <div>
+                <label className="block text-lg font-semibold mb-4">เลือกแพ็คเกจ</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availablePackages.map(pkg => (
+                    <div
+                      key={pkg.id}
+                      onClick={() => setSelectedPackageForPatient(pkg)}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedPackageForPatient?.id === pkg.id
+                        ? 'border-purple-600 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                    >
+                      <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{pkg.description}</p>
+                      <div className="mt-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{pkg.duration}</span>
+                        <span className="text-lg font-bold text-green-600">
+                          {pkg.price?.toLocaleString()} บาท
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Discount Section */}
+              {selectedPackageForPatient && (
+                <div className="border-t pt-6">
+                  <label className="block text-lg font-semibold mb-4">ส่วนลด</label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ประเภทส่วนลด
+                      </label>
+                      <select
+                        value={packageDiscount.type}
+                        onChange={(e) => setPackageDiscount({ type: e.target.value, value: 0 })}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="percent">เปอร์เซ็นต์ (%)</option>
+                        <option value="amount">จำนวนเงิน (บาท)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {packageDiscount.type === 'percent' ? 'ส่วนลด (%)' : 'ส่วนลด (บาท)'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={packageDiscount.type === 'percent' ? 100 : selectedPackageForPatient.price}
+                        value={packageDiscount.value}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          if (packageDiscount.type === 'percent') {
+                            setPackageDiscount(prev => ({ ...prev, value: Math.min(100, Math.max(0, value)) }));
+                          } else {
+                            setPackageDiscount(prev => ({ ...prev, value: Math.min(selectedPackageForPatient.price, Math.max(0, value)) }));
+                          }
+                        }}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Discount Buttons */}
+                  {packageDiscount.type === 'percent' && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">ส่วนลดด่วน:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[5, 10, 15, 20, 25, 30].map(percent => (
+                          <button
+                            key={percent}
+                            onClick={() => setPackageDiscount(prev => ({ ...prev, value: percent }))}
+                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm font-medium"
+                          >
+                            {percent}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price Summary */}
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
+                    <h3 className="text-lg font-semibold mb-4">สรุปราคา</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>ราคาเต็ม:</span>
+                        <span className="font-medium">{selectedPackageForPatient.price?.toLocaleString()} บาท</span>
+                      </div>
+
+                      {packageDiscount.value > 0 && (
+                        <div className="flex justify-between text-red-600">
+                          <span>ส่วนลด:</span>
+                          <span className="font-medium">
+                            - {packageDiscount.type === 'percent'
+                              ? `${packageDiscount.value}% (${((selectedPackageForPatient.price * packageDiscount.value) / 100).toLocaleString()} บาท)`
+                              : `${packageDiscount.value.toLocaleString()} บาท`
+                            }
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="border-t pt-3 flex justify-between text-xl font-bold text-purple-900">
+                        <span>ราคาสุทธิ:</span>
+                        <span>{calculatePackagePrice().toLocaleString()} บาท</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="sticky bottom-0 bg-white border-t p-6 flex justify-end gap-4">
+              <button
+                onClick={() => {
+                  setShowPackageModal(false);
+                  setSelectedPackageForPatient(null);
+                  setPackageDiscount({ type: 'percent', value: 0 });
+                }}
+                className="px-6 py-3 border rounded-lg hover:bg-gray-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedPackageForPatient) {
+                    const newPackage = {
+                      id: Date.now(),
+                      name: selectedPackageForPatient.name,
+                      price: calculatePackagePrice(),
+                      originalPrice: selectedPackageForPatient.price,
+                      discount: packageDiscount,
+                      packageId: selectedPackageForPatient.id
+                    };
+                    setPackageData(prev => [...prev, newPackage]);
+                    setShowPackageModal(false);
+                    setSelectedPackageForPatient(null);
+                    setPackageDiscount({ type: 'percent', value: 0 });
+                  }
+                }}
+                disabled={!selectedPackageForPatient}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                เพิ่มแพ็คเกจ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Medical Selection Modal */}
+      {showMedicalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">เลือกรายการเวชภัณฑ์</h2>
+              <button
+                onClick={() => {
+                  setShowMedicalModal(false);
+                  setSelectedMedical(null);
+                  setMedicalDiscount({ type: 'percent', value: 0 });
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Medical List */}
+              <div>
+                <label className="block text-lg font-semibold mb-4">เลือกเวชภัณฑ์</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availableMedical.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => setSelectedMedical(item)}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedMedical?.id === item.id
+                        ? 'border-green-600 bg-green-50'
+                        : 'border-gray-200 hover:border-green-300'
+                        }`}
+                    >
+                      <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                      <div className="mt-3 flex justify-between items-center">
+                        <span className="text-sm text-gray-500">{item.unit}</span>
+                        <span className="text-lg font-bold text-green-600">
+                          {item.price?.toLocaleString()} บาท
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Discount Section - เหมือนกับ Package */}
+              {selectedMedical && (
+                <div className="border-t pt-6">
+                  <label className="block text-lg font-semibold mb-4">ส่วนลด</label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทส่วนลด</label>
+                      <select
+                        value={medicalDiscount.type}
+                        onChange={(e) => setMedicalDiscount({ type: e.target.value, value: 0 })}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="percent">เปอร์เซ็นต์ (%)</option>
+                        <option value="amount">จำนวนเงิน (บาท)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {medicalDiscount.type === 'percent' ? 'ส่วนลด (%)' : 'ส่วนลด (บาท)'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={medicalDiscount.type === 'percent' ? 100 : selectedMedical.price}
+                        value={medicalDiscount.value}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          if (medicalDiscount.type === 'percent') {
+                            setMedicalDiscount(prev => ({ ...prev, value: Math.min(100, Math.max(0, value)) }));
+                          } else {
+                            setMedicalDiscount(prev => ({ ...prev, value: Math.min(selectedMedical.price, Math.max(0, value)) }));
+                          }
+                        }}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                      />
+                    </div>
+                  </div>
+
+                  {medicalDiscount.type === 'percent' && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">ส่วนลดด่วน:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[5, 10, 15, 20, 25, 30].map(percent => (
+                          <button
+                            key={percent}
+                            onClick={() => setMedicalDiscount(prev => ({ ...prev, value: percent }))}
+                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm font-medium"
+                          >
+                            {percent}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price Summary */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                    <h3 className="text-lg font-semibold mb-4">สรุปราคา</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>ราคาเต็ม:</span>
+                        <span className="font-medium">{selectedMedical.price?.toLocaleString()} บาท</span>
+                      </div>
+
+                      {medicalDiscount.value > 0 && (
+                        <div className="flex justify-between text-red-600">
+                          <span>ส่วนลด:</span>
+                          <span className="font-medium">
+                            - {medicalDiscount.type === 'percent'
+                              ? `${medicalDiscount.value}% (${((selectedMedical.price * medicalDiscount.value) / 100).toLocaleString()} บาท)`
+                              : `${medicalDiscount.value.toLocaleString()} บาท`
+                            }
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="border-t pt-3 flex justify-between text-xl font-bold text-green-900">
+                        <span>ราคาสุทธิ:</span>
+                        <span>{calculateMedicalPrice().toLocaleString()} บาท</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="sticky bottom-0 bg-white border-t p-6 flex justify-end gap-4">
+              <button
+                onClick={() => {
+                  setShowMedicalModal(false);
+                  setSelectedMedical(null);
+                  setMedicalDiscount({ type: 'percent', value: 0 });
+                }}
+                className="px-6 py-3 border rounded-lg hover:bg-gray-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedMedical) {
+                    const newItem = {
+                      id: Date.now(),
+                      name: selectedMedical.name,
+                      price: calculateMedicalPrice(),
+                      originalPrice: selectedMedical.price,
+                      discount: medicalDiscount,
+                      medicalId: selectedMedical.id
+                    };
+                    setMedicalData(prev => [...prev, newItem]);
+                    setShowMedicalModal(false);
+                    setSelectedMedical(null);
+                    setMedicalDiscount({ type: 'percent', value: 0 });
+                  }
+                }}
+                disabled={!selectedMedical}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                เพิ่มรายการ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contract Selection Modal */}
+      {showContractModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">เลือกรายการเหมา</h2>
+              <button
+                onClick={() => {
+                  setShowContractModal(false);
+                  setSelectedContract(null);
+                  setContractDiscount({ type: 'percent', value: 0 });
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Contract List */}
+              <div>
+                <label className="block text-lg font-semibold mb-4">เลือกรายการเหมา</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {availableContracts.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => setSelectedContract(item)}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedContract?.id === item.id
+                        ? 'border-purple-600 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-300'
+                        }`}
+                    >
+                      <h3 className="font-semibold text-gray-900">{item.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                      <div className="mt-3 flex justify-between items-center">
+                        <span className="text-sm px-2 py-1 bg-purple-100 text-purple-800 rounded">
+                          {item.billing || item.category}
+                        </span>
+                        <span className="text-lg font-bold text-purple-600">
+                          {item.price?.toLocaleString()} บาท
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Discount Section - เหมือนกันกับ Medical แต่เปลี่ยนสีเป็น purple */}
+              {selectedContract && (
+                <div className="border-t pt-6">
+                  <label className="block text-lg font-semibold mb-4">ส่วนลด</label>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทส่วนลด</label>
+                      <select
+                        value={contractDiscount.type}
+                        onChange={(e) => setContractDiscount({ type: e.target.value, value: 0 })}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="percent">เปอร์เซ็นต์ (%)</option>
+                        <option value="amount">จำนวนเงิน (บาท)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {contractDiscount.type === 'percent' ? 'ส่วนลด (%)' : 'ส่วนลด (บาท)'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={contractDiscount.type === 'percent' ? 100 : selectedContract.price}
+                        value={contractDiscount.value}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          if (contractDiscount.type === 'percent') {
+                            setContractDiscount(prev => ({ ...prev, value: Math.min(100, Math.max(0, value)) }));
+                          } else {
+                            setContractDiscount(prev => ({ ...prev, value: Math.min(selectedContract.price, Math.max(0, value)) }));
+                          }
+                        }}
+                        className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                  </div>
+
+                  {contractDiscount.type === 'percent' && (
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600 mb-2">ส่วนลดด่วน:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[5, 10, 15, 20, 25, 30].map(percent => (
+                          <button
+                            key={percent}
+                            onClick={() => setContractDiscount(prev => ({ ...prev, value: percent }))}
+                            className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm font-medium"
+                          >
+                            {percent}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price Summary */}
+                  <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
+                    <h3 className="text-lg font-semibold mb-4">สรุปราคา</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span>ราคาเต็ม:</span>
+                        <span className="font-medium">{selectedContract.price?.toLocaleString()} บาท</span>
+                      </div>
+
+                      {contractDiscount.value > 0 && (
+                        <div className="flex justify-between text-red-600">
+                          <span>ส่วนลด:</span>
+                          <span className="font-medium">
+                            - {contractDiscount.type === 'percent'
+                              ? `${contractDiscount.value}% (${((selectedContract.price * contractDiscount.value) / 100).toLocaleString()} บาท)`
+                              : `${contractDiscount.value.toLocaleString()} บาท`
+                            }
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="border-t pt-3 flex justify-between text-xl font-bold text-purple-900">
+                        <span>ราคาสุทธิ:</span>
+                        <span>{calculateContractPrice().toLocaleString()} บาท</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="sticky bottom-0 bg-white border-t p-6 flex justify-end gap-4">
+              <button
+                onClick={() => {
+                  setShowContractModal(false);
+                  setSelectedContract(null);
+                  setContractDiscount({ type: 'percent', value: 0 });
+                }}
+                className="px-6 py-3 border rounded-lg hover:bg-gray-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedContract) {
+                    const newItem = {
+                      id: Date.now(),
+                      name: selectedContract.name,
+                      category: selectedContract.category || selectedContract.billing,
+                      price: calculateContractPrice(),
+                      originalPrice: selectedContract.price,
+                      discount: contractDiscount,
+                      contractId: selectedContract.id
+                    };
+                    setContractData(prev => [...prev, newItem]);
+                    setShowContractModal(false);
+                    setSelectedContract(null);
+                    setContractDiscount({ type: 'percent', value: 0 });
+                  }
+                }}
+                disabled={!selectedContract}
+                className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                เพิ่มรายการ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Modal for Add/Edit item */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

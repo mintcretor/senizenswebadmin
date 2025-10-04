@@ -30,7 +30,7 @@ const Patient = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalPatients, setTotalPatients] = useState(0);
   const [paginationLoading, setPaginationLoading] = useState(false);
-  const PATIENTS_PER_PAGE = 100;
+  const PATIENTS_PER_PAGE = 20;
 
   const navigate = useNavigate();
 
@@ -106,7 +106,7 @@ const Patient = () => {
       const patient = {
         id: i,
         hn: `HN${String(i).padStart(6, '0')}`,
-        prefix: i % 2 === 0 ? 'นาย' : 'นางสาว',
+        prename: i % 2 === 0 ? 'นาย' : 'นางสาว',
         first_name: `ชื่อ${i}`,
         last_name: `นามสกุล${i}`,
         age: Math.floor(Math.random() * 60) + 20,
@@ -285,6 +285,7 @@ const Patient = () => {
 
   const databaseFields = [
     { key: 'hn', label: 'HN', required: true },
+    { key: 'prename', label: 'คำนำหน้า', required: false }, // เพิ่มบรรทัดนี้
     { key: 'first_name', label: 'ชื่อ', required: true },
     { key: 'last_name', label: 'นามสกุล', required: true },
     { key: 'id_card', label: 'บัตรประชาชน', required: false },
@@ -327,7 +328,7 @@ const Patient = () => {
       // Prepare data for export
       const exportData = allPatients.map(patient => ({
         'HN': patient.hn,
-        'คำนำหน้า': patient.prefix,
+        'คำนำหน้า': patient.prename,  // เปลี่ยนจาก prefix เป็น prename
         'ชื่อ': patient.first_name,
         'นามสกุล': patient.last_name,
         'ชื่อภาษาอังกฤษ': patient.first_name_en,
@@ -471,6 +472,7 @@ const Patient = () => {
           columns.forEach(col => {
             const colLower = col.toLowerCase();
             if (colLower.includes('hn') || colLower === 'hn') autoMapping['hn'] = col;
+            else if (colLower.includes('คำนำหน้า') || colLower.includes('prename')) autoMapping['prename'] = col; // เพิ่มบรรทัดนี้
             else if (colLower.includes('ชื่อ') && !colLower.includes('นาม') && !colLower.includes('อังกฤษ')) autoMapping['first_name'] = col;
             else if (colLower.includes('นามสกุล') && !colLower.includes('อังกฤษ')) autoMapping['last_name'] = col;
             else if (colLower.includes('บัตรประชาชน') || colLower.includes('เลขประจำตัว')) autoMapping['id_card'] = col;
@@ -590,7 +592,8 @@ const Patient = () => {
   };
 
   const handleAddAnVn = (patient) => {
-    navigate(`/an-vn/add`, {
+    console.log(patient)
+    navigate(`/an-vn/add/${patient.id}`, {
       state: { patient }
     });
   };
@@ -605,7 +608,7 @@ const Patient = () => {
   const safePatientData = Array.isArray(patientData) ? patientData : [];
 
   const PatientCard = ({ patient }) => {
-    const fullName = `${patient.prefix || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
+    const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
 
     return (
       <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-all duration-200">
@@ -1257,10 +1260,10 @@ const Patient = () => {
                     onClick={() => typeof page === 'number' && handlePageChange(page)}
                     disabled={page === '...' || paginationLoading}
                     className={`px-3 py-2 rounded-lg text-sm font-medium ${page === currentPage
-                        ? 'bg-blue-600 text-white'
-                        : page === '...'
-                          ? 'text-gray-400 cursor-default'
-                          : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
+                      ? 'bg-blue-600 text-white'
+                      : page === '...'
+                        ? 'text-gray-400 cursor-default'
+                        : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
                       } ${paginationLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {page}

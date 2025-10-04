@@ -23,35 +23,36 @@ const SenizensLogin = () => {
             [name]: value
         }));
     };
- const handleSubmit = async (e) => {
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-        setError(''); // เคลียร์ข้อความ error เก่า
+        setError('');
 
         try {
-            // เปลี่ยน URL เป็น URL ของ API Login ของคุณ
             const response = await axios.post(`${API_BASE_URL}/auth/login`, {
                 username: formData.username,
                 password: formData.password
             });
 
-            // ตรวจสอบว่า API ตอบกลับมาสำเร็จ
             const { token, user } = response.data;
 
-            // เก็บ token และข้อมูลผู้ใช้ใน localStorage
             localStorage.setItem('authToken', token);
             localStorage.setItem('user', JSON.stringify(user));
 
-            // นำทางไปยังหน้า Dashboard
             navigate('/dashboard');
 
         } catch (err) {
-            // หากเกิดข้อผิดพลาดในการเรียก API
             console.error("Login failed:", err.response ? err.response.data : err.message);
             setError(err.response?.data?.message || 'การเข้าสู่ระบบล้มเหลว. กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน');
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // ฟังก์ชันสำหรับไปหน้าลงทะเบียน
+    const handleGoToRegister = () => {
+        navigate('/register');
     };
 
     return (
@@ -211,7 +212,7 @@ const SenizensLogin = () => {
                                     ? 'bg-gray-400 cursor-not-allowed'
                                     : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 active:scale-95 hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-purple-500/30'
                             } overflow-hidden`}
-                            style={{ minHeight: '48px' }} // Minimum touch target for accessibility
+                            style={{ minHeight: '48px' }}
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                             <div className="relative flex items-center justify-center">
@@ -242,10 +243,11 @@ const SenizensLogin = () => {
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm text-gray-500">
                             <span>ยังไม่มีบัญชี?</span>
                             <button 
-                                className="text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200 touch-manipulation"
+                                onClick={handleGoToRegister}
+                                className="text-purple-600 hover:text-purple-700 font-medium transition-colors duration-200 hover:underline touch-manipulation"
                                 style={{ minHeight: '44px' }}
                             >
-                                สมัครสมาชิก
+                                ลงทะเบียนพนักงาน
                             </button>
                         </div>
                     </div>

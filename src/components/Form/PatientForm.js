@@ -6,19 +6,21 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 // Import API functions (you would create these in a separate file)
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
+const API_IMG_BASE_URL = process.env.REACT_APP_API_BASE_IMG_URL;
+console.log('123321', API_IMG_BASE_URL);
 // API Helper functions
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   const config = {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
     },
-    ...options,
   };
 
   try {
+    console.log('API Request:', { url, config }); // Add this for debugging
     const response = await fetch(url, config);
 
     if (!response.ok) {
@@ -104,6 +106,14 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
   const [previewUrl, setPreviewUrl] = useState(existingImageUrl || null);
   const [uploadStatus, setUploadStatus] = useState(null);
 
+  // เพิ่ม useEffect เพื่อ update previewUrl เมื่อ existingImageUrl เปลี่ยน
+  useEffect(() => {
+    if (existingImageUrl) {
+      setPreviewUrl(existingImageUrl);
+      setUploadStatus('success');
+    }
+  }, [existingImageUrl]);
+
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (file && file.type.startsWith('image/')) {
@@ -112,14 +122,19 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
       setPreviewUrl(url);
 
       setUploadStatus('uploading');
-      const result = await uploadPatientImage(file);
-
-      if (result.success && result.data) {
-        setUploadStatus('success');
-        onFileUpload(result.data.imageUrl);
-      } else {
+      try {
+        const result = await uploadPatientImage(file);
+        console.log('image', result)
+        if (result.success && result.data.data) {
+          setUploadStatus('success');
+          onFileUpload(API_IMG_BASE_URL + result.data.data.imageUrl || result.data.data.url);
+        } else {
+          setUploadStatus('error');
+          console.error('Upload failed:', result.error);
+        }
+      } catch (error) {
         setUploadStatus('error');
-        console.error('Upload failed:', result.error);
+        console.error('Upload error:', error);
       }
     }
   };
@@ -132,7 +147,7 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
-        disabled={isUploading}
+        disabled={isUploading || uploadStatus === 'uploading'}
       />
       <label
         htmlFor="imageUpload"
@@ -264,7 +279,7 @@ const PatientForm = ({ mode = "add" }) => {
   const [isVNModalOpen, setIsVNModalOpen] = useState(false);
   const [newPatientId, setNewPatientId] = useState(null);
   const location = useLocation();
-  const patientFromState = location.state?.patient; // ข้อมูลที่ส่งมาจากหน้า Patient
+  const patientFromState = ''; // ข้อมูลที่ส่งมาจากหน้า Patient
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const shouldShowVNModal = mode === "add";
 
@@ -289,6 +304,7 @@ const PatientForm = ({ mode = "add" }) => {
   const [patientData, setPatientData] = useState({
     hn: '',
     idCard: '',
+    prename: '',
     firstName: '',
     lastName: '',
     birthDate: '',
@@ -306,7 +322,98 @@ const PatientForm = ({ mode = "add" }) => {
     chronicDisease: '',
     contactPhone: ''
   });
+  const prenameOptions = [
+    // คำนำหน้าทั่วไป
+    { value: 'นาย', label: 'นาย' },
+    { value: 'นาง', label: 'นาง' },
+    { value: 'นางสาว', label: 'นางสาว' },
 
+    // เด็ก
+    { value: 'เด็กชาย', label: 'เด็กชาย' },
+    { value: 'เด็กหญิง', label: 'เด็กหญิง' },
+    { value: 'ด.ช.', label: 'ด.ช.' },
+    { value: 'ด.ญ.', label: 'ด.ญ.' },
+
+    // ยศทหาร
+    { value: 'พลฯ', label: 'พลฯ' },
+    { value: 'พล.อ.', label: 'พล.อ.' },
+    { value: 'พล.ท.', label: 'พล.ท.' },
+    { value: 'พล.ต.', label: 'พล.ต.' },
+    { value: 'พ.อ.', label: 'พ.อ.' },
+    { value: 'พ.ท.', label: 'พ.ท.' },
+    { value: 'พ.ต.', label: 'พ.ต.' },
+    { value: 'ร.อ.', label: 'ร.อ.' },
+    { value: 'ร.ท.', label: 'ร.ท.' },
+    { value: 'ร.ต.', label: 'ร.ต.' },
+    { value: 'จ.ส.อ.', label: 'จ.ส.อ.' },
+    { value: 'จ.ส.ท.', label: 'จ.ส.ท.' },
+    { value: 'จ.ส.ต.', label: 'จ.ส.ต.' },
+
+    // ยศตำรวจ
+    { value: 'พล.ต.อ.', label: 'พล.ต.อ.' },
+    { value: 'พ.ต.อ.', label: 'พ.ต.อ.' },
+    { value: 'พ.ต.ท.', label: 'พ.ต.ท.' },
+    { value: 'พ.ต.ต.', label: 'พ.ต.ต.' },
+    { value: 'ร.ต.อ.', label: 'ร.ต.อ.' },
+    { value: 'ร.ต.ท.', label: 'ร.ต.ท.' },
+    { value: 'ร.ต.ต.', label: 'ร.ต.ต.' },
+    { value: 'ด.ต.', label: 'ด.ต.' },
+    { value: 'ส.ต.อ.', label: 'ส.ต.อ.' },
+    { value: 'ส.ต.ท.', label: 'ส.ต.ท.' },
+    { value: 'ส.ต.ต.', label: 'ส.ต.ต.' },
+
+    // วิชาการ/วิชาชีพ
+    { value: 'ศาสตราจารย์', label: 'ศาสตราจารย์' },
+    { value: 'ศ.', label: 'ศ.' },
+    { value: 'รองศาสตราจารย์', label: 'รองศาสตราจารย์' },
+    { value: 'รศ.', label: 'รศ.' },
+    { value: 'ผู้ช่วยศาสตราจารย์', label: 'ผู้ช่วยศาสตราจารย์' },
+    { value: 'ผศ.', label: 'ผศ.' },
+    { value: 'อาจารย์', label: 'อาจารย์' },
+    { value: 'อ.', label: 'อ.' },
+    { value: 'ดร.', label: 'ดร.' },
+    { value: 'นพ.', label: 'นพ.' },
+    { value: 'พญ.', label: 'พญ.' },
+    { value: 'ทพ.', label: 'ทพ.' },
+    { value: 'ทพญ.', label: 'ทพญ.' },
+    { value: 'สพ.', label: 'สพ.' },
+    { value: 'สพญ.', label: 'สพญ.' },
+    { value: 'ภก.', label: 'ภก.' },
+    { value: 'ภญ.', label: 'ภญ.' },
+
+    // ศาสนา
+    { value: 'พระ', label: 'พระ' },
+    { value: 'สามเณร', label: 'สามเณร' },
+    { value: 'หลวงพ่อ', label: 'หลวงพ่อ' },
+    { value: 'หลวงปู่', label: 'หลวงปู่' },
+    { value: 'อิหม่าม', label: 'อิหม่าม' },
+    { value: 'บาทหลวง', label: 'บาทหลวง' },
+    { value: 'คุณพ่อ', label: 'คุณพ่อ' },
+    { value: 'ซิสเตอร์', label: 'ซิสเตอร์' },
+
+    // ตำแหน่งราชการ
+    { value: 'นายกรัฐมนตรี', label: 'นายกรัฐมนตรี' },
+    { value: 'รัฐมนตรี', label: 'รัฐมนตรี' },
+    { value: 'ปลัดกระทรวง', label: 'ปลัดกระทรวง' },
+    { value: 'อธิบดี', label: 'อธิบดี' },
+
+    // เจ้านาย
+    { value: 'สมเด็จพระ', label: 'สมเด็จพระ' },
+    { value: 'พระเจ้าวรวงศ์เธอ', label: 'พระเจ้าวรวงศ์เธอ' },
+    { value: 'พระวรวงศ์เธอ', label: 'พระวรวงศ์เธอ' },
+    { value: 'พระองค์เจ้า', label: 'พระองค์เจ้า' },
+    { value: 'หม่อมเจ้า', label: 'หม่อมเจ้า' },
+    { value: 'ม.จ.', label: 'ม.จ.' },
+    { value: 'หม่อมราชวงศ์', label: 'หม่อมราชวงศ์' },
+    { value: 'ม.ร.ว.', label: 'ม.ร.ว.' },
+    { value: 'หม่อมหลวง', label: 'หม่อมหลวง' },
+    { value: 'ม.ล.', label: 'ม.ล.' },
+
+    // อื่นๆ
+    { value: 'คุณ', label: 'คุณ' },
+    { value: 'คุณหญิง', label: 'คุณหญิง' },
+    { value: 'ท่าน', label: 'ท่าน' },
+  ];
   // Allergies data
   const [allergies, setAllergies] = useState([]);
   const [newAllergy, setNewAllergy] = useState({
@@ -328,6 +435,7 @@ const PatientForm = ({ mode = "add" }) => {
 
   // Load initial data
   useEffect(() => {
+    console.log(mode);
     if (mode === "edit") {
       loadPatientDataForEdit();
     } else {
@@ -347,25 +455,28 @@ const PatientForm = ({ mode = "add" }) => {
     const payload = {
       patientData: {
         ...patientData,
-        imageUrl
+        imageUrl // ตรวจสอบว่า imageUrl มีค่าหรือไม่
       },
       allergies: allergies || [],
       emergencyContacts: emergencyContacts || []
     };
 
-    // เลือก HTTP method และ endpoint ตาม mode
+    // เพิ่ม console.log เพื่อ debug
+    console.log('Payload being sent:', payload);
+    console.log('Image URL:', imageUrl);
+
     const httpMethod = mode === "edit" ? 'PUT' : 'POST';
     const endpoint = mode === "edit" ? `/patients/${id}` : '/patients';
 
     return await apiRequest(endpoint, {
       method: httpMethod,
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
   };
-
   const getConfirmModalTitle = () => {
     return mode === "edit" ? "ตรวจสอบการแก้ไขข้อมูล" : "ตรวจสอบข้อมูลก่อนบันทึก";
   };
@@ -412,7 +523,7 @@ const PatientForm = ({ mode = "add" }) => {
   const loadPatientDataForEdit = async () => {
     try {
       setIsLoading(true);
-
+      console.log('แก้ไข', patientFromState);
       if (patientFromState) {
         // ใช้ข้อมูลที่ส่งมาจาก location.state
         populateFormData(patientFromState);
@@ -455,6 +566,7 @@ const PatientForm = ({ mode = "add" }) => {
     setPatientData({
       hn: data.hn || '',
       idCard: data.id_card || data.idCard || '',
+      prename: data.prename || data.prename || '', // เพิ่มบรรทัดนี้
       firstName: data.first_name || data.firstName || '',
       lastName: data.last_name || data.lastName || '',
       birthDate: data.birth_date || data.birthDate || '',
@@ -474,18 +586,18 @@ const PatientForm = ({ mode = "add" }) => {
     });
 
     // ใส่ข้อมูล allergies และ emergency contacts ถ้ามี
-    if (data.allergies && Array.isArray(data.allergies)) {
+    if (data.allergies) {
       setAllergies(data.allergies);
     }
-    if (data.emergency_contacts && Array.isArray(data.emergency_contacts)) {
-      setEmergencyContacts(data.emergency_contacts);
+    console.log('data', data)
+    if (data.emergencyContacts) {
+      setEmergencyContacts(data.emergencyContacts);
     }
-
+    console.log('555', data)
     // ใส่รูปภาพถ้ามี
-    if (data.imageUrl || data.image_url) {
-      const imageUrl = data.imageUrl || data.image_url;
+    if (data.imageUrl || data.profile_image) {
+      const imageUrl = data.imageUrl || data.profile_image;
       setImageUrl(imageUrl);
-      // ส่ง imageUrl ไปยัง FileUpload component
     }
   };
   // เพิ่มฟังก์ชันสำหรับโหลดอำเภอ
@@ -636,7 +748,7 @@ const PatientForm = ({ mode = "add" }) => {
   };
 
   const handleImageUpload = (url) => {
-    console.log(url);
+    console.log('Image uploaded successfully:', url);
     setImageUrl(url);
     showToast('อัพโหลดรูปภาพสำเร็จ', 'success');
   };
@@ -720,19 +832,20 @@ const PatientForm = ({ mode = "add" }) => {
   const confirmSave = async () => {
     setIsSaving(true);
     try {
+      // เพิ่ม console.log เพื่อ debug
+      console.log('Image URL before save:', imageUrl);
+
       const result = await savePatientData(patientData, allergies, emergencyContacts, imageUrl);
 
       if (result.success) {
         closeConfirmModal();
 
         if (mode === "edit") {
-          // Edit mode - แสดงข้อความสำเร็จและกลับไปหน้า Patient
           showToast('บันทึกข้อมูลเรียบร้อยแล้ว', 'success');
           setTimeout(() => {
             navigate('/Patient');
           }, 2000);
         } else {
-          // Add mode - เปิด modal ถามว่าจะเพิ่ม VN หรือไม่
           if (result.data.data && result.data.data.patientId) {
             setNewPatientId(result.data.data.patientId);
             openVNModal();
@@ -751,8 +864,9 @@ const PatientForm = ({ mode = "add" }) => {
 
   const goToAddPatientVN = () => {
     closeVNModal();
-    navigate('/VNPatient', { state: { patientId: newPatientId } });
+    navigate(`/an-vn/add/${newPatientId}`); // ส่งเป็น URL param
   };
+
 
   const goToPatientPage = () => {
     closeVNModal();
@@ -761,9 +875,9 @@ const PatientForm = ({ mode = "add" }) => {
 
   // Options
   const genderOptions = [
-    { value: 'male', label: 'ชาย' },
-    { value: 'female', label: 'หญิง' },
-    { value: 'other', label: 'อื่นๆ' }
+    { value: 'ชาย', label: 'ชาย' },
+    { value: 'หญิง', label: 'หญิง' },
+    { value: 'อื่นๆ', label: 'อื่นๆ' }
   ];
 
   const bloodGroupOptions = [
@@ -813,6 +927,7 @@ const PatientForm = ({ mode = "add" }) => {
             <FileUpload
               onFileUpload={handleImageUpload}
               isUploading={isImageUploading}
+              existingImageUrl={imageUrl}
             />
           </div>
 
@@ -836,6 +951,17 @@ const PatientForm = ({ mode = "add" }) => {
               error={errors.idCard}
               required
             />
+
+            <SelectField
+              label="คำนำหน้า"
+              options={prenameOptions}
+              value={patientData.prename}
+              onChange={(e) => updatePatientData('prename', e.target.value)}
+              placeholder="เลือกคำนำหน้า"
+              error={errors.prename}
+              required
+            />
+
             <InputField
               label="ชื่อ"
               placeholder="ชื่อ"
@@ -1005,7 +1131,7 @@ const PatientForm = ({ mode = "add" }) => {
                             {allergy.type === 'drug' ? 'แพ้ยา' : 'แพ้อาหาร'}
                           </span>
                         </td>
-                        <td className="px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-20 sm:max-w-none truncate">{allergy.name}</td>
+                        <td className="px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-20 sm:max-w-none truncate">{allergy.allergen_name}</td>
                         <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${allergy.severity === 'severe' ? 'bg-red-100 text-red-800' :
                             allergy.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
@@ -1317,6 +1443,7 @@ const PatientForm = ({ mode = "add" }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm">
                   <div><span className="font-medium">HN:</span> {patientData.hn || '-'}</div>
                   <div><span className="font-medium">เลขบัตรประชาชน:</span> {patientData.idCard || '-'}</div>
+                  <div><span className="font-medium">คำนำหน้า:</span> {patientData.prename || '-'}</div> {/* เพิ่มบรรทัดนี้ */}
                   <div><span className="font-medium">ชื่อ:</span> {patientData.firstName || '-'}</div>
                   <div><span className="font-medium">นามสกุล:</span> {patientData.lastName || '-'}</div>
                   <div><span className="font-medium">วันเกิด:</span> {patientData.birthDate || '-'}</div>
