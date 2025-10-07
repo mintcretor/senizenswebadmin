@@ -1,7 +1,162 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Clock, User, ChevronDown, X } from 'lucide-react';
+import { Search, ChevronRight, Clock, User, ChevronDown, X } from 'lucide-react';
 import { procedureService } from '../services/procedureService';
+// เพิ่ม PatientSearch Component
+function PatientSearchModal({ visible, onClose, onSelectPatient }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState(null);
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    setError(null);
+
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const response = await fetch(
+        `${API_BASE_URL}/patients/search?q=${encodeURIComponent(query)}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Transform data ให้ตรงกับ format ที่ใช้
+        const transformedPatients = result.data.map(p => ({
+          id: p.id,
+          patient_id: p.id,
+          prefix: p.prename || '',
+          firstname: p.first_name,
+          lastname: p.last_name,
+          age: `${p.age}`,
+          hn: p.hn,
+          room: p.room_number || '-',
+          service_number: p.service_number,
+          image: p.profile_image || '/api/placeholder/80/80'
+        }));
+        setSearchResults(transformedPatients);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      setError('เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
+            <X size={20} className="sm:w-6 sm:h-6" />
+          </button>
+          <h2 className="text-base sm:text-lg font-bold">ค้นหาผู้ป่วย</h2>
+          <div className="w-10" />
+        </div>
+
+        <div className="p-3 sm:p-4 bg-gray-50">
+          <div className="flex items-center gap-2 sm:gap-3 bg-white border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
+            <Search size={18} className="sm:w-5 sm:h-5 text-gray-500" />
+            <input
+              type="text"
+              className="flex-1 outline-none text-sm sm:text-base"
+              placeholder="ค้นหา HN, ชื่อ, หรือนามสกุล"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              autoFocus
+            />
+            {searchQuery.length > 0 && (
+              <button onClick={() => { setSearchQuery(''); setSearchResults([]); }}>
+                <X size={18} className="sm:w-5 sm:h-5 text-gray-500" />
+              </button>
+            )}
+          </div>
+          {error && (
+            <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs sm:text-sm text-red-600">{error}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+          {isSearching ? (
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16">
+              <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
+              <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">กำลังค้นหา...</p>
+            </div>
+          ) : searchResults.length > 0 ? (
+            <div className="space-y-2 sm:space-y-3">
+              {searchResults.map((patient) => (
+                <button
+                  key={patient.id}
+                  onClick={() => {
+                    onSelectPatient(patient);
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
+                >
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    {patient.image && patient.image !== '/api/placeholder/80/80' ? (
+                      <img src={patient.image} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover" />
+                    ) : (
+                      <User size={24} className="sm:w-8 sm:h-8 text-gray-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                      {patient.prefix}{patient.firstname} {patient.lastname}
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      HN: {patient.hn} | {patient.age} ปี
+                    </p>
+                    {patient.room && patient.room !== '-' && (
+                      <p className="text-xs text-blue-600">ห้อง: {patient.room}</p>
+                    )}
+                  </div>
+                  <ChevronRight size={20} className="sm:w-6 sm:h-6 text-gray-400 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          ) : searchQuery.length >= 2 ? (
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16">
+              <Search size={48} className="sm:w-16 sm:h-16 text-gray-300" />
+              <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ไม่พบผู้ป่วย</p>
+              <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
+                ลองค้นหาด้วยคำอื่นหรือตรวจสอบความถูกต้อง
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16">
+              <Search size={48} className="sm:w-16 sm:h-16 text-gray-300" />
+              <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ค้นหาผู้ป่วย</p>
+              <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
+                พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อเริ่มค้นหา
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 const PatientProcedureForm = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
@@ -194,55 +349,55 @@ const PatientProcedureForm = () => {
     setShowConfirmDialog(true);
   };
 
- const confirmSubmit = async () => {
-  setLoading(true);
-  try {
-    // Validate ก่อนส่ง
-    console.log('Submitting with selectedPatient:', selectedPatient);
-    if (!selectedPatient || !selectedPatient.id || !selectedPatient.id) {
-      alert('ข้อมูลผู้ป่วยไม่ครบถ้วน กรุณาเลือกผู้ป่วยใหม่');
+  const confirmSubmit = async () => {
+    setLoading(true);
+    try {
+      // Validate ก่อนส่ง
+      console.log('Submitting with selectedPatient:', selectedPatient);
+      if (!selectedPatient || !selectedPatient.id || !selectedPatient.id) {
+        alert('ข้อมูลผู้ป่วยไม่ครบถ้วน กรุณาเลือกผู้ป่วยใหม่');
+        setLoading(false);
+        return;
+      }
+
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+      const payload = {
+        serviceRegistrationId: selectedPatient.id,      // ต้องมี
+        patientId: selectedPatient.patient_id,          // ต้องมี
+        admissionId: null,
+        recordDate: date,
+        recordTime: time,
+        shift: shift,
+        note: note || null,
+        procedures: selectedProcedures.map(proc => ({
+          typeId: proc.id,
+          performedBy: proc.performedBy,
+          displayName: proc.displayName || proc.name,
+          subOptionValue: proc.subOptionValue || null
+        })),
+        nonChargeableProcedures: checkedOther,
+        createdBy: user.user_id || 1
+      };
+
+      console.log('Final Payload:', JSON.stringify(payload, null, 2));
+
+      const result = await procedureService.createProcedureRecord(payload);
+
+      if (result.success) {
+        alert('บันทึกข้อมูลสำเร็จ');
+        resetForm();
+        setShowConfirmDialog(false);
+      } else {
+        alert(`เกิดข้อผิดพลาด: ${result.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error('Submit error:', err);
+      alert('ไม่สามารถบันทึกข้อมูลได้: ' + err.message);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    
-    const payload = {
-      serviceRegistrationId: selectedPatient.id,      // ต้องมี
-      patientId: selectedPatient.patient_id,          // ต้องมี
-      admissionId: null,
-      recordDate: date,
-      recordTime: time,
-      shift: shift,
-      note: note || null,
-      procedures: selectedProcedures.map(proc => ({
-        typeId: proc.id,
-        performedBy: proc.performedBy,
-        displayName: proc.displayName || proc.name,
-        subOptionValue: proc.subOptionValue || null
-      })),
-      nonChargeableProcedures: checkedOther,
-      createdBy: user.user_id || 1
-    };
-
-    console.log('Final Payload:', JSON.stringify(payload, null, 2));
-
-    const result = await procedureService.createProcedureRecord(payload);
-
-    if (result.success) {
-      alert('บันทึกข้อมูลสำเร็จ');
-      resetForm();
-      setShowConfirmDialog(false);
-    } else {
-      alert(`เกิดข้อผิดพลาด: ${result.error || 'Unknown error'}`);
-    }
-  } catch (err) {
-    console.error('Submit error:', err);
-    alert('ไม่สามารถบันทึกข้อมูลได้: ' + err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   const procedureItems = [
     { id: 1, name: "ทำแผลเจาะคอ", canPerform: "both" },
     { id: 2, name: "ทำแผลหน้าท้อง", canPerform: "both" },
@@ -556,45 +711,12 @@ const PatientProcedureForm = () => {
       </div>
 
       {/* Patient Selection Modal */}
-      {showPatientModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="text-lg font-semibold">กรุณาเลือกคนไข้</h2>
-              <button onClick={() => setShowPatientModal(false)}>
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-4 border-b">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="ค้นหาชื่อ"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg"
-                />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {filteredPatients.map(patient => (
-                <div
-                  key={patient.id}
-                  onClick={() => handlePatientSelect(patient)} // เปลี่ยนจากเดิม
-                  className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer mb-2"
-                >
-                  <img src={patient.image} alt="" className="w-12 h-12 rounded-full object-cover" />
-                  <div>
-                    <p className="font-medium">{patient.prefix}{patient.firstname} {patient.lastname}</p>
-                    <p className="text-sm text-gray-500">HN: {patient.hn} | ห้อง: {patient.room}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <PatientSearchModal
+        visible={showPatientModal}
+        onClose={() => setShowPatientModal(false)}
+        onSelectPatient={handlePatientSelect}
+        patients={patients}
+      />
 
       {/* Procedure Modal (รวมกัน) */}
       {showProcedureModal && (

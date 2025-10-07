@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package } from 'lucide-react';
+import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package, Search } from 'lucide-react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
-
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = (date.getFullYear() + 543).toString(); // แปลงเป็นปี พ.ศ.
+  const year = (date.getFullYear() + 543).toString();
   return `${day}/${month}/${year}`;
 };
+
 export default function ThaiServiceForm() {
   const navigate = useNavigate();
-  const { id } = useParams(); // จาก URL parameter
-  const [searchParams] = useSearchParams(); // จาก query parameter
-  const location = useLocation(); // จาก state
-  const patientId = id ||
-    searchParams.get('patientId') ||
-    location.state?.patientId;
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const patientId = id || searchParams.get('patientId') || location.state?.patientId;
+  
   const [currentDate, setCurrentDate] = useState(formatThaiDate(new Date()));
   const [formData, setFormData] = useState({
     hn: '',
@@ -36,15 +35,11 @@ export default function ThaiServiceForm() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // เพิ่ม state สำหรับเก็บข้อมูลแผนก
   const [departments, setDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
-
-  // เพิ่ม state สำหรับ AN/VN generation
   const [generatingAnVn, setGeneratingAnVn] = useState(false);
 
-  // Modal and table data states
+  // Modal states
   const [showModal, setShowModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -56,28 +51,24 @@ export default function ThaiServiceForm() {
   const [contractData, setContractData] = useState([]);
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
-  // Modal form data
   const [modalForm, setModalForm] = useState({
     name: '',
     category: '',
     price: ''
   });
 
-  // Autocomplete states
-  const [hnSuggestions, setHnSuggestions] = useState([]);
-  const [firstNameSuggestions, setFirstNameSuggestions] = useState([]);
-  const [lastNameSuggestions, setLastNameSuggestions] = useState([]);
-  const [showHnSuggestions, setShowHnSuggestions] = useState(false);
-  const [showFirstNameSuggestions, setShowFirstNameSuggestions] = useState(false);
-  const [showLastNameSuggestions, setShowLastNameSuggestions] = useState(false);
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Package/Medical/Contract modals
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [availablePackages, setAvailablePackages] = useState([]);
   const [selectedPackageForPatient, setSelectedPackageForPatient] = useState(null);
-  const [packageDiscount, setPackageDiscount] = useState({
-    type: 'percent', // 'percent' or 'amount'
-    value: 0
-  });
-  // เพิ่มใน state declarations
+  const [packageDiscount, setPackageDiscount] = useState({ type: 'percent', value: 0 });
+  
   const [showMedicalModal, setShowMedicalModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [availableMedical, setAvailableMedical] = useState([]);
@@ -86,56 +77,78 @@ export default function ThaiServiceForm() {
   const [selectedContract, setSelectedContract] = useState(null);
   const [medicalDiscount, setMedicalDiscount] = useState({ type: 'percent', value: 0 });
   const [contractDiscount, setContractDiscount] = useState({ type: 'percent', value: 0 });
-  // API Helper functions
-  const apiRequest = async (endpoint, options = {}) => {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    };
+
+  // Universal search function
+  const handleUniversalSearch = async () => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setError('กรุณากรอกข้อมูลอย่างน้อย 2 ตัวอักษร');
+      return;
+    }
 
     try {
-      const response = await fetch(url, config);
+      setIsSearching(true);
+      setError(null);
 
+      const response = await fetch(
+        `${API_BASE_URL}/patients/search?q=${encodeURIComponent(searchQuery.trim())}`,
+        {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(`Search failed: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { success: true, data };
-    } catch (error) {
-      console.error('API Request Error:', error);
-      return { success: false, error: error.message };
+      const results = await response.json();
+        console.log('Search response:', results);
+      if (results.data && results.data.length > 0) {
+        setSearchResults(results.data);
+        setShowSearchModal(true);
+      } else {
+        setSearchResults([]);
+        setError('ไม่พบข้อมูลผู้ป่วย');
+      }
+    } catch (err) {
+      console.error('Error searching patients:', err);
+      setError('เกิดข้อผิดพลาดในการค้นหา');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  // ใน ThaiServiceForm.jsx
+  const selectPatientFromSearch = (patient) => {
+    setFormData(prev => ({
+      ...prev,
+      hn: patient.hn || '',
+      firstName: patient.first_name || patient.firstName || '',
+      lastName: patient.last_name || patient.lastName || '',
+      idNumber: patient.id_card || patient.idNumber || '',
+    }));
+
+    if (patient.profile_image) {
+      setPreviewUrl(patient.profile_image);
+    }
+
+    setShowSearchModal(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
   const generateAnVn = async (type, departmentCode = null) => {
     try {
-      console.log(`Generating ${type} for department:`, departmentCode);
       setGeneratingAnVn(true);
       setError(null);
 
-      let endpoint = '';
-
-      if (type === 'AN') {
-        endpoint = '/service-registrations/generate-an';
-      } else if (type === 'VN') {
-        // ✅ ถูกต้อง - ส่ง departmentCode เป็น query parameter
-        endpoint = `/service-registrations/generate-vn?departmentCode=${encodeURIComponent(departmentCode)}`;
-      }
-
-      console.log('Calling endpoint:', `${API_BASE_URL}${endpoint}`); // Debug
+      let endpoint = type === 'AN' 
+        ? '/service-registrations/generate-an'
+        : `/service-registrations/generate-vn?departmentCode=${encodeURIComponent(departmentCode)}`;
 
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
 
       if (!response.ok) {
@@ -144,10 +157,7 @@ export default function ThaiServiceForm() {
       }
 
       const result = await response.json();
-      console.log(`Generated ${type}:`, result);
-
       return result.data.number;
-
     } catch (err) {
       console.error(`Error generating ${type}:`, err);
       setError(`ไม่สามารถ generate ${type} ได้: ${err.message}`);
@@ -156,7 +166,9 @@ export default function ThaiServiceForm() {
       setGeneratingAnVn(false);
     }
   };
-  // ปุ่ม Generate ใหม่
+  const handleCancelConfirmation = () => {
+    setShowConfirmationModal(false);
+  };
   const handleGenerateAnVn = async () => {
     if (!formData.clinicType) {
       setError('กรุณาเลือกคลินิกก่อน');
@@ -169,64 +181,38 @@ export default function ThaiServiceForm() {
       return;
     }
 
-    let generatedNumber = '';
-
-    if (isStrokeCenter()) {
-      generatedNumber = await generateAnVn('AN');
-    } else {
-      generatedNumber = await generateAnVn('VN', selectedDept.code);
-    }
+    const generatedNumber = isStrokeCenter() 
+      ? await generateAnVn('AN')
+      : await generateAnVn('VN', selectedDept.code);
 
     if (generatedNumber) {
-      setFormData(prev => ({
-        ...prev,
-        an: generatedNumber
-      }));
+      setFormData(prev => ({ ...prev, an: generatedNumber }));
     }
   };
 
-  // ฟังก์ชันสำหรับดึงข้อมูลแผนก
   const fetchDepartments = async () => {
     try {
       setDepartmentsLoading(true);
       setError(null);
 
-      const apiUrl = `${API_BASE_URL}/departments`;
-      console.log('Fetching departments from:', apiUrl);
-
-      const response = await fetch(apiUrl, {
+      const response = await fetch(`${API_BASE_URL}/departments`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
-      console.log('Response status:', response.status);
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error Response:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        throw new Error(`HTTP ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('Departments data received:', data);
 
       if (data.success && data.data) {
         const activeDepartments = data.data.filter(dept => dept.is_active);
-
-        console.log('Active departments:', activeDepartments);
         setDepartments(activeDepartments);
 
         if (!formData.clinicType && activeDepartments.length > 0) {
-          setFormData(prev => ({
-            ...prev,
-            clinicType: activeDepartments[0].code
-          }));
+          setFormData(prev => ({ ...prev, clinicType: activeDepartments[0].code }));
         }
-      } else {
-        console.error('Invalid data structure:', data);
-        setError('ข้อมูลแผนกไม่ถูกต้อง');
       }
     } catch (err) {
       console.error('Error fetching departments:', err);
@@ -236,7 +222,6 @@ export default function ThaiServiceForm() {
     }
   };
 
-  // API Functions
   const fetchPatientById = async (id) => {
     try {
       setLoading(true);
@@ -244,24 +229,19 @@ export default function ThaiServiceForm() {
 
       const response = await fetch(`${API_BASE_URL}/patients/${id}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
-
+      
       if (!response.ok) {
         throw new Error(`Failed to fetch patient: ${response.status}`);
       }
 
       const result = await response.json();
-
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch patient');
       }
 
       const patientData = result.data;
-      console.log('Patient data received:', patientData);
-
       setFormData(prev => ({
         ...prev,
         hn: patientData.hn || '',
@@ -271,7 +251,6 @@ export default function ThaiServiceForm() {
       }));
 
       setPreviewUrl(patientData.profile_image);
-
     } catch (err) {
       console.error('Fetch patient error:', err);
       setError(`ไม่สามารถโหลดข้อมูลผู้ป่วยได้: ${err.message}`);
@@ -280,100 +259,131 @@ export default function ThaiServiceForm() {
     }
   };
 
-  const searchPatients = async (query, field) => {
+  const fetchAvailablePackages = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/patients/search?${field}=${encodeURIComponent(query)}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-
-      const results = await response.json();
-      return results;
-    } catch (err) {
-      console.error('Error searching patients:', err);
-      return [];
+      const response = await fetch(`${API_BASE_URL}/packages?active=true`);
+      const result = await response.json();
+      if (result.success) setAvailablePackages(result.data);
+    } catch (error) {
+      console.error('Error fetching packages:', error);
     }
   };
 
-  // Load departments และ patient data when component mounts
+  const fetchAvailableMedical = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/medical?active=true`);
+      const result = await response.json();
+      if (result.success) setAvailableMedical(result.data);
+    } catch (error) {
+      console.error('Error fetching medical:', error);
+    }
+  };
+
+  const fetchAvailableContracts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/contracts?active=true`);
+      const result = await response.json();
+      if (result.success) setAvailableContracts(result.data);
+    } catch (error) {
+      console.error('Error fetching contracts:', error);
+    }
+  };
+
   useEffect(() => {
     fetchDepartments();
     fetchAvailablePackages();
-    fetchAvailableMedical();     // เพิ่ม
-    fetchAvailableContracts();   // เพิ่ม
+    fetchAvailableMedical();
+    fetchAvailableContracts();
   }, []);
 
   useEffect(() => {
+    
     if (patientId) {
-      console.log('Patient ID received:', patientId);
       fetchPatientById(patientId);
     }
   }, [patientId]);
-  const calculatePackagePrice = () => {
-    if (!selectedPackageForPatient) return 0;
 
-    const basePrice = selectedPackageForPatient.price;
-    let discountAmount = 0;
-
-    if (packageDiscount.type === 'percent') {
-      discountAmount = (basePrice * packageDiscount.value) / 100;
-    } else {
-      discountAmount = packageDiscount.value;
-    }
-
-    return Math.max(0, basePrice - discountAmount);
-  };
-  // Auto-generate AN/VN เมื่อเลือกคลินิก
   useEffect(() => {
     const autoGenerateAnVn = async () => {
-      // เพิ่มการตรวจสอบให้ครบถ้วนมากขึ้น
-      if (
-        formData.clinicType &&
-        departments.length > 0 &&
-        !formData.an &&
-        !patientId &&
-        !departmentsLoading &&
-        !generatingAnVn
-      ) {
+      if (formData.clinicType && departments.length > 0 && !formData.an && !patientId && !departmentsLoading && !generatingAnVn) {
         const selectedDept = departments.find(dept => dept.code === formData.clinicType);
-
         if (selectedDept) {
-          let generatedNumber = '';
-
           try {
-            if (isStrokeCenter()) {
-              generatedNumber = await generateAnVn('AN');
-            } else {
-              generatedNumber = await generateAnVn('VN', selectedDept.code);
-            }
-
+            const generatedNumber = isStrokeCenter()
+              ? await generateAnVn('AN')
+              : await generateAnVn('VN', selectedDept.code);
+            
             if (generatedNumber) {
-              setFormData(prev => ({
-                ...prev,
-                an: generatedNumber
-              }));
+              setFormData(prev => ({ ...prev, an: generatedNumber }));
             }
           } catch (error) {
             console.error('Auto-generate failed:', error);
-            // ไม่ต้อง set error ที่นี่ เพราะ generateAnVn จะจัดการเองแล้ว
           }
         }
       }
     };
 
-    // ใช้ timeout เพื่อให้แน่ใจว่า departments โหลดเสร็จแล้ว
     const timeoutId = setTimeout(autoGenerateAnVn, 100);
-
     return () => clearTimeout(timeoutId);
   }, [formData.clinicType, departments, departmentsLoading, generatingAnVn]);
 
-  // Modal functions
+  const isStrokeCenter = () => {
+    const selectedDept = departments.find(dept => dept.code === formData.clinicType);
+    return selectedDept?.code === 'STROKE';
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === 'clinicType' && value !== formData.clinicType) {
+      setFormData(prev => ({ ...prev, an: '' }));
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const calculatePackagePrice = () => {
+    if (!selectedPackageForPatient) return 0;
+    const basePrice = selectedPackageForPatient.price;
+    const discountAmount = packageDiscount.type === 'percent'
+      ? (basePrice * packageDiscount.value) / 100
+      : packageDiscount.value;
+    return Math.max(0, basePrice - discountAmount);
+  };
+
+  const calculateMedicalPrice = () => {
+    if (!selectedMedical) return 0;
+    const basePrice = selectedMedical.price;
+    const discountAmount = medicalDiscount.type === 'percent'
+      ? (basePrice * medicalDiscount.value) / 100
+      : medicalDiscount.value;
+    return Math.max(0, basePrice - discountAmount);
+  };
+
+  const calculateContractPrice = () => {
+    if (!selectedContract) return 0;
+    const basePrice = selectedContract.price;
+    const discountAmount = contractDiscount.type === 'percent'
+      ? (basePrice * contractDiscount.value) / 100
+      : contractDiscount.value;
+    return Math.max(0, basePrice - discountAmount);
+  };
+
+  const calculateTotalPrice = () => {
+    const basePrice = parseInt(formData.price) || 0;
+    const packageTotal = packageData.reduce((sum, item) => sum + item.price, 0);
+    const medicalTotal = medicalData.reduce((sum, item) => sum + item.price, 0);
+    const contractTotal = contractData.reduce((sum, item) => sum + item.price, 0);
+    return basePrice + packageTotal + medicalTotal + contractTotal;
+  };
+
   const openModal = (type) => {
     setModalType(type);
     setModalForm({ name: '', category: '', price: '' });
@@ -395,7 +405,6 @@ export default function ThaiServiceForm() {
   const handleModalSubmit = (e) => {
     e.preventDefault();
     const newItem = {
-      id: Date.now(),
       name: modalForm.name,
       ...(modalType === 'contract' && { category: modalForm.category }),
       price: parseInt(modalForm.price)
@@ -431,7 +440,6 @@ export default function ThaiServiceForm() {
     else if (type === 'contract') setContractData(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Save and confirmation functions
   const handleMainSaveClick = () => {
     setShowConfirmationModal(true);
   };
@@ -442,37 +450,24 @@ export default function ThaiServiceForm() {
       setError(null);
 
       const selectedDept = departments.find(dept => dept.code === formData.clinicType);
+      if (!selectedDept) throw new Error('กรุณาเลือกคลินิก');
+      if (!formData.hn) throw new Error('กรุณากรอก HN');
+      if (!formData.an) throw new Error('กรุณา generate AN/VN');
 
-      if (!selectedDept) {
-        throw new Error('กรุณาเลือกคลินิก');
-      }
-
-      // ตรวจสอบข้อมูลที่จำเป็น
-      if (!formData.hn) {
-        throw new Error('กรุณากรอก HN');
-      }
-
-      if (!formData.an) {
-        throw new Error('กรุณา generate AN/VN');
-      }
-
-      // กำหนด patient type
       const patientType = isStrokeCenter() ? 'AN' : 'VN';
 
-      // สร้าง payload สำหรับ Service Registration
       const payload = {
-        patientId: patientId, // จาก URL หรือ state
+        patientId: patientId,
         departmentId: selectedDept.id,
         patientType: patientType,
-        admissionId: null, // ถ้ามีให้ใส่
-        drugIntolerance: null, // ถ้ามีให้ใส่
+        admissionId: null,
+        drugIntolerance: null,
         profileImage: previewUrl,
         registrationDate: new Date().toISOString().split('T')[0],
         registrationTime: new Date().toTimeString().slice(0, 8),
-        createdBy: 1 // ใช้ user ID จริง
+        createdBy: 1
       };
 
-      // ถ้าเป็น Stroke Center (AN) ต้องมี contract data
       if (isStrokeCenter()) {
         payload.contractData = {
           startDate: formData.date,
@@ -482,8 +477,6 @@ export default function ThaiServiceForm() {
           basePrice: parseInt(formData.price) || 0,
           totalPrice: calculateTotalPrice(),
           notes: null,
-
-          // Packages
           packages: packageData.map(pkg => ({
             id: pkg.packageId || pkg.id,
             name: pkg.name,
@@ -492,8 +485,6 @@ export default function ThaiServiceForm() {
             discountValue: pkg.discount?.value || 0,
             finalPrice: pkg.price
           })),
-
-          // Medical Supplies
           medicalSupplies: medicalData.map(med => ({
             id: med.medicalId || med.id,
             name: med.name,
@@ -502,8 +493,6 @@ export default function ThaiServiceForm() {
             discountValue: med.discount?.value || 0,
             finalPrice: med.price
           })),
-
-          // Contract Items
           contractItems: contractData.map(con => ({
             id: con.contractId || con.id,
             name: con.name,
@@ -516,14 +505,11 @@ export default function ThaiServiceForm() {
         };
       }
 
-      console.log('Payload to send:', payload);
-
-      // เรียก API
       const response = await fetch(`${API_BASE_URL}/service-registrations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}` // ถ้ามี auth
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify(payload)
       });
@@ -534,17 +520,12 @@ export default function ThaiServiceForm() {
       }
 
       const result = await response.json();
-      console.log('Save successful:', result);
-
-      // แสดงข้อความสำเร็จ
+      
       alert(`บันทึกสำเร็จ! ${result.data.serviceNumber}`);
-
       setShowConfirmationModal(false);
 
-      // Navigate กลับไปหน้าคลินิก
       const clinicPath = selectedDept?.code.toLowerCase() || 'general-clinic';
       navigate(`/${clinicPath}`);
-
     } catch (err) {
       console.error('Error saving data:', err);
       setError(err.message);
@@ -553,162 +534,6 @@ export default function ThaiServiceForm() {
     }
   };
 
-  const handleCancelConfirmation = () => {
-    setShowConfirmationModal(false);
-  };
-
-  const calculateTotalPrice = () => {
-    const basePrice = parseInt(formData.price) || 0;
-    const packageTotal = packageData.reduce((sum, item) => sum + item.price, 0);
-    const medicalTotal = medicalData.reduce((sum, item) => sum + item.price, 0);
-    const contractTotal = contractData.reduce((sum, item) => sum + item.price, 0);
-
-    return basePrice + packageTotal + medicalTotal + contractTotal;
-  };
-
-  const populateFromPatient = (selectedPatient) => {
-    setFormData(prev => ({
-      ...prev,
-      hn: selectedPatient.hn,
-      firstName: selectedPatient.firstName,
-      lastName: selectedPatient.lastName,
-      idNumber: selectedPatient.idNumber
-    }));
-  };
-
-  // ตรวจสอบเงื่อนไขการแสดง AN/VN และส่วนอื่นๆ
-  const isStrokeCenter = () => {
-    const selectedDept = departments.find(dept => dept.code === formData.clinicType);
-    return selectedDept?.code === 'STROKE';
-  };
-
-  useEffect(() => {
-    if (!isStrokeCenter()) {
-      console.log('Clinic type changed - AN should become VN');
-    }
-  }, [formData.clinicType, departments]);
-
-  const handleInputChange = async (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    console.log(`Input changed: ${name} = ${value}`);
-
-    // Auto-clear AN/VN when clinic changes
-    if (name === 'clinicType' && value !== formData.clinicType) {
-      setFormData(prev => ({ ...prev, an: '' }));
-    }
-
-    // Only search if value has at least 2 characters and we're not currently loading
-    if (value.length >= 2 && !loading) {
-      if (name === 'hn') {
-        const suggestions = await searchPatients(value, 'hn');
-        setHnSuggestions(suggestions);
-        setShowHnSuggestions(true);
-      } else if (name === 'firstName') {
-        const suggestions = await searchPatients(value, 'firstName');
-        setFirstNameSuggestions(suggestions);
-        setShowFirstNameSuggestions(true);
-      } else if (name === 'lastName') {
-        const suggestions = await searchPatients(value, 'lastName');
-        setLastNameSuggestions(suggestions);
-        setShowLastNameSuggestions(true);
-      }
-    } else {
-      setShowHnSuggestions(false);
-      setShowFirstNameSuggestions(false);
-      setShowLastNameSuggestions(false);
-    }
-  };
-
-  const handleSuggestionSelect = (suggestion, field) => {
-    populateFromPatient(suggestion);
-    if (field === 'hn') setShowHnSuggestions(false);
-    if (field === 'firstName') setShowFirstNameSuggestions(false);
-    if (field === 'lastName') setShowLastNameSuggestions(false);
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
-  };
-
-  const handleInputBlur = (field) => {
-    setTimeout(() => {
-      if (field === 'hn') setShowHnSuggestions(false);
-      if (field === 'firstName') setShowFirstNameSuggestions(false);
-      if (field === 'lastName') setShowLastNameSuggestions(false);
-    }, 200);
-  };
-
-
-  const fetchAvailablePackages = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/packages?active=true`);
-      const result = await response.json();
-
-      if (result.success) {
-        setAvailablePackages(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching packages:', error);
-    }
-  };
-  const fetchAvailableMedical = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/medical?active=true`);
-      const result = await response.json();
-      if (result.success) {
-        setAvailableMedical(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching medical supplies:', error);
-    }
-  };
-
-  const fetchAvailableContracts = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/contracts?active=true`);
-      const result = await response.json();
-      if (result.success) {
-        setAvailableContracts(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching contracts:', error);
-    }
-  };
-  const calculateMedicalPrice = () => {
-    if (!selectedMedical) return 0;
-    const basePrice = selectedMedical.price;
-    let discountAmount = 0;
-
-    if (medicalDiscount.type === 'percent') {
-      discountAmount = (basePrice * medicalDiscount.value) / 100;
-    } else {
-      discountAmount = medicalDiscount.value;
-    }
-
-    return Math.max(0, basePrice - discountAmount);
-  };
-
-  const calculateContractPrice = () => {
-    if (!selectedContract) return 0;
-    const basePrice = selectedContract.price;
-    let discountAmount = 0;
-
-    if (contractDiscount.type === 'percent') {
-      discountAmount = (basePrice * contractDiscount.value) / 100;
-    } else {
-      discountAmount = contractDiscount.value;
-    }
-
-    return Math.max(0, basePrice - discountAmount);
-  };
-
-  // Show loading state
   if ((loading && patientId && !formData.hn) || departmentsLoading) {
     return (
       <div className="flex min-h-screen bg-slate-100 items-center justify-center">
@@ -728,185 +553,129 @@ export default function ThaiServiceForm() {
         <div className="bg-white p-8 rounded-lg shadow-md">
           <h1 className="text-2xl font-bold text-gray-800 mb-6">ผู้รับบริการวันที่ {currentDate}</h1>
 
-          {/* Show error message if any */}
+          {/* Universal Search Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              ค้นหาผู้ป่วย (HN หรือ ชื่อ-นามสกุล)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleUniversalSearch()}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="พิมพ์ HN, ชื่อ หรือ นามสกุล..."
+              />
+              <button
+                onClick={handleUniversalSearch}
+                disabled={isSearching || !searchQuery || searchQuery.trim().length < 2}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSearching ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>กำลังค้นหา...</span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    <span>ค้นหา</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              * สามารถค้นหาด้วย HN, ชื่อ หรือ นามสกุล (อย่างน้อย 2 ตัวอักษร)
+            </p>
+          </div>
+
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600">เกิดข้อผิดพลาด: {error}</p>
-              <button
-                onClick={() => setError(null)}
-                className="mt-2 text-sm text-red-500 hover:text-red-700"
-              >
+              <button onClick={() => setError(null)} className="mt-2 text-sm text-red-500 hover:text-red-700">
                 ปิดข้อความ
               </button>
             </div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Image Upload Section */}
             <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg h-full">
-              <input
-                type="file"
-                id="imageUpload"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              <label
-                htmlFor="imageUpload"
-                className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-              >
+              <input type="file" id="imageUpload" accept="image/*" onChange={handleFileSelect} className="hidden" />
+              <label htmlFor="imageUpload" className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors">
                 {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover rounded-lg"
-                  />
+                  <img src={previewUrl} alt="Preview" className="w-full h-full object-cover rounded-lg" />
                 ) : (
                   <>
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
                     <p className="text-sm text-blue-500 hover:text-blue-600 font-medium">Click to upload</p>
-                    <p className="text-sm text-gray-500"> or drag and drop</p>
+                    <p className="text-sm text-gray-500">or drag and drop</p>
                     <p className="text-xs text-gray-400 mt-2">JPG, JPEG, PNG</p>
                   </>
                 )}
               </label>
             </div>
 
-            {/* Form Fields Section */}
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* HN Field with Autocomplete */}
-              <div className="flex flex-col relative">
-                <label className="text-sm font-medium text-gray-700 mb-2">Hn</label>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-2">HN</label>
                 <input
                   type="text"
                   name="hn"
                   value={formData.hn}
                   onChange={handleInputChange}
-                  onBlur={() => handleInputBlur('hn')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="ค้นหา HN..."
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {showHnSuggestions && hnSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
-                    {hnSuggestions.map((suggestion, index) => (
-                      <div
-                        key={suggestion.id || index}
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                        onClick={() => handleSuggestionSelect(suggestion, 'hn')}
-                      >
-                        <div className="font-medium text-blue-600">{suggestion.hn}</div>
-                        <div className="text-sm text-gray-600">{suggestion.firstName} {suggestion.lastName}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* AN/VN Field พร้อมปุ่ม Generate */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700 mb-2">
                   {isStrokeCenter() ? 'AN' : 'VN'}
                 </label>
-
-                {/* Mobile: Stack vertically, Desktop: Side by side */}
                 <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     name="an"
                     value={formData.an}
                     onChange={handleInputChange}
-                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder={isStrokeCenter() ? 'AN จะถูก generate อัตโนมัติ' : 'VN จะถูก generate อัตโนมัติ'}
                   />
                   <button
                     type="button"
                     onClick={handleGenerateAnVn}
-                    className="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed sm:w-auto w-full justify-center flex items-center"
+                    className="flex-shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
                     disabled={!formData.clinicType || generatingAnVn}
-                    title="Generate ใหม่"
                   >
                     {generatingAnVn ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        <span className="sm:hidden">กำลัง Generate...</span>
-                      </>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 sm:mr-0 mr-2" />
-                        <span className="sm:hidden">Generate ใหม่</span>
-                      </>
+                      <RefreshCw className="w-4 h-4" />
                     )}
                   </button>
                 </div>
-
-                {formData.an && (
-                  <p className="text-xs text-green-600 mt-1 break-all">
-                    {isStrokeCenter() ?
-                      `AN: ${formData.an} (Format: IPD + YYMMDD + NNNN)` :
-                      `VN: ${formData.an} (Format: VN + YYMMDD + DeptCode + NNN)`
-                    }
-                  </p>
-                )}
-
-                {generatingAnVn && (
-                  <p className="text-xs text-blue-600 mt-1">กำลัง generate เลข...</p>
-                )}
               </div>
 
-              {/* First Name Field with Autocomplete */}
-              <div className="flex flex-col relative">
+              <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700 mb-2">ชื่อ</label>
                 <input
                   type="text"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleInputChange}
-                  onBlur={() => handleInputBlur('firstName')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="ค้นหาชื่อ..."
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {showFirstNameSuggestions && firstNameSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
-                    {firstNameSuggestions.map((suggestion, index) => (
-                      <div
-                        key={suggestion.id || index}
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                        onClick={() => handleSuggestionSelect(suggestion, 'firstName')}
-                      >
-                        <div className="font-medium text-blue-600">{suggestion.firstName} {suggestion.lastName}</div>
-                        <div className="text-sm text-gray-600">HN: {suggestion.hn}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              {/* Last Name Field with Autocomplete */}
-              <div className="flex flex-col relative">
+              <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700 mb-2">นามสกุล</label>
                 <input
                   type="text"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleInputChange}
-                  onBlur={() => handleInputBlur('lastName')}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="ค้นหานามสกุล..."
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {showLastNameSuggestions && lastNameSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
-                    {lastNameSuggestions.map((suggestion, index) => (
-                      <div
-                        key={suggestion.id || index}
-                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                        onClick={() => handleSuggestionSelect(suggestion, 'lastName')}
-                      >
-                        <div className="font-medium text-blue-600">{suggestion.firstName} {suggestion.lastName}</div>
-                        <div className="text-sm text-gray-600">HN: {suggestion.hn}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-col">
@@ -916,11 +685,10 @@ export default function ThaiServiceForm() {
                   name="idNumber"
                   value={formData.idNumber}
                   onChange={handleInputChange}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Department/Clinic Selection - ใช้ข้อมูลจาก API */}
               <div className="flex flex-col">
                 <label className="text-sm font-medium text-gray-700 mb-2">คลินิก</label>
                 <div className="relative">
@@ -928,7 +696,7 @@ export default function ThaiServiceForm() {
                     name="clinicType"
                     value={formData.clinicType}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
                     disabled={departmentsLoading}
                   >
                     {departmentsLoading ? (
@@ -949,19 +717,14 @@ export default function ThaiServiceForm() {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 </div>
-                {departmentsLoading && (
-                  <p className="text-xs text-gray-500 mt-1">กำลังโหลดข้อมูลแผนก...</p>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Bottom Section - Only show for stroke rehabilitation center */}
           {isStrokeCenter() && (
             <>
               <div className="mt-8">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">ระยะเวลาของสัญญา</h2>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="flex flex-col">
                     <label className="text-sm font-medium text-gray-700 mb-2">วันที่</label>
@@ -970,7 +733,7 @@ export default function ThaiServiceForm() {
                       name="date"
                       value={formData.date}
                       onChange={handleInputChange}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="flex flex-col">
@@ -980,7 +743,7 @@ export default function ThaiServiceForm() {
                       name="toDate"
                       value={formData.toDate}
                       onChange={handleInputChange}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -993,7 +756,7 @@ export default function ThaiServiceForm() {
                         name="building"
                         value={formData.building}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
                       >
                         <option value="">เลือกห้อง</option>
                         <option value="ห้อง 1">ห้อง 1</option>
@@ -1010,7 +773,7 @@ export default function ThaiServiceForm() {
                         name="floor"
                         value={formData.floor}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
                       >
                         <option value="รายวัน">รายวัน</option>
                         <option value="รายเดือน">รายเดือน</option>
@@ -1027,16 +790,14 @@ export default function ThaiServiceForm() {
                       name="price"
                       value={formData.price}
                       onChange={handleInputChange}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Tables Section */}
               <div className="mt-8 space-y-8">
-                {/* คอร์สแพ็คเกจกายภาพ Table */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">คอร์สแพ็คเกจกายภาพ</h2>
@@ -1094,21 +855,13 @@ export default function ThaiServiceForm() {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 border-r border-blue-300">
-                                {item.price.toLocaleString()}
-                              </td>
+                              <td className="px-4 py-3 border-r border-blue-300">{item.price.toLocaleString()}</td>
                               <td className="px-4 py-3">
                                 <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleEdit('package', index)}
-                                    className="text-blue-600 hover:text-blue-800"
-                                  >
+                                  <button onClick={() => handleEdit('package', index)} className="text-blue-600 hover:text-blue-800">
                                     <Edit className="w-4 h-4" />
                                   </button>
-                                  <button
-                                    onClick={() => handleDelete('package', index)}
-                                    className="text-red-600 hover:text-red-800"
-                                  >
+                                  <button onClick={() => handleDelete('package', index)} className="text-red-600 hover:text-red-800">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
@@ -1121,7 +874,6 @@ export default function ThaiServiceForm() {
                   </div>
                 </div>
 
-                {/* รายการเหมาเวชภัณฑ์ Table */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">รายการเหมาเวชภัณฑ์</h2>
@@ -1166,16 +918,10 @@ export default function ThaiServiceForm() {
                               <td className="px-4 py-3 border-r border-gray-300">{item.price.toLocaleString()}</td>
                               <td className="px-4 py-3">
                                 <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleEdit('medical', index)}
-                                    className="text-blue-600 hover:text-blue-800"
-                                  >
+                                  <button onClick={() => handleEdit('medical', index)} className="text-blue-600 hover:text-blue-800">
                                     <Edit className="w-4 h-4" />
                                   </button>
-                                  <button
-                                    onClick={() => handleDelete('medical', index)}
-                                    className="text-red-600 hover:text-red-800"
-                                  >
+                                  <button onClick={() => handleDelete('medical', index)} className="text-red-600 hover:text-red-800">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
@@ -1188,7 +934,6 @@ export default function ThaiServiceForm() {
                   </div>
                 </div>
 
-                {/* รายการเหมา Table */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-gray-800">รายการเหมา</h2>
@@ -1235,16 +980,10 @@ export default function ThaiServiceForm() {
                               <td className="px-4 py-3 border-r border-gray-300">{item.price.toLocaleString()}</td>
                               <td className="px-4 py-3">
                                 <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleEdit('contract', index)}
-                                    className="text-blue-600 hover:text-blue-800"
-                                  >
+                                  <button onClick={() => handleEdit('contract', index)} className="text-blue-600 hover:text-blue-800">
                                     <Edit className="w-4 h-4" />
                                   </button>
-                                  <button
-                                    onClick={() => handleDelete('contract', index)}
-                                    className="text-red-600 hover:text-red-800"
-                                  >
+                                  <button onClick={() => handleDelete('contract', index)} className="text-red-600 hover:text-red-800">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
@@ -1260,12 +999,12 @@ export default function ThaiServiceForm() {
             </>
           )}
 
-          {/* Action Buttons */}
           <div className="flex justify-start space-x-4 mt-8">
             <button
               onClick={handleMainSaveClick}
               disabled={loading}
-              className="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+              className="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
               {loading ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
             </button>
             <button
@@ -1277,6 +1016,103 @@ export default function ThaiServiceForm() {
           </div>
         </div>
       </div>
+
+      {/* Search Results Modal */}
+      {showSearchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold">ผลการค้นหาผู้ป่วย</h2>
+              <button
+                onClick={() => {
+                  setShowSearchModal(false);
+                  setSearchResults([]);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {searchResults.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">ไม่พบผู้ป่วยที่ค้นหา</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 mb-4">
+                    พบผู้ป่วย {searchResults.length} รายการ
+                  </p>
+                  {searchResults.map((patient, index) => (
+                    <div
+                      key={patient.id || index}
+                      onClick={() => selectPatientFromSearch(patient)}
+                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            {patient.profile_image && (
+                              <img
+                                src={patient.profile_image}
+                                alt="Profile"
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
+                            )}
+                            <div>
+                              <h3 className="font-semibold text-lg text-gray-900">
+                                {patient.first_name || patient.firstName} {patient.last_name || patient.lastName}
+                              </h3>
+                              <p className="text-sm text-blue-600">HN: {patient.hn}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-sm mt-3">
+                            <div>
+                              <span className="text-gray-500">เลขบัตรประชาชน:</span>
+                              <p className="font-medium">{patient.id_card || patient.idNumber || '-'}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">เพศ:</span>
+                              <p className="font-medium">{patient.gender || '-'}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">วันเกิด:</span>
+                              <p className="font-medium">{patient.date_of_birth || patient.dateOfBirth || '-'}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">เบอร์โทร:</span>
+                              <p className="font-medium">{patient.phone || '-'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <button className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0">
+                          เลือก
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-white border-t p-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowSearchModal(false);
+                  setSearchResults([]);
+                }}
+                className="px-6 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Package Selection Modal */}
       {showPackageModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1601,7 +1437,7 @@ export default function ThaiServiceForm() {
                 onClick={() => {
                   if (selectedMedical) {
                     const newItem = {
-                      id: Date.now(),
+                     
                       name: selectedMedical.name,
                       price: calculateMedicalPrice(),
                       originalPrice: selectedMedical.price,
@@ -1775,7 +1611,6 @@ export default function ThaiServiceForm() {
                 onClick={() => {
                   if (selectedContract) {
                     const newItem = {
-                      id: Date.now(),
                       name: selectedContract.name,
                       category: selectedContract.category || selectedContract.billing,
                       price: calculateContractPrice(),
