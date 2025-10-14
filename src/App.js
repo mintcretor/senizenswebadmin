@@ -1,3 +1,4 @@
+// App.js - Updated version
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import SenizensLogin from './pages/Login';
@@ -10,34 +11,21 @@ import VNPatientList from './pages/Strokecenter';
 import ServiceManagementSystem from './pages/SettingSystem';
 import PatientDetails from './pages/PatientDetails';
 import EditPatient from './pages/EditPatient';
-import SenizensRegister from './pages/Register'
-import MultidisciplinaryReport from './pages/MultidisciplinaryReport'
-import RehabReport from './pages/RehabReport'
-import DailyReport from './pages/DailyReport'
-import ReportsList from './pages/ReportsList'
-import Example from './pages/Example'
-import ProcedureReport from './pages/ProcedureReport'
+import SenizensRegister from './pages/Register';
+import MultidisciplinaryReport from './pages/MultidisciplinaryReport';
+import RehabReport from './pages/RehabReport';
+import DailyReport from './pages/DailyReport';
+import ReportsList from './pages/ReportsList';
+import Example from './pages/Example';
+import ProcedureReport from './pages/ProcedureReport';
+
+// Import auth utilities
+import { checkAuthStatus } from './utils/auth';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = checkAuthStatus(); // ฟังก์ชันตรวจสอบการ login
-
+  const isAuthenticated = checkAuthStatus();
   return isAuthenticated ? children : <Navigate to="/login" replace />;
-};
-
-// ฟังก์ชันตรวจสอบสถานะการ login
-const checkAuthStatus = () => {
-  // วิธีที่ 1: ตรวจสอบจาก localStorage
-  const token = localStorage.getItem('authToken');
-  const user = localStorage.getItem('user');
-
-  // วิธีที่ 2: ตรวจสอบจาก sessionStorage
-  // const token = sessionStorage.getItem('authToken');
-
-  // วิธีที่ 3: ตรวจสอบจาก cookie (ถ้าใช้)
-  // const token = document.cookie.includes('authToken');
-
-  return token && user; // คืนค่า true ถ้ามี token และ user
 };
 
 function App() {
@@ -63,7 +51,6 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Route สำหรับ Login */}
         <Route
           path="/login"
           element={
@@ -76,7 +63,6 @@ function App() {
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <SenizensRegister />
           }
         />
-        {/* Root route - redirect based on auth status */}
         <Route
           path="/"
           element={
@@ -106,10 +92,8 @@ function App() {
           <Route path="/reports-list" element={<ReportsList />} />
           <Route path="/procedure-form" element={<Example />} />
           <Route path="/procedure-report" element={<ProcedureReport />} />
-
         </Route>
 
-        {/* Catch all route - redirect to appropriate page */}
         <Route
           path="*"
           element={

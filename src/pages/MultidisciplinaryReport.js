@@ -219,7 +219,7 @@ export default function MultidisciplinaryReport() {
     urination: '',
     defecation: '',
     sleepRounds: '',
-    mealsComplete: 'ครบ',
+    mealsComplete: '',
     additionalNotes: '',
     appointment: '',
   });
@@ -291,7 +291,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
 ปริมาตรน้ำออก (Output) รอบ ${formData.fluidOutputTime} : ${formData.fluidOutput} cc
 ปัสสาวะ : ${formData.urination} ครั้ง ถ่ายอุจจาระ : ${formData.defecation} ครั้ง
 นอนหลับ : ${formData.sleepRounds} รอบ
-รับประทานอาหารได้ครับ 3 มื้อหรือไม่? : ${formData.mealsComplete}
+รับประทานอาหารได้ : ${formData.mealsComplete} มื้อ
 หมายเหตุเพิ่มเติม : ${formData.additionalNotes}
 ผู้รายงาน : ${reporterName} (${user?.code || user?.username || ''})
 —--------------------------------------------------------------------------------------------------------------------------------------
@@ -634,31 +634,18 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">รับประทานอาหาร 3 มื้อ</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => handleChange('mealsComplete', 'ครบ')}
-                className={`py-3 px-4 text-base font-medium rounded-lg border-2 transition ${
-                  formData.mealsComplete === 'ครบ'
-                    ? 'bg-green-500 text-white border-green-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-green-500'
-                }`}
-              >
-                ครบ
-              </button>
-              <button
-                type="button"
-                onClick={() => handleChange('mealsComplete', 'ไม่ครบ')}
-                className={`py-3 px-4 text-base font-medium rounded-lg border-2 transition ${
-                  formData.mealsComplete === 'ไม่ครบ'
-                    ? 'bg-red-500 text-white border-red-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:border-red-500'
-                }`}
-              >
-                ไม่ครบ
-              </button>
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">รับประทานอาหาร (จำนวนมื้อ)</label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max="3"
+              value={formData.mealsComplete}
+              onChange={(e) => handleChange('mealsComplete', e.target.value)}
+              placeholder="0-3"
+              className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">กรอกจำนวนมื้ออาหารที่รับประทานได้ (0-3 มื้อ)</p>
           </div>
 
           <div className="mb-4">

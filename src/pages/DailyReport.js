@@ -331,8 +331,7 @@ ${report.o2_saturation ? `• ออกซิเจน: ${report.o2_saturation}%
 
 การพักผ่อน:
 - นอนหลับ: ${report.sleep_rounds && report.sleep_rounds !== 0 ? `${report.sleep_rounds} รอบ` : 'ยังไม่ได้นอนหลับ'}
-- รับประทานอาหาร 3 มื้อ: ${report.meals_complete || '-'}
-
+- รับประทานอาหาร: ${report.meals_complete ? `${report.meals_complete} มื้อ` : '-'}
 ${report.additional_notes ? `หมายเหตุ: ${report.additional_notes}` : ''}
 ${report.appointment ? `การนัดหมาย: ${report.appointment}` : ''}
 
@@ -674,8 +673,7 @@ ${report.others ? `อื่นๆ:\n${report.others}` : ''}
                                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                                                                 <div className="bg-white rounded px-2 sm:px-3 py-2">
                                                                     <p className="text-xs text-gray-500">รับประทานอาหาร 3 มื้อ</p>
-                                                                    <p className="font-semibold text-sm">{report.meals_complete || '-'}</p>
-                                                                </div>
+                                                                    <p className="font-semibold text-sm">{report.meals_complete ? `${report.meals_complete} มื้อ` : '-'}</p>                                                                </div>
                                                                 {report.appointment && (
                                                                     <div className="bg-white rounded px-2 sm:px-3 py-2">
                                                                         <p className="text-xs text-gray-500">นัดหมาย</p>

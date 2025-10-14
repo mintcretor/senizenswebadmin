@@ -85,11 +85,11 @@ const Patient = () => {
       // Fallback to mock data for development
       if (process.env.NODE_ENV === 'development') {
         console.log('Using fallback data for development');
-        const mockData = generateMockPatients(page, search);
-        setPatientData(mockData.data);
-        setTotalPatients(mockData.total);
-        setTotalPages(Math.ceil(mockData.total / PATIENTS_PER_PAGE));
-        setCurrentPage(page);
+        //const mockData = generateMockPatients(page, search);
+        setPatientData();
+        setTotalPatients();
+        setTotalPages();
+        setCurrentPage();
       }
     } finally {
       setLoading(false);
