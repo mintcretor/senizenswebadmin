@@ -15,7 +15,8 @@ export default function ThaiServiceForm() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const patientId = id || searchParams.get('patientId') || location.state?.patientId;
-
+  
+  
   const [currentDate, setCurrentDate] = useState(formatThaiDate(new Date()));
   const [formData, setFormData] = useState({
     hn: '',
@@ -38,7 +39,7 @@ export default function ThaiServiceForm() {
   const [departments, setDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
   const [generatingAnVn, setGeneratingAnVn] = useState(false);
-
+  const [patient_id, setPatient_id] = useState(null);
   // Modal states
   const [showModal, setShowModal] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -122,6 +123,7 @@ export default function ThaiServiceForm() {
   };
 
   const selectPatientFromSearch = (patient) => {
+    
     setFormData(prev => ({
       ...prev,
       hn: patient.hn || '',
@@ -129,7 +131,7 @@ export default function ThaiServiceForm() {
       lastName: patient.last_name || patient.lastName || '',
       idNumber: patient.id_card || patient.idNumber || '',
     }));
-
+    setPatient_id(patient.id);
     if (patient.profile_image) {
       setPreviewUrl(patient.profile_image);
     }
@@ -333,6 +335,7 @@ export default function ThaiServiceForm() {
   useEffect(() => {
 
     if (patientId) {
+      setPatient_id(patientId);
       fetchPatientById(patientId);
     }
   }, [patientId]);
@@ -550,7 +553,7 @@ const handleRoomChange = (e) => {
       const patientType = isStrokeCenter() ? 'AN' : 'VN';
 
       const payload = {
-        patientId: patientId,
+        patientId: patient_id,
         departmentId: selectedDept.id,
         patientType: patientType,
         admissionId: null,

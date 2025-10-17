@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus, Users, User, Save, Share2, ChevronRight, Info, AlertCircle, QrCode } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import { ro } from 'date-fns/locale';
 
 // API Configuration
 const API_BASE_URL = 'https://api.thesenizens.com/api';
@@ -30,10 +31,10 @@ const createApiClient = () => {
 
   return {
     searchPatients: (query) =>
-      fetchWithAuth(`/patients/search?q=${encodeURIComponent(query)}`),
+      fetchWithAuth(`/service-registrations?search=${encodeURIComponent(query)}`),
 
     getPatientByHN: (hn) =>
-      fetchWithAuth(`/patients/hn/${hn}`),
+      fetchWithAuth(`/service-registrations/hn/${hn}`),
 
     saveMultidisciplinaryReport: (data) =>
       fetchWithAuth('/reports/multidisciplinary', {
@@ -74,6 +75,7 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
     try {
       setIsSearching(true);
       const results = await api.searchPatients(query);
+
       setSearchResults(results.data || []);
     } catch (err) {
       console.error('Search error:', err);
@@ -197,12 +199,15 @@ export default function MultidisciplinaryReport() {
   const [showShareButton, setShowShareButton] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [isLoadingPatient, setIsLoadingPatient] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [selectedPatient, setSelectedPatient] = useState(
+    {
+      room_number: '',
+    }
+  );
   const [isSaving, setIsSaving] = useState(false);
   const { hn } = useParams();
 
   const [formData, setFormData] = useState({
-    roomNumber: '',
     shift: 'N',
     date: new Date().toISOString().split('T')[0],
     overallCondition: '',
@@ -276,7 +281,7 @@ export default function MultidisciplinaryReport() {
     const reporterName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.nickname || 'ผู้ใช้งาน';
     const patientName = selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : '';
 
-    return `${formData.roomNumber} ${patientName}
+    return `${selectedPatient.room_number} ${patientName}
 HN: ${selectedPatient?.hn || ''}
 เวร${formData.shift} ${formatDate(formData.date)}
 —---------------------------------------------------------------------------------------------------------------------------------------
@@ -309,7 +314,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
       alert('กรุณาเลือกผู้ป่วย\nกรุณาค้นหาและเลือกข้อมูลผู้ป่วยก่อน');
       return;
     }
-    if (!formData.roomNumber) {
+    if (!selectedPatient.room_number && !formData.roomNumber ) {
       alert('กรุณากรอกเลขห้อง\nกรุณากรอกเลขห้องผู้ป่วย');
       return;
     }
@@ -320,7 +325,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
       const reportData = {
         patient_id: selectedPatient.id,
         patient_hn: selectedPatient.hn,
-        room_number: formData.roomNumber,
+        room_number: selectedPatient.room_number || formData.roomNumber || '',
         shift: formData.shift,
         report_date: formData.date,
         overall_condition: formData.overallCondition,
@@ -422,7 +427,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
             </div>
           )}
 
-          {selectedPatient ? (
+          {selectedPatient.hn ? (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
@@ -467,8 +472,8 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
     </label>
     <input
       type="text"
-      value={formData.roomNumber}
-      onChange={(e) => handleChange('roomNumber', e.target.value)}
+      value={selectedPatient.room_number  || null}
+      readOnly={!!selectedPatient.room_number}
       placeholder="กรอกเลขห้อง เช่น 301"
       className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
