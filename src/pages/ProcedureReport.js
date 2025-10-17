@@ -69,7 +69,8 @@ const ProcedureReport = () => {
         r.hn?.toLowerCase().includes(searchText.toLowerCase()) ||
         r.first_name?.toLowerCase().includes(searchText.toLowerCase()) ||
         r.last_name?.toLowerCase().includes(searchText.toLowerCase()) ||
-        r.service_number?.toLowerCase().includes(searchText.toLowerCase())
+        r.service_number?.toLowerCase().includes(searchText.toLowerCase()) ||
+        r.room_number?.toLowerCase().includes(searchText.toLowerCase())
       );
     }
 
@@ -291,6 +292,7 @@ const ProcedureReport = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">เวร</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">HN</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ชื่อ-นามสกุล</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ห้อง</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">หัตถการพยาบาล</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">หัตถการไม่คิดเงิน</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ผู้บันทึก</th>
@@ -315,6 +317,7 @@ const ProcedureReport = () => {
                       </td>
                       <td className="px-4 py-3 text-sm font-medium">{record.hn}</td>
                       <td className="px-4 py-3 text-sm">{record.first_name} {record.last_name}</td>
+                      <td className="px-4 py-3 text-sm">{record.room_number || '-'}</td>
                       <td className="px-4 py-3 text-sm">
                         {record.procedures && record.procedures.length > 0 ? (
                           <div className="space-y-1">

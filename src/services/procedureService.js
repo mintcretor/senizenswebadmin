@@ -40,7 +40,7 @@ export const procedureService = {
   // ดึงหมายเลขเครื่อง
   async getMachineNumbers() {
     try {
-      const response = await fetch(`${API_BASE_URL}/machines`, {
+      const response = await fetch(`${API_BASE_URL}/util/machines`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

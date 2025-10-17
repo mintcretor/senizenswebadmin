@@ -145,7 +145,7 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
             <div className="space-y-3">
               {searchResults.map((patient) => (
                 <button
-                  key={patient.id}
+                  key={patient.patient_id}
                   onClick={() => handleSelectPatient(patient)}
                   className="w-full flex items-center gap-3 p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
                 >
@@ -314,7 +314,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
       alert('กรุณาเลือกผู้ป่วย\nกรุณาค้นหาและเลือกข้อมูลผู้ป่วยก่อน');
       return;
     }
-    if (!selectedPatient.room_number && !formData.roomNumber ) {
+    if (!selectedPatient.room_number && !formData.roomNumber) {
       alert('กรุณากรอกเลขห้อง\nกรุณากรอกเลขห้องผู้ป่วย');
       return;
     }
@@ -323,7 +323,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
       setIsSaving(true);
 
       const reportData = {
-        patient_id: selectedPatient.id,
+        patient_id: selectedPatient.patient_id,
         patient_hn: selectedPatient.hn,
         room_number: selectedPatient.room_number || formData.roomNumber || '',
         shift: formData.shift,
@@ -465,43 +465,43 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
             </button>
           )}
 
-        <div className="space-y-3">
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">
-      เลขห้อง <span className="text-red-600">*</span>
-    </label>
-    <input
-      type="text"
-      value={selectedPatient.room_number  || null}
-      readOnly={!!selectedPatient.room_number}
-      placeholder="กรอกเลขห้อง เช่น 301"
-      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                เลขห้อง
+              </label>
+              <input
+                type="text"
+                value={selectedPatient.room_number || ''}
+                readOnly
+                placeholder="กรอกเลขห้อง เช่น 301"
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
 
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">เวร</label>
-    <select
-      value={formData.shift}
-      onChange={(e) => handleChange('shift', e.target.value)}
-      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      <option value="D">D (กลางวัน)</option>
-      <option value="E">E (เย็น)</option>
-      <option value="N">N (กลางคืน)</option>
-    </select>
-  </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">เวร</label>
+              <select
+                value={formData.shift}
+                onChange={(e) => handleChange('shift', e.target.value)}
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="D">D (กลางวัน)</option>
+                <option value="E">E (เย็น)</option>
+                <option value="N">N (กลางคืน)</option>
+              </select>
+            </div>
 
-  <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">วันที่</label>
-    <input
-      type="date"
-      value={formData.date}
-      onChange={(e) => handleChange('date', e.target.value)}
-      className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-</div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">วันที่</label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => handleChange('date', e.target.value)}
+                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
@@ -534,7 +534,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
             </select>
           </div>
 
-       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
             <h3 className="text-sm font-semibold text-green-800 mb-3">รายละเอียดสัญญาณชีพ</h3>
 
             <div className="space-y-3">
@@ -670,7 +670,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">ผู้รายงาน</label>
             <div className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-600">
-              { `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.nickname || 'ผู้ใช้งาน'}
+              {`${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.nickname || 'ผู้ใช้งาน'}
             </div>
           </div>
         </div>

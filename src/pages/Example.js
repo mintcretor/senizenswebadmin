@@ -21,7 +21,7 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
     try {
       setIsSearching(true);
       const response = await fetch(
-        `${API_BASE_URL}/patients/search?q=${encodeURIComponent(query)}`,
+        `${API_BASE_URL}/service-registrations?search=${encodeURIComponent(query)}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -31,12 +31,12 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
       );
 
       const result = await response.json();
-
+      console.log('Search result:', result);
       if (result.success) {
         // Transform data ให้ตรงกับ format ที่ใช้
         const transformedPatients = result.data.map(p => ({
-          id: p.id,
-          patient_id: p.id,
+          id: p.registration_id,
+          patient_id: p.patient_id,
           prefix: p.prename || '',
           firstname: p.first_name,
           lastname: p.last_name,
@@ -202,14 +202,8 @@ const PatientProcedureForm = () => {
     setLoading(true);
     try {
       // Load patients
-      const response = await fetch(`${API_BASE_URL}/patients`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const patientsResult = await response.json();
+      const patientsResult = await procedureService.getANPatients();
+      //const patientsResult = await response.json();
 
       console.log(patientsResult);
 
