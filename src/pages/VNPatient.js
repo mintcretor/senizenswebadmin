@@ -15,7 +15,7 @@ export default function ThaiServiceForm() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const patientId = id || searchParams.get('patientId') || location.state?.patientId;
-  
+
   const [currentDate, setCurrentDate] = useState(formatThaiDate(new Date()));
   const [formData, setFormData] = useState({
     hn: '',
@@ -62,13 +62,15 @@ export default function ThaiServiceForm() {
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-
+  const [rooms, setRooms] = useState([]);
+  const [roomsLoading, setRoomsLoading] = useState(true);
+  const [selectedRoom, setSelectedRoom] = useState(null);
   // Package/Medical/Contract modals
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [availablePackages, setAvailablePackages] = useState([]);
   const [selectedPackageForPatient, setSelectedPackageForPatient] = useState(null);
   const [packageDiscount, setPackageDiscount] = useState({ type: 'percent', value: 0 });
-  
+
   const [showMedicalModal, setShowMedicalModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [availableMedical, setAvailableMedical] = useState([]);
@@ -96,13 +98,13 @@ export default function ThaiServiceForm() {
           headers: { 'Content-Type': 'application/json' },
         }
       );
-    
+
       if (!response.ok) {
         throw new Error(`Search failed: ${response.status}`);
       }
 
       const results = await response.json();
-        console.log('Search response:', results);
+      console.log('Search response:', results);
       if (results.data && results.data.length > 0) {
         setSearchResults(results.data);
         setShowSearchModal(true);
@@ -142,7 +144,7 @@ export default function ThaiServiceForm() {
       setGeneratingAnVn(true);
       setError(null);
 
-      let endpoint = type === 'AN' 
+      let endpoint = type === 'AN'
         ? '/service-registrations/generate-an'
         : `/service-registrations/generate-vn?departmentCode=${encodeURIComponent(departmentCode)}`;
 
@@ -181,7 +183,7 @@ export default function ThaiServiceForm() {
       return;
     }
 
-    const generatedNumber = isStrokeCenter() 
+    const generatedNumber = isStrokeCenter()
       ? await generateAnVn('AN')
       : await generateAnVn('VN', selectedDept.code);
 
@@ -231,7 +233,7 @@ export default function ThaiServiceForm() {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch patient: ${response.status}`);
       }
@@ -289,15 +291,47 @@ export default function ThaiServiceForm() {
     }
   };
 
+  const fetchRooms = async () => {
+    try {
+      setRoomsLoading(true);
+      setError(null);
+
+      const response = await fetch(`${API_BASE_URL}/room?active=true`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        // เรียงตาม display_order
+        const sortedRooms = data.data.sort((a, b) =>
+          (a.display_order || 0) - (b.display_order || 0)
+        );
+        setRooms(sortedRooms);
+      }
+    } catch (err) {
+      console.error('Error fetching rooms:', err);
+      setError(`เกิดข้อผิดพลาดในการดึงข้อมูลห้อง: ${err.message}`);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchDepartments();
     fetchAvailablePackages();
     fetchAvailableMedical();
     fetchAvailableContracts();
+    fetchRooms(); // เพิ่มบรรทัดนี้
   }, []);
 
   useEffect(() => {
-    
+
     if (patientId) {
       fetchPatientById(patientId);
     }
@@ -312,7 +346,7 @@ export default function ThaiServiceForm() {
             const generatedNumber = isStrokeCenter()
               ? await generateAnVn('AN')
               : await generateAnVn('VN', selectedDept.code);
-            
+
             if (generatedNumber) {
               setFormData(prev => ({ ...prev, an: generatedNumber }));
             }
@@ -338,6 +372,65 @@ export default function ThaiServiceForm() {
 
     if (name === 'clinicType' && value !== formData.clinicType) {
       setFormData(prev => ({ ...prev, an: '' }));
+    }
+  };
+
+const handleRoomChange = (e) => {
+    const roomId = e.target.value;
+    const room = rooms.find(r => r.id === parseInt(roomId));
+
+    if (room) {
+      setSelectedRoom(room);
+
+      // --- ส่วนที่เพิ่มเข้ามา ---
+      // 1. กำหนดประเภทเริ่มต้นเป็น 'รายวัน'
+      const defaultBillingType = 'รายวัน';
+      // 2. ดึงราคาตามประเภทเริ่มต้น (หรือ 0 ถ้าไม่มี)
+      const defaultPrice = room.daily_price || 0; 
+      // --- จบส่วนที่เพิ่มเข้ามา ---
+
+      setFormData(prev => ({
+        ...prev,
+        building: room.room_number,
+        roomTypeId: room.id,
+        // --- อัปเดต state ด้วยค่าเริ่มต้น ---
+        floor: defaultBillingType,        
+        price: defaultPrice.toString()  
+      }));
+
+    } else {
+      // ส่วนนี้ถูกต้องอยู่แล้ว (รีเซ็ตค่าเมื่อไม่ได้เลือกห้อง)
+      setSelectedRoom(null);
+      setFormData(prev => ({
+        ...prev,
+        building: '',
+        roomTypeId: null,
+        floor: 'รายวัน', 
+        price: ''
+      }));
+    }
+  };
+  const handleBillingTypeChange = (e) => {
+    const billingType = e.target.value;
+    setFormData(prev => ({ ...prev, floor: billingType }));
+
+    // อัพเดทราคาตามประเภทที่เลือก
+    if (selectedRoom) {
+      let price = 0;
+      switch (billingType) {
+        case 'รายวัน':
+          price = selectedRoom.daily_price || 0;
+          break;
+        case 'รายสัปดาห์':
+          price = selectedRoom.weekly_price || 0;
+          break;
+        case 'รายเดือน':
+          price = selectedRoom.monthly_price || 0;
+          break;
+        default:
+          price = 0;
+      }
+      setFormData(prev => ({ ...prev, price: price.toString() }));
     }
   };
 
@@ -520,7 +613,7 @@ export default function ThaiServiceForm() {
       }
 
       const result = await response.json();
-      
+
       alert(`บันทึกสำเร็จ! ${result.data.serviceNumber}`);
       setShowConfirmationModal(false);
 
@@ -754,16 +847,23 @@ export default function ThaiServiceForm() {
                     <div className="relative">
                       <select
                         name="building"
-                        value={formData.building}
-                        onChange={handleInputChange}
+                        value={selectedRoom?.id || ''}
+                        onChange={handleRoomChange}
+                        disabled={roomsLoading}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
                       >
                         <option value="">เลือกห้อง</option>
-                        <option value="ห้อง 1">ห้อง 1</option>
-                        <option value="ห้อง 2">ห้อง 2</option>
+                        {rooms.map((room) => (
+                          <option key={room.id} value={room.id}>
+                            {room.room_number} - {room.room_type}
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                     </div>
+                    {roomsLoading && (
+                      <p className="text-xs text-gray-500 mt-1">กำลังโหลดข้อมูลห้อง...</p>
+                    )}
                   </div>
 
                   <div className="flex flex-col">
@@ -772,15 +872,23 @@ export default function ThaiServiceForm() {
                       <select
                         name="floor"
                         value={formData.floor}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                        onChange={handleBillingTypeChange}
+                        disabled={!selectedRoom}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                       >
                         <option value="รายวัน">รายวัน</option>
-                        <option value="รายเดือน">รายเดือน</option>
-                        <option value="รายปี">รายปี</option>
+                        {selectedRoom?.weekly_price && (
+                          <option value="รายสัปดาห์">รายสัปดาห์</option>
+                        )}
+                        {selectedRoom?.monthly_price && (
+                          <option value="รายเดือน">รายเดือน</option>
+                        )}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                     </div>
+                    {!selectedRoom && (
+                      <p className="text-xs text-gray-500 mt-1">เลือกห้องก่อน</p>
+                    )}
                   </div>
 
                   <div className="flex flex-col">
@@ -790,11 +898,78 @@ export default function ThaiServiceForm() {
                       name="price"
                       value={formData.price}
                       onChange={handleInputChange}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={!selectedRoom}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                       placeholder="0"
                     />
+                    {selectedRoom && (
+                      <div className="text-xs text-gray-600 mt-1">
+                        {formData.floor === 'รายวัน' && selectedRoom.daily_price && (
+                          <span>รายวัน: {selectedRoom.daily_price.toLocaleString()} บาท</span>
+                        )}
+                        {formData.floor === 'รายสัปดาห์' && selectedRoom.weekly_price && (
+                          <span>รายสัปดาห์: {selectedRoom.weekly_price.toLocaleString()} บาท</span>
+                        )}
+                        {formData.floor === 'รายเดือน' && selectedRoom.monthly_price && (
+                          <span>รายเดือน: {selectedRoom.monthly_price.toLocaleString()} บาท</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* แสดงข้อมูลห้องที่เลือก */}
+                {selectedRoom && (
+                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 className="font-semibold text-gray-800 mb-2">ข้อมูลห้องที่เลือก</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="text-gray-600">หมายเลขห้อง:</span>
+                        <p className="font-medium">{selectedRoom.room_number}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">ประเภทห้อง:</span>
+                        <p className="font-medium">{selectedRoom.room_type}</p>
+                      </div>
+                      {selectedRoom.daily_price && (
+                        <div>
+                          <span className="text-gray-600">รายวัน:</span>
+                          <p className="font-medium text-green-600">
+                            {selectedRoom.daily_price.toLocaleString()} บาท
+                          </p>
+                        </div>
+                      )}
+                      {selectedRoom.weekly_price && (
+                        <div>
+                          <span className="text-gray-600">รายสัปดาห์:</span>
+                          <p className="font-medium text-green-600">
+                            {selectedRoom.weekly_price.toLocaleString()} บาท
+                          </p>
+                        </div>
+                      )}
+                      {selectedRoom.monthly_price && (
+                        <div>
+                          <span className="text-gray-600">รายเดือน:</span>
+                          <p className="font-medium text-green-600">
+                            {selectedRoom.monthly_price.toLocaleString()} บาท
+                          </p>
+                        </div>
+                      )}
+                      {selectedRoom.floor && (
+                        <div>
+                          <span className="text-gray-600">ชั้น:</span>
+                          <p className="font-medium">{selectedRoom.floor}</p>
+                        </div>
+                      )}
+                    </div>
+                    {selectedRoom.description && (
+                      <div className="mt-2">
+                        <span className="text-gray-600">รายละเอียด:</span>
+                        <p className="text-sm">{selectedRoom.description}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="mt-8 space-y-8">
@@ -1067,7 +1242,7 @@ export default function ThaiServiceForm() {
                               <p className="text-sm text-blue-600">HN: {patient.hn}</p>
                             </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-2 text-sm mt-3">
                             <div>
                               <span className="text-gray-500">เลขบัตรประชาชน:</span>
@@ -1087,7 +1262,7 @@ export default function ThaiServiceForm() {
                             </div>
                           </div>
                         </div>
-                        
+
                         <button className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0">
                           เลือก
                         </button>
@@ -1437,7 +1612,7 @@ export default function ThaiServiceForm() {
                 onClick={() => {
                   if (selectedMedical) {
                     const newItem = {
-                     
+
                       name: selectedMedical.name,
                       price: calculateMedicalPrice(),
                       originalPrice: selectedMedical.price,
