@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Dumbbell,
   Clipboard,
+  Printer,
   BarChart3  // เพิ่มไอคอนนี้
 } from 'lucide-react';
 
@@ -338,6 +339,15 @@ const Dashboard = () => {
             >
               <BarChart3 size={24} />
               <span className="font-medium">รายงานหัตถการ</span>
+            </button>
+
+
+            <button
+              onClick={() => navigate('/medicine-print')}
+              className="bg-cyan-400 hover:bg-cyan-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            >
+              <Printer size={24} />
+              <span className="font-medium">พิมพ์ซองยา</span>
             </button>
           </div>
 

@@ -18,6 +18,8 @@ import DailyReport from './pages/DailyReport';
 import ReportsList from './pages/ReportsList';
 import Example from './pages/Example';
 import ProcedureReport from './pages/ProcedureReport';
+import MedicineLabelPrinter from './pages/MedicineLabelPrinter';
+import Medicineimport from './pages/Medicineimport';
 
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
@@ -92,6 +94,9 @@ function App() {
           <Route path="/reports-list" element={<ReportsList />} />
           <Route path="/procedure-form" element={<Example />} />
           <Route path="/procedure-report" element={<ProcedureReport />} />
+           <Route path="/medicine-print" element={<MedicineLabelPrinter />} />
+           <Route path="/medicine-import" element={<Medicineimport />} />
+
         </Route>
 
         <Route

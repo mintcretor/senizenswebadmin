@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus, Users, User, Save, Share2, ChevronRight, Info, AlertCircle, QrCode } from 'lucide-react';
 import { useParams } from 'react-router-dom';
-import { ro } from 'date-fns/locale';
 
 // API Configuration
 const API_BASE_URL = 'https://api.thesenizens.com/api';
@@ -199,15 +198,12 @@ export default function MultidisciplinaryReport() {
   const [showShareButton, setShowShareButton] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [isLoadingPatient, setIsLoadingPatient] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState(
-    {
-      room_number: '',
-    }
-  );
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const { hn } = useParams();
 
   const [formData, setFormData] = useState({
+    roomNumber: '',
     shift: 'N',
     date: new Date().toISOString().split('T')[0],
     overallCondition: '',
@@ -223,8 +219,14 @@ export default function MultidisciplinaryReport() {
     fluidOutput: '',
     urination: '',
     defecation: '',
-    sleepRounds: '',
-    mealsComplete: '',
+    sleepHours: '',
+    sleepQuality: '',
+    mealTimes: [], // เปลี่ยนจาก mealsComplete เป็น array เก็บมื้ออาหาร
+    // เพิ่มฟิลด์การให้อาหาร
+    feedingType: '',
+    feedingFrequency: '',
+    feedingAmount: '',
+    feedingTime: '',
     additionalNotes: '',
     appointment: '',
   });
@@ -240,6 +242,10 @@ export default function MultidisciplinaryReport() {
       setIsLoadingPatient(true);
       const patient = await api.getPatientByHN(hn);
       setSelectedPatient(patient.data);
+      // ตั้งค่า room_number ถ้ามี
+      if (patient.data.room_number) {
+        setFormData(prev => ({ ...prev, roomNumber: patient.data.room_number }));
+      }
     } catch (error) {
       alert(`ข้อผิดพลาด\nไม่พบข้อมูลผู้ป่วย HN: ${hn}`);
     } finally {
@@ -249,10 +255,35 @@ export default function MultidisciplinaryReport() {
 
   const handleSelectPatient = (patient) => {
     setSelectedPatient(patient);
+    // ตั้งค่า room_number ถ้ามี
+    if (patient.room_number) {
+      setFormData(prev => ({ ...prev, roomNumber: patient.room_number }));
+    }
   };
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleMealTimeChange = (mealTime) => {
+    setFormData(prev => {
+      const currentMealTimes = prev.mealTimes || [];
+      const isChecked = currentMealTimes.includes(mealTime);
+      
+      if (isChecked) {
+        // ถ้าเลือกอยู่แล้ว ให้ลบออก
+        return {
+          ...prev,
+          mealTimes: currentMealTimes.filter(time => time !== mealTime)
+        };
+      } else {
+        // ถ้ายังไม่เลือก ให้เพิ่มเข้าไป
+        return {
+          ...prev,
+          mealTimes: [...currentMealTimes, mealTime]
+        };
+      }
+    });
   };
 
   const formatDate = (dateStr) => {
@@ -281,7 +312,7 @@ export default function MultidisciplinaryReport() {
     const reporterName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.nickname || 'ผู้ใช้งาน';
     const patientName = selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : '';
 
-    return `${selectedPatient.room_number} ${patientName}
+    return `${formData.roomNumber} ${patientName}
 HN: ${selectedPatient?.hn || ''}
 เวร${formData.shift} ${formatDate(formData.date)}
 —---------------------------------------------------------------------------------------------------------------------------------------
@@ -295,8 +326,16 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
 ปริมาตรน้ำเข้า (Intake) รอบ ${formData.fluidIntakeTime} : ${formData.fluidIntake} cc
 ปริมาตรน้ำออก (Output) รอบ ${formData.fluidOutputTime} : ${formData.fluidOutput} cc
 ปัสสาวะ : ${formData.urination} ครั้ง ถ่ายอุจจาระ : ${formData.defecation} ครั้ง
-นอนหลับ : ${formData.sleepRounds} รอบ
-รับประทานอาหารได้ : ${formData.mealsComplete} มื้อ
+นอนหลับ : ${formData.sleepHours ? `${formData.sleepHours} ชั่วโมง` : '-'} (คุณภาพ: ${formData.sleepQuality || '-'})
+รับประทานอาหาร : ${formData.mealTimes && formData.mealTimes.length > 0 ? formData.mealTimes.join(', ') : 'ไม่มีข้อมูล'}
+
+การให้อาหาร :
+${formData.feedingType ? `ประเภท: ${formData.feedingType}` : ''}
+${formData.feedingFrequency ? `ความถี่: ${formData.feedingFrequency}` : ''}
+${formData.feedingAmount ? `ปริมาณ: ${formData.feedingAmount} ml` : ''}
+${formData.feedingTime ? `เวลา: ${formData.feedingTime}` : ''}
+${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount && !formData.feedingTime ? 'ไม่มีข้อมูล' : ''}
+
 หมายเหตุเพิ่มเติม : ${formData.additionalNotes}
 ผู้รายงาน : ${reporterName} (${user?.code || user?.username || ''})
 —--------------------------------------------------------------------------------------------------------------------------------------
@@ -309,13 +348,29 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
 สามารถติดต่อได้ที่เบอร์โทรศัพท์ 02-412-0999 (เวลาทำการ 08:00-17:00 น.)`;
   };
 
-  const handleSave = async () => {
+  const validateForm = () => {
+    const errors = [];
+
     if (!selectedPatient) {
-      alert('กรุณาเลือกผู้ป่วย\nกรุณาค้นหาและเลือกข้อมูลผู้ป่วยก่อน');
-      return;
+      errors.push('กรุณาเลือกผู้ป่วย');
     }
-    if (!selectedPatient.room_number && !formData.roomNumber) {
-      alert('กรุณากรอกเลขห้อง\nกรุณากรอกเลขห้องผู้ป่วย');
+
+    if (!formData.roomNumber || formData.roomNumber.trim() === '') {
+      errors.push('กรุณากรอกเลขห้อง');
+    }
+
+    if (!formData.overallCondition || formData.overallCondition.trim() === '') {
+      errors.push('กรุณากรอกอาการโดยรวม');
+    }
+
+    return errors;
+  };
+
+  const handleSave = async () => {
+    // Validate form
+    const errors = validateForm();
+    if (errors.length > 0) {
+      alert(`กรุณาตรวจสอบข้อมูล\n\n${errors.join('\n')}`);
       return;
     }
 
@@ -325,24 +380,31 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
       const reportData = {
         patient_id: selectedPatient.patient_id,
         patient_hn: selectedPatient.hn,
-        room_number: selectedPatient.room_number || formData.roomNumber || '',
+        room_number: formData.roomNumber,
         shift: formData.shift,
         report_date: formData.date,
         overall_condition: formData.overallCondition,
-        vital_signs_status: formData.vitalSigns,
-        temperature: formData.temperature,
-        pulse: formData.pulse,
-        respiration: formData.respiration,
-        blood_pressure: formData.bloodPressure,
-        o2_saturation: formData.o2sat,
-        fluid_intake: formData.fluidIntake,
-        fluid_output: formData.fluidOutput,
-        urination_times: formData.urination,
-        defecation_times: formData.defecation,
-        sleep_rounds: formData.sleepRounds,
-        meals_complete: formData.mealsComplete,
-        additional_notes: formData.additionalNotes,
-        appointment: formData.appointment,
+        vital_signs: formData.vitalSigns,
+        temperature: formData.temperature || null,
+        pulse: formData.pulse || null,
+        respiration: formData.respiration || null,
+        blood_pressure: formData.bloodPressure || null,
+        o2_saturation: formData.o2sat || null,
+        fluid_intake_time: formData.fluidIntakeTime || null,
+        fluid_intake: formData.fluidIntake || null,
+        fluid_output_time: formData.fluidOutputTime || null,
+        fluid_output: formData.fluidOutput || null,
+        urination: formData.urination || null,
+        defecation: formData.defecation || null,
+        sleep_hours: formData.sleepHours || null,
+        sleep_quality: formData.sleepQuality || null,
+        meal_times: formData.mealTimes.length > 0 ? formData.mealTimes.join(',') : null,
+        feeding_type: formData.feedingType || null,
+        feeding_frequency: formData.feedingFrequency || null,
+        feeding_amount: formData.feedingAmount || null,
+        feeding_time: formData.feedingTime || null,
+        additional_notes: formData.additionalNotes || null,
+        appointment: formData.appointment || null,
       };
 
       await api.saveMultidisciplinaryReport(reportData);
@@ -427,7 +489,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
             </div>
           )}
 
-          {selectedPatient.hn ? (
+          {selectedPatient ? (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
@@ -468,12 +530,12 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
           <div className="space-y-4 mt-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                เลขห้อง
+                เลขห้อง <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                value={selectedPatient.room_number || ''}
-                readOnly
+                value={formData.roomNumber}
+                onChange={(e) => handleChange('roomNumber', e.target.value)}
                 placeholder="กรอกเลขห้อง เช่น 301"
                 className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -509,7 +571,7 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              อาการโดยรวม (ภายใน 24 ชม.)
+              อาการโดยรวม (ภายใน 24 ชม.) <span className="text-red-500">*</span>
               <span className="block text-xs text-gray-500 font-normal">*รวมถึงยา และกิจวัตรประจำวัน</span>
             </label>
             <textarea
@@ -600,6 +662,9 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
             </div>
           </div>
 
+          {/* Fluid Intake/Output Section - เพิ่มใหม่ */}
+          
+
           <div className="space-y-3 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">ปัสสาวะ (ครั้ง)</label>
@@ -624,39 +689,12 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
                 className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">นอนหลับ (รอบ)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                value={formData.sleepRounds}
-                onChange={(e) => handleChange('sleepRounds', e.target.value)}
-                placeholder="5"
-                className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">รับประทานอาหาร (จำนวนมื้อ)</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              min="0"
-              max="3"
-              value={formData.mealsComplete}
-              onChange={(e) => handleChange('mealsComplete', e.target.value)}
-              placeholder="0-3"
-              className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">กรอกจำนวนมื้ออาหารที่รับประทานได้ (0-3 มื้อ)</p>
           </div>
 
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               หมายเหตุเพิ่มเติม
-              <span className="block text-xs text-gray-500 font-normal">(เหตุที่คิดค่าใช้จ่าย)</span>
+             
             </label>
             <textarea
               value={formData.additionalNotes}
@@ -693,12 +731,12 @@ T=${formData.temperature}°C  P=${formData.pulse}  R=${formData.respiration}  BP
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
           <Info size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-blue-900 mb-1">วิธีใช้งาน QR Code</p>
+            <p className="text-sm font-semibold text-blue-900 mb-1">คำแนะนำในการกรอกข้อมูล</p>
             <p className="text-xs text-blue-700">
-              1. เลือกผู้ป่วยที่ต้องการ<br />
-              2. กดปุ่ม "สร้าง QR" เพื่อสร้าง QR Code<br />
-              3. นำ QR Code ไปติดที่เตียงผู้ป่วย<br />
-              4. เมื่อต้องการกรอกข้อมูล สแกน QR Code ด้วยแอปใดก็ได้ ระบบจะโหลดข้อมูลผู้ป่วยอัตโนมัติ
+              • ฟิลด์ที่มี <span className="text-red-500">*</span> จำเป็นต้องกรอก<br />
+              • การให้อาหาร: สามารถกรอกเพียงบางส่วนหรือทั้งหมด ตามข้อมูลที่มี<br />
+              • Fluid Intake/Output: กรอกเฉพาะเมื่อมีการวัดปริมาตรน้ำ<br />
+              • QR Code: สร้างเพื่อให้ญาติหรือพนักงานสแกนและกรอกข้อมูลได้ง่ายขึ้น
             </p>
           </div>
         </div>
