@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, Plus, Edit2, Save, X, Loader, AlertCircle } from 'lucide-react';
+import { Calendar, User, Plus, Edit2, Save, X, Loader, AlertCircle, Filter } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
@@ -17,6 +17,12 @@ const ShiftScheduleTable = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [daysInMonth, setDaysInMonth] = useState(31);
+
+    // State สำหรับ filter ตำแหน่งและ ward
+    const [selectedRole, setSelectedRole] = useState('all');
+    const [selectedWard, setSelectedWard] = useState('all');
+    const [availableRoles, setAvailableRoles] = useState([]);
+    const [availableWards, setAvailableWards] = useState([]);
 
     // คำนวณจำนวนวันในเดือน
     useEffect(() => {
@@ -67,6 +73,12 @@ const ShiftScheduleTable = () => {
                 const employeesData = await employeesResponse.json();
                 console.log('Employees data:', employeesData);
                 setEmployees(employeesData);
+
+                // สร้างรายการตำแหน่งและ ward ที่มี
+                const roles = [...new Set(employeesData.map(emp => emp.role_id).filter(Boolean))];
+                const wards = [...new Set(employeesData.map(emp => emp.ward).filter(Boolean))];
+                setAvailableRoles(roles);
+                setAvailableWards(wards);
 
                 // ดึงตารางเวร
                 const scheduleResponse = await fetch(
@@ -130,11 +142,13 @@ const ShiftScheduleTable = () => {
                 
                 // ใช้ข้อมูลตัวอย่างถ้าดึงไม่ได้
                 const sampleEmployees = [
-                    { user_id: 1, first_name: 'แนงมีสิตา', last_name: 'วอลอัมคา', role_id: 'พยาบาล' },
-                    { user_id: 2, first_name: 'พัชรี', last_name: 'ภรวีธิช', role_id: 'พยาบาล' },
-                    { user_id: 3, first_name: 'อธิตา', last_name: 'มนต์ศิล', role_id: 'พยาบาล' },
+                    { user_id: 1, first_name: 'แนงมีสิตา', last_name: 'วอลอัมคา', role_id: 'PA', ward: 'Ward A' },
+                    { user_id: 2, first_name: 'พัชรี', last_name: 'ภรวีธิช', role_id: 'NA', ward: 'Ward B' },
+                    { user_id: 3, first_name: 'อธิตา', last_name: 'มนต์ศิล', role_id: 'RN', ward: null },
                 ];
                 setEmployees(sampleEmployees);
+                setAvailableRoles(['PA', 'NA', 'RN']);
+                setAvailableWards(['Ward A', 'Ward B']);
                 initializeEmptySchedule(sampleEmployees);
             } finally {
                 setIsLoading(false);
@@ -157,6 +171,35 @@ const ShiftScheduleTable = () => {
         });
         setScheduleData(emptySchedule);
     };
+
+    // กรองพนักงานตามตำแหน่งและ ward
+    const getFilteredEmployees = () => {
+        let filtered = employees;
+
+        // กรองตามตำแหน่ง
+        if (selectedRole !== 'all') {
+            filtered = filtered.filter(emp => emp.role_id === selectedRole);
+        }
+
+        // กรองตาม ward (เฉพาะ PA และ NA)
+        if ((selectedRole === 'PA' || selectedRole === 'NA') && selectedWard !== 'all') {
+            filtered = filtered.filter(emp => emp.ward === selectedWard);
+        }
+
+        return filtered;
+    };
+
+    // ตรวจสอบว่าควรแสดง Ward selector หรือไม่
+    const shouldShowWardSelector = () => {
+        return selectedRole === 'PA' || selectedRole === 'NA';
+    };
+
+    // Reset ward เมื่อเปลี่ยนตำแหน่งที่ไม่ใช่ PA/NA
+    useEffect(() => {
+        if (!shouldShowWardSelector()) {
+            setSelectedWard('all');
+        }
+    }, [selectedRole]);
 
     // อัพเดทเวร
     const updateShift = (empId, day, value) => {
@@ -265,6 +308,8 @@ const ShiftScheduleTable = () => {
         return time.substring(0, 5);
     };
 
+    const filteredEmployees = getFilteredEmployees();
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
             <div className="max-w-7xl mx-auto">
@@ -326,6 +371,60 @@ const ShiftScheduleTable = () => {
                         </button>
                     </div>
 
+                    {/* Filters */}
+                    <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Filter size={20} className="text-indigo-600" />
+                            <h3 className="font-semibold text-gray-700">กรองข้อมูล</h3>
+                        </div>
+                        <div className="flex flex-wrap gap-4">
+                            {/* ตัวเลือกตำแหน่ง */}
+                            <div className="flex-1 min-w-[200px]">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    ตำแหน่ง
+                                </label>
+                                <select
+                                    value={selectedRole}
+                                    onChange={(e) => setSelectedRole(e.target.value)}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                >
+                                    <option value="all">ทั้งหมด</option>
+                                    {availableRoles.map(role => (
+                                        <option key={role} value={role}>{role}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* ตัวเลือก Ward (แสดงเฉพาะ PA และ NA) */}
+                            {shouldShowWardSelector() && (
+                                <div className="flex-1 min-w-[200px]">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Ward
+                                    </label>
+                                    <select
+                                        value={selectedWard}
+                                        onChange={(e) => setSelectedWard(e.target.value)}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    >
+                                        <option value="all">ทั้งหมด</option>
+                                        {availableWards.map(ward => (
+                                            <option key={ward} value={ward}>{ward}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* แสดงจำนวนพนักงานที่กรอง */}
+                            <div className="flex items-end">
+                                <div className="bg-indigo-100 px-4 py-2 rounded-lg">
+                                    <div className="text-sm text-indigo-600 font-medium">
+                                        พบ {filteredEmployees.length} คน
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Shift Legend */}
                     <div className="mt-6 flex flex-wrap gap-3">
                         {shiftTypes.map(shift => (
@@ -377,8 +476,23 @@ const ShiftScheduleTable = () => {
                     </div>
                 )}
 
+                {/* No Data Message */}
+                {!isLoading && filteredEmployees.length === 0 && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded">
+                        <div className="flex items-center">
+                            <AlertCircle className="text-yellow-500 mr-3" size={24} />
+                            <div>
+                                <p className="text-yellow-700 font-semibold">ไม่พบข้อมูล</p>
+                                <p className="text-yellow-600 text-sm">
+                                    ไม่พบพนักงานตามเงื่อนไขที่เลือก กรุณาเลือกตัวกรองอื่น
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Content - Only show when not loading */}
-                {!isLoading && (
+                {!isLoading && filteredEmployees.length > 0 && (
                     <>
                         {/* Schedule Table */}
                         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -392,7 +506,10 @@ const ShiftScheduleTable = () => {
                                                     ชื่อ - นามสกุล
                                                 </div>
                                             </th>
-                                            <th className="px-3 py-3 text-center font-semibold w-24">แผนก</th>
+                                            <th className="px-3 py-3 text-center font-semibold w-24">ตำแหน่ง</th>
+                                            {shouldShowWardSelector() && (
+                                                <th className="px-3 py-3 text-center font-semibold w-24">Ward</th>
+                                            )}
                                             {[...Array(daysInMonth)].map((_, i) => (
                                                 <th key={i + 1} className="px-2 py-3 text-center font-semibold w-12 text-xs">
                                                     {i + 1}
@@ -403,7 +520,7 @@ const ShiftScheduleTable = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
-                                        {employees.map((emp, idx) => {
+                                        {filteredEmployees.map((emp, idx) => {
                                             const userId = emp.user_id;
                                             return (
                                                 <tr key={userId} className={idx % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
@@ -416,47 +533,52 @@ const ShiftScheduleTable = () => {
                                                     <td className="px-3 py-3 text-center text-sm text-gray-600">
                                                         {emp.role_id || '-'}
                                                     </td>
+                                                    {shouldShowWardSelector() && (
+                                                        <td className="px-3 py-3 text-center text-sm text-gray-600">
+                                                            {emp.ward || '-'}
+                                                        </td>
+                                                    )}
                                                     {[...Array(daysInMonth)].map((_, day) => {
-    const dayNum = day + 1;
-    const shift = scheduleData[userId]?.[dayNum] || 'X';
-    const shiftInfo = shiftTypes.find(s => s.code === shift) || 
-        { code: 'X', color_class: 'bg-gray-100 text-gray-600' };
+                                                        const dayNum = day + 1;
+                                                        const shift = scheduleData[userId]?.[dayNum] || 'X';
+                                                        const shiftInfo = shiftTypes.find(s => s.code === shift) || 
+                                                            { code: 'X', color_class: 'bg-gray-100 text-gray-600' };
 
-    return (
-        <td key={dayNum} className="px-1 py-2 text-center">
-            {isEditMode ? (
-                <select
-                    value={shift}
-                    onChange={(e) => updateShift(userId, dayNum, e.target.value)}
-                    className="w-full px-2 py-1 text-sm font-bold rounded border border-gray-300 cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    style={{
-                        minWidth: '60px',
-                        backgroundColor: shiftInfo.color_class.includes('bg-blue') ? '#dbeafe' :
-                                       shiftInfo.color_class.includes('bg-purple') ? '#f3e8ff' :
-                                       shiftInfo.color_class.includes('bg-green') ? '#dcfce7' :
-                                       shiftInfo.color_class.includes('bg-yellow') ? '#fef9c3' :
-                                       '#f3f4f6',
-                        color: '#111827'
-                    }}
-                >
-                    {shiftTypes.map(s => (
-                        <option 
-                            key={s.code} 
-                            value={s.code}
-                            className="bg-white text-gray-900 font-semibold py-2"
-                        >
-                            {s.code}
-                        </option>
-                    ))}
-                </select>
-            ) : (
-                <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${shiftInfo.color_class}`}>
-                    {shift}
-                </span>
-            )}
-        </td>
-    );
-})}
+                                                        return (
+                                                            <td key={dayNum} className="px-1 py-2 text-center">
+                                                                {isEditMode ? (
+                                                                    <select
+                                                                        value={shift}
+                                                                        onChange={(e) => updateShift(userId, dayNum, e.target.value)}
+                                                                        className="w-full px-2 py-1 text-sm font-bold rounded border border-gray-300 cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                                        style={{
+                                                                            minWidth: '60px',
+                                                                            backgroundColor: shiftInfo.color_class.includes('bg-blue') ? '#dbeafe' :
+                                                                                           shiftInfo.color_class.includes('bg-purple') ? '#f3e8ff' :
+                                                                                           shiftInfo.color_class.includes('bg-green') ? '#dcfce7' :
+                                                                                           shiftInfo.color_class.includes('bg-yellow') ? '#fef9c3' :
+                                                                                           '#f3f4f6',
+                                                                            color: '#111827'
+                                                                        }}
+                                                                    >
+                                                                        {shiftTypes.map(s => (
+                                                                            <option 
+                                                                                key={s.code} 
+                                                                                value={s.code}
+                                                                                className="bg-white text-gray-900 font-semibold py-2"
+                                                                            >
+                                                                                {s.code}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                ) : (
+                                                                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${shiftInfo.color_class}`}>
+                                                                        {shift}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
                                                     <td className="px-3 py-3 text-center font-bold text-gray-700 bg-yellow-50">
                                                         {getDayCount(userId, 'D/N')}
                                                     </td>
@@ -474,7 +596,7 @@ const ShiftScheduleTable = () => {
                         {/* Summary Stats */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
                             {shiftTypes.slice(0, 4).map(shift => {
-                                const total = employees.reduce((sum, emp) => 
+                                const total = filteredEmployees.reduce((sum, emp) => 
                                     sum + getDayCount(emp.user_id, shift.code), 0
                                 );
                                 return (
