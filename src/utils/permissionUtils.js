@@ -9,6 +9,16 @@ import { formatDateForInput, formatTime } from '../utils/dateUtils';
 export const canEditByTime = (recordDate, recordTime, hoursLimit = 24) => {
   const recordDateTime = new Date(`${formatDateForInput(recordDate)}T${recordTime}`);
 
+  
+  const now = new Date();
+  const hoursPassed = (now - recordDateTime) / (1000 * 60 * 60);
+  
+  return hoursPassed <= hoursLimit;
+};
+
+export const canEditByTimes = (recordDate, recordTime, hoursLimit = 24) => {
+  const recordDateTime = new Date(`${formatDateForInput(recordDate)}`);
+
   console.log('Record DateTime:', formatDateForInput(recordDate));
   const now = new Date();
   const hoursPassed = (now - recordDateTime) / (1000 * 60 * 60);
@@ -114,6 +124,100 @@ export const canDeleteRecord = (record, currentUser, options = {}) => {
 
   // ตรวจสอบเวลา
   if (checkTime && !canEditByTime(record.record_date, record.record_time, hoursLimit)) {
+    return { 
+      canDelete: false, 
+      reason: `ลบได้เฉพาะภายใน ${hoursLimit} ชั่วโมงหลังบันทึก` 
+    };
+  }
+
+  // ตรวจสอบผู้สร้าง
+  if (checkCreator && !canEditByCreator(record.created_by, currentUser.user_id)) {
+    // ถ้าไม่ใช่คนสร้าง ให้ตรวจสอบบทบาท
+    if (checkRole && !canEditByRole(currentUser.role, allowedRoles)) {
+      return { 
+        canDelete: false, 
+        reason: 'คุณไม่มีสิทธิ์ลบบันทึกของผู้อื่น' 
+      };
+    }
+  }
+
+  return { canDelete: true, reason: null };
+};
+
+
+
+export const canEditreport = (record, currentUser, options = {}) => {
+
+  const {
+    checkTime = true,
+    checkCreator = true,
+    checkRole = true,
+    checkSameDay = false,
+    checkStatus = false,
+    hoursLimit = 24,
+    allowedRoles = ['หัวหน้าพยาบาล แผนก IPD', 'admin']
+  } = options;
+
+  // Admin มีสิทธิ์เต็ม
+  if (currentUser.role === 'admin') {
+    return { canEdit: true, reason: null };
+  }
+
+  // ตรวจสอบสถานะ
+  if (checkStatus && record.status && !canEditByStatus(record.status)) {
+    return { 
+      canEdit: false, 
+      reason: 'บันทึกนี้ถูกอนุมัติแล้ว ไม่สามารถแก้ไขได้' 
+    };
+  }
+  console.log('Record for permission check:', record);
+  // ตรวจสอบเวลา
+  if (checkTime && !canEditByTimes(record.report_date, record.record_time, hoursLimit)) {
+    return { 
+      canEdit: false, 
+      reason: `แก้ไขได้เฉพาะภายใน ${hoursLimit} ชั่วโมงหลังบันทึก` 
+    };
+  }
+
+  // ตรวจสอบวันเดียวกัน
+  if (checkSameDay && !canEditSameDay(record.report_date)) {
+    return { 
+      canEdit: false, 
+      reason: 'แก้ไขได้เฉพาะในวันที่บันทึกเท่านั้น' 
+    };
+  }
+
+  // ตรวจสอบผู้สร้าง
+  if (checkCreator && !canEditByCreator(record.created_by, currentUser.user_id)) {
+    // ถ้าไม่ใช่คนสร้าง ให้ตรวจสอบบทบาท
+    if (checkRole && !canEditByRole(currentUser.position_name, allowedRoles)) {
+      return { 
+        canEdit: false, 
+        reason: 'คุณไม่มีสิทธิ์แก้ไขบันทึกของผู้อื่น' 
+      };
+    }
+  }
+
+  return { canEdit: true, reason: null };
+};
+
+// ฟังก์ชันสำหรับการลบ (มักจะเข้มงวดกว่าการแก้ไข)
+export const canDeleteReport = (record, currentUser, options = {}) => {
+  const {
+    checkTime = true,
+    checkCreator = true,
+    checkRole = true,
+    hoursLimit = 2, // ลบได้เฉพาะ 2 ชั่วโมง (เข้มงวดกว่าแก้ไข)
+    allowedRoles = ['admin', 'head_nurse']
+  } = options;
+
+  // Admin มีสิทธิ์เต็ม
+  if (currentUser.role === 'admin') {
+    return { canDelete: true, reason: null };
+  }
+
+  // ตรวจสอบเวลา
+  if (checkTime && !canEditByTime(record.report_date, record.record_time, hoursLimit)) {
     return { 
       canDelete: false, 
       reason: `ลบได้เฉพาะภายใน ${hoursLimit} ชั่วโมงหลังบันทึก` 
