@@ -245,7 +245,6 @@ export default function DailyReport() {
                 api.getRehabReports(selectedPatient.id),
             ]);
 
-            console.log('Multi Reports:', multiResponse);   
             const normalizeDate = (dateStr) => {
                 if (!dateStr) return null;
                 return dateStr.split('T')[0];

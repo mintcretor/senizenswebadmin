@@ -43,7 +43,6 @@ const MedicineLabelPrinter = () => {
   // Fetch residents when room is selected
   useEffect(() => {
     if (selectedRoom) {
-      console.log('Selected room changed:', selectedRoom);
       fetchResidents(selectedRoom.room_number);
       setSelectedResident(null);
     }
@@ -51,7 +50,6 @@ const MedicineLabelPrinter = () => {
 
   // Fetch schedules when resident is selected
   useEffect(() => {
-    console.log('Selected resident changed:', selectedResident);
     if (selectedResident) {
       fetchSchedules(selectedResident.patient_id);
     }
@@ -63,7 +61,6 @@ const MedicineLabelPrinter = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/ward?is_active=true`);
       const data = await response.json();
-      console.log('Wards data:', data);
       setWards(data.data);
     } catch (error) {
       console.error('Error fetching wards:', error);
@@ -74,12 +71,10 @@ const MedicineLabelPrinter = () => {
   };
 
   const fetchRooms = async (wardId) => {
-    console.log('Fetching rooms for ward ID:', wardId);
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/ward/rooms?ward_id=${wardId}`);
       const data = await response.json();
-      console.log('Rooms data:', data);
       setRooms(data.data);
     } catch (error) {
       console.error('Error fetching rooms:', error);
