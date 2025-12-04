@@ -1,0 +1,479 @@
+.graphic-sheet-container {
+  min-height: 100vh;
+  background-color: #f3f4f6;
+  padding: 20px;
+}
+
+.mode-selector {
+  max-width: 1400px;
+  margin: 0 auto 20px;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 10px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.mode-btn {
+  padding: 10px 20px;
+  border: 2px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.mode-btn:hover {
+  background: #f3f4f6;
+}
+
+.mode-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.export-btn {
+  margin-left: auto;
+  padding: 10px 20px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.export-btn:hover {
+  background: #059669;
+}
+
+.sheet-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.sheet-content.pdf-mode {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 10mm;
+}
+
+/* Header Styles */
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  border: 2px solid black;
+  padding: 15px;
+  background: white;
+}
+
+.header-left h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0 0 5px 0;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  margin: 2px 0;
+}
+
+.header-center {
+  text-align: center;
+}
+
+.header-info {
+  font-size: 12px;
+  margin: 3px 0;
+}
+
+.header-page {
+  font-size: 10px;
+  margin-top: 10px;
+}
+
+.header-right {
+  text-align: right;
+}
+
+.patient-info div {
+  font-size: 12px;
+  margin: 3px 0;
+}
+
+.physician-info {
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 2px solid black;
+  padding: 10px 15px;
+  font-size: 12px;
+}
+
+/* Date Headers */
+.date-headers {
+  display: grid;
+  grid-template-columns: 150px repeat(6, 1fr);
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 2px solid black;
+}
+
+.date-cell {
+  border-right: 1px solid black;
+  padding: 10px;
+  text-align: center;
+}
+
+.date-cell:last-child {
+  border-right: none;
+}
+
+.header-cell {
+  font-weight: bold;
+  background: #f3f4f6;
+}
+
+.date-main {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.date-time {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 3px;
+}
+
+/* Days Row */
+.days-row {
+  display: grid;
+  grid-template-columns: 150px repeat(6, 1fr);
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 1px solid black;
+  background: #f9fafb;
+}
+
+.days-cell {
+  border-right: 1px solid black;
+  padding: 10px;
+  font-size: 12px;
+}
+
+.temp-display {
+  border-right: 1px solid black;
+  padding: 10px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.temp-display:last-child {
+  border-right: none;
+}
+
+/* Graph Container */
+.graph-container {
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 2px solid black;
+  padding: 10px;
+  position: relative;
+  background: white;
+}
+
+.graph-title {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 10;
+  background: white;
+  padding: 2px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+/* BP Section */
+.bp-section {
+  display: grid;
+  grid-template-columns: 150px repeat(6, 1fr);
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 2px solid black;
+}
+
+.bp-header {
+  border-right: 1px solid black;
+  padding: 10px;
+  font-weight: bold;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+}
+
+.bp-cell {
+  border-right: 1px solid black;
+  padding: 10px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.bp-cell:last-child {
+  border-right: none;
+}
+
+/* Data Rows */
+.data-row {
+  display: grid;
+  grid-template-columns: 150px repeat(6, 1fr);
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 1px solid black;
+}
+
+.data-header {
+  border-right: 1px solid black;
+  padding: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  background: #f9fafb;
+}
+
+.data-cell {
+  border-right: 1px solid black;
+  padding: 10px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.data-cell:last-child {
+  border-right: none;
+}
+
+.total-row {
+  background: #fef3c7;
+  border-bottom: 2px solid black;
+}
+
+.total-row .data-header {
+  background: #fde68a;
+  font-weight: bold;
+}
+
+/* Section Title */
+.section-title {
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  border-bottom: 1px solid black;
+  padding: 8px 15px;
+  font-weight: bold;
+  font-size: 14px;
+  background: #e5e7eb;
+}
+
+/* Signature Row */
+.signature-row {
+  display: grid;
+  grid-template-columns: 150px repeat(6, 1fr);
+  border: 2px solid black;
+  border-top: 1px solid black;
+}
+
+.signature-cell {
+  border-right: 1px solid black;
+  padding: 30px 10px 10px;
+  text-align: center;
+  min-height: 60px;
+}
+
+.signature-cell:last-child {
+  border-right: none;
+}
+
+.signature-line {
+  border-top: 1px solid black;
+  padding-top: 5px;
+  font-size: 11px;
+  margin-top: 20px;
+}
+
+/* Footer */
+.sheet-footer {
+  text-align: right;
+  font-size: 11px;
+  color: #6b7280;
+  padding: 10px 0;
+}
+
+/* Interactive Form */
+.interactive-form {
+  max-width: 1400px;
+  margin: 20px auto 0;
+  background: white;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.interactive-form h3 {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #1f2937;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #374151;
+}
+
+.form-group input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.add-btn {
+  width: 100%;
+  padding: 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.add-btn:hover {
+  background: #2563eb;
+}
+
+.recent-entries {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.recent-entries h4 {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  color: #1f2937;
+}
+
+.entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.entry-item {
+  display: flex;
+  gap: 15px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  font-size: 13px;
+  border-left: 3px solid #3b82f6;
+}
+
+.entry-time {
+  font-weight: 600;
+  color: #1f2937;
+  min-width: 120px;
+}
+
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #printArea,
+  #printArea * {
+    visibility: visible;
+  }
+
+  #printArea {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  .print-hidden {
+    display: none !important;
+  }
+
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  .sheet-content {
+    box-shadow: none;
+    max-width: 100%;
+  }
+
+  .graph-container {
+    page-break-inside: avoid;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sheet-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .header-center,
+  .header-right {
+    text-align: left;
+  }
+
+  .mode-buttons {
+    flex-wrap: wrap;
+  }
+
+  .export-btn {
+    margin-left: 0;
+    width: 100%;
+  }
+}

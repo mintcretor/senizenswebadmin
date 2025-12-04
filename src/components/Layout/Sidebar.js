@@ -11,6 +11,7 @@ import {
   Sparkles,
   LogOut,
   ClipboardMinus,
+  Calendar,
 } from 'lucide-react';
 
 const Sidebar = ({ isSidebarOpen }) => {
@@ -47,7 +48,7 @@ const Sidebar = ({ isSidebarOpen }) => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
     sessionStorage.clear();
-    
+
     if (window.confirm('คุณต้องการออกจากระบบหรือไม่?')) {
       window.location.href = '/login';
     }
@@ -93,10 +94,25 @@ const Sidebar = ({ isSidebarOpen }) => {
             <Sparkles size={20} className="flex-shrink-0" />
             {isOpen && <span>สุขภาพและความงาม</span>}
           </a>
+          <a href="/ProcedureRecordList" className={getLinkClass('/ProcedureRecordList')} title={!isOpen ? 'จัดการข้อมูลบันทึกหัตถการ' : ''}>
+            <ClipboardMinus size={20} className="flex-shrink-0" />
+            {isOpen && <span>จัดการข้อมูลบันทึกหัตถการ</span>}
+          </a>
           <a href="/reports-list" className={getLinkClass('/reports-list')} title={!isOpen ? 'รายงานรายวัน' : ''}>
             <ClipboardMinus size={20} className="flex-shrink-0" />
             {isOpen && <span>รายงานรายวัน</span>}
           </a>
+          <a href="/ShiftScheduleTable" className={getLinkClass('/ShiftScheduleTable')} title={!isOpen ? 'ตั้งค่าตารางเวร' : ''}>
+            <Calendar size={20} className="flex-shrink-0" />
+            {isOpen && <span>ตั้งค่าตารางเวร</span>}
+          </a>
+
+          <a href="/Usermanagement" className={getLinkClass('/Usermanagement')} title={!isOpen ? 'User Management' : ''}>
+            <Users size={20} className="flex-shrink-0" />
+            {isOpen && <span>User Management</span>}
+          </a>
+
+
           <a href="/Settings" className={getLinkClass('/Settings')} title={!isOpen ? 'System Setting' : ''}>
             <Settings size={20} className="flex-shrink-0" />
             {isOpen && <span>System Setting</span>}
@@ -120,7 +136,7 @@ const Sidebar = ({ isSidebarOpen }) => {
             <HelpCircle size={20} className="flex-shrink-0" />
             {isOpen && <span>FAQ</span>}
           </a>
-          <button 
+          <button
             onClick={handleLogout}
             className="flex items-center space-x-3 p-2 rounded-lg transition-colors hover:bg-red-600 w-full text-left"
             title={!isOpen ? 'Logout' : ''}

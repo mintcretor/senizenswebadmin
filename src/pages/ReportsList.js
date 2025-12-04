@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Calendar, User, Download, Eye, ChevronRight, Filter } from 'lucide-react';
+import { Search, FileText, Calendar, User, Download, Eye, ChevronRight, Filter, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
+const API_BASE_URL = 'http://172.16.40.11:3001/api';
 
 const createApiClient = () => {
   const getToken = () => {
@@ -67,6 +67,8 @@ export default function ReportsList() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [selectedRoom, setSelectedRoom] = useState('all');
+  const [availableRooms, setAvailableRooms] = useState([]);
 
   useEffect(() => {
     loadReports();
@@ -74,7 +76,16 @@ export default function ReportsList() {
 
   useEffect(() => {
     filterReports();
-  }, [searchQuery, filterType, reports]);
+  }, [searchQuery, filterType, selectedRoom, reports]);
+
+  useEffect(() => {
+    // Extract unique rooms from reports
+    const rooms = [...new Set(reports
+      .map(r => r.room_number)
+      .filter(room => room && room !== '-')
+    )].sort();
+    setAvailableRooms(rooms);
+  }, [reports]);
 
   const loadReports = async () => {
     try {
@@ -106,6 +117,10 @@ export default function ReportsList() {
         if (filterType === 'rehab') return report.has_rehab_report;
         return true;
       });
+    }
+
+    if (selectedRoom !== 'all') {
+      filtered = filtered.filter(report => report.room_number === selectedRoom);
     }
 
     setFilteredReports(filtered);
@@ -149,7 +164,7 @@ export default function ReportsList() {
             <h1 className="text-base sm:text-xl font-bold text-gray-900">รายงานทั้งหมด</h1>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Calendar size={14} className="sm:w-4 sm:h-4 inline mr-2" />
@@ -177,7 +192,24 @@ export default function ReportsList() {
               />
             </div>
 
-            <div className="sm:col-span-2 lg:col-span-1">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Home size={14} className="sm:w-4 sm:h-4 inline mr-2" />
+                เลือกห้อง
+              </label>
+              <select
+                value={selectedRoom}
+                onChange={(e) => setSelectedRoom(e.target.value)}
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm sm:text-base"
+              >
+                <option value="all">ทั้งหมด</option>
+                {availableRooms.map(room => (
+                  <option key={room} value={room}>{room}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Filter size={14} className="sm:w-4 sm:h-4 inline mr-2" />
                 ประเภทรายงาน

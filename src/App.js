@@ -20,7 +20,12 @@ import Example from './pages/Example';
 import ProcedureReport from './pages/ProcedureReport';
 import MedicineLabelPrinter from './pages/MedicineLabelPrinter';
 import Medicineimport from './pages/Medicineimport';
-
+import AdmitDocumentWord from './pages/AdmitDocumentWord';
+import ShiftScheduleTable from './pages/ShiftScheduleTable';
+import Usermanagement from './pages/Usermanagement';
+import Graphicsheet from './pages/Graphicsheet';
+import ProcedureRecordList from './pages/ProcedureRecordList';
+import ProcedureRecordEdit from './pages/ProcedureRecordEdit';
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
 
@@ -94,9 +99,14 @@ function App() {
           <Route path="/reports-list" element={<ReportsList />} />
           <Route path="/procedure-form" element={<Example />} />
           <Route path="/procedure-report" element={<ProcedureReport />} />
-           <Route path="/medicine-print" element={<MedicineLabelPrinter />} />
-           <Route path="/medicine-import" element={<Medicineimport />} />
-
+          <Route path="/medicine-print" element={<MedicineLabelPrinter />} />
+          <Route path="/medicine-import" element={<Medicineimport />} />
+          <Route path="/admit-document" element={<AdmitDocumentWord />} />
+          <Route path="/ShiftScheduleTable" element={<ShiftScheduleTable />} />
+          <Route path="/Usermanagement" element={<Usermanagement />} />
+          <Route path="/Graphicsheet" element={<Graphicsheet />} />
+          <Route path="/ProcedureRecordList" element={<ProcedureRecordList />} />
+          <Route path="/ProcedureRecordEdit/:id" element={<ProcedureRecordEdit />} />
         </Route>
 
         <Route

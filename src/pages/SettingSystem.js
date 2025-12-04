@@ -41,7 +41,7 @@ export default function ServiceManagementSystem() {
     try {
       const response = await fetch(`${API_BASE_URL}/${currentTab}`);
       const result = await response.json();
-      
+      console.log('Fetch result:', currentTab);
       if (result.success) {
         setMasterData(prev => ({
           ...prev,

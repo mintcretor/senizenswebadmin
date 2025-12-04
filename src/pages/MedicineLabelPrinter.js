@@ -272,11 +272,11 @@ const handlePrint = async () => {
           <div class="patient"><strong>${selectedResident.patient_name}</strong> ${selectedResident.hn}</div>
           <div class="medicine"><strong>${schedule.medicine_name}</strong></div>
           <div class="info-row">
-            <span class="label">ขนาดยา:</span>
+            
             <span>${scheduleData.dosage_instruction || '-'} ${scheduleData.frequency || ''}</span>
           </div>
           <div class="info-row">
-            <span class="label">วิธีรับประทาน:</span>
+            
             <span>${scheduleData.before_after_meal || '-'}</span>
           </div>
           ${scheduleData.special_instruction ? `
@@ -693,6 +693,7 @@ const handlePrint = async () => {
                     <option value="ก่อนอาหารเช้า">ก่อนอาหาร เช้า</option>
                     <option value="ก่อนอาหารกลางวัน">ก่อนอาหาร กลางวัน</option>
                     <option value="ก่อนอาหารเย็น">ก่อนอาหาร เย็น</option>
+                   
                     <option value="ก่อนอาหารเช้า กลางวัน">ก่อนอาหาร เช้า กลางวัน</option>
                     <option value="ก่อนอาหารเช้า เย็น">ก่อนอาหาร เช้า เย็น</option>
                     <option value="ก่อนอาหารกลางวัน เย็น">ก่อนอาหาร กลางวัน เย็น</option>
@@ -714,6 +715,9 @@ const handlePrint = async () => {
                     <option value="หลังอาหารเช้า และก่อนนอน">หลังอาหาร เช้า และก่อนนอน</option>
                     <option value="หลังอาหารกลางวัน และก่อนนอน">หลังอาหาร กลางวัน และก่อนนอน</option>
                     <option value="หลังอาหารเย็น และก่อนนอน">หลังอาหาร เย็น และก่อนนอน</option>
+
+
+                     <option value="ก่อนนอน">ก่อนนอน</option>
                   </select>
                 </div>
 

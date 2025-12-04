@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronRight, Clock, User, ChevronDown, X } from 'lucide-react';
+import { Search, ChevronRight, Clock, User, ChevronDown, X, Camera, ImageIcon,Home } from 'lucide-react';
 import { procedureService } from '../services/procedureService';
 // เพิ่ม PatientSearch Component
 function PatientSearchModal({ visible, onClose, onSelectPatient }) {
@@ -7,33 +7,41 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
+  const [searchMode, setSearchMode] = useState('patient'); // 'patient' หรือ 'room'
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
     setError(null);
 
-    if (query.length < 2) {
+    if (query.length < 1) {
       setSearchResults([]);
       return;
     }
 
     try {
       setIsSearching(true);
-      const response = await fetch(
-        `${API_BASE_URL}/service-registrations?search=${encodeURIComponent(query)}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+
+      let url;
+      if (searchMode === 'room') {
+        // ✅ ค้นหาตามห้อง
+        url = `${API_BASE_URL}/service-registrations?room=${encodeURIComponent(query)}`;
+      } else {
+        // ค้นหาตาม HN/ชื่อ
+        url = `${API_BASE_URL}/service-registrations?search=${encodeURIComponent(query)}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      );
+      });
 
       const result = await response.json();
       console.log('Search result:', result);
+
       if (result.success) {
-        // Transform data ให้ตรงกับ format ที่ใช้
         const transformedPatients = result.data.map(p => ({
           id: p.registration_id,
           patient_id: p.patient_id,
@@ -59,6 +67,13 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
     }
   };
 
+  useEffect(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setError(null);
+  }, [searchMode]);
+
+
   if (!visible) return null;
 
   return (
@@ -72,13 +87,48 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
           <div className="w-10" />
         </div>
 
-        <div className="p-3 sm:p-4 bg-gray-50">
+        {/* ✅ Toggle Search Mode */}
+        <div className="p-3 sm:p-4 bg-gray-50 border-b">
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => setSearchMode('patient')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
+                searchMode === 'patient'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700 border'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <User size={16} />
+                <span>ค้นหาชื่อ/HN</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setSearchMode('room')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition ${
+                searchMode === 'room'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700 border'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Home size={16} />
+                <span>ค้นหาห้อง</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Search Input */}
           <div className="flex items-center gap-2 sm:gap-3 bg-white border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
             <Search size={18} className="sm:w-5 sm:h-5 text-gray-500" />
             <input
               type="text"
               className="flex-1 outline-none text-sm sm:text-base"
-              placeholder="ค้นหา HN, ชื่อ, หรือนามสกุล"
+              placeholder={
+                searchMode === 'room'
+                  ? 'ค้นหาเลขห้อง เช่น 101, 202'
+                  : 'ค้นหา HN, ชื่อ, หรือนามสกุล'
+              }
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               autoFocus
@@ -103,53 +153,97 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
               <p className="mt-3 sm:mt-4 text-sm sm:text-base text-gray-600">กำลังค้นหา...</p>
             </div>
           ) : searchResults.length > 0 ? (
-            <div className="space-y-2 sm:space-y-3">
-              {searchResults.map((patient) => (
-                <button
-                  key={patient.id}
-                  onClick={() => {
-                    onSelectPatient(patient);
-                    onClose();
-                  }}
-                  className="w-full flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
-                >
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                    {patient.image && patient.image !== '/api/placeholder/80/80' ? (
-                      <img src={patient.image} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover" />
-                    ) : (
-                      <User size={24} className="sm:w-8 sm:h-8 text-gray-500" />
-                    )}
+            <>
+              {/* ✅ แสดงชื่อห้องถ้าค้นหาตามห้อง */}
+              {searchMode === 'room' && (
+                <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Home size={18} className="text-blue-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-blue-900">ห้อง {searchQuery}</p>
+                      <p className="text-xs text-blue-700">พบผู้ป่วย {searchResults.length} คน</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-                      {patient.prefix}{patient.firstname} {patient.lastname}
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      HN: {patient.hn} | {patient.age} ปี
-                    </p>
-                    {patient.room && patient.room !== '-' && (
-                      <p className="text-xs text-blue-600">ห้อง: {patient.room}</p>
-                    )}
-                  </div>
-                  <ChevronRight size={20} className="sm:w-6 sm:h-6 text-gray-400 flex-shrink-0" />
-                </button>
-              ))}
-            </div>
-          ) : searchQuery.length >= 2 ? (
+                </div>
+              )}
+              
+              <div className="space-y-2 sm:space-y-3">
+                {searchResults.map((patient) => (
+                  <button
+                    key={patient.id}
+                    onClick={() => {
+                      onSelectPatient(patient);
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
+                  >
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      {patient.image && patient.image !== '/api/placeholder/80/80' ? (
+                        <img src={patient.image} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover" />
+                      ) : (
+                        <User size={24} className="sm:w-8 sm:h-8 text-gray-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                        {patient.prefix}{patient.firstname} {patient.lastname}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        HN: {patient.hn} | {patient.age} ปี
+                      </p>
+                      {patient.room && patient.room !== '-' && (
+                        <div className="flex items-center gap-1 text-xs text-blue-600 mt-0.5">
+                          <Home size={12} />
+                          <span>ห้อง: {patient.room}</span>
+                        </div>
+                      )}
+                    </div>
+                    <ChevronRight size={20} className="sm:w-6 sm:h-6 text-gray-400 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : searchQuery.length >= 1 ? (
             <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-              <Search size={48} className="sm:w-16 sm:h-16 text-gray-300" />
-              <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ไม่พบผู้ป่วย</p>
-              <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
-                ลองค้นหาด้วยคำอื่นหรือตรวจสอบความถูกต้อง
-              </p>
+              {searchMode === 'room' ? (
+                <>
+                  <Home size={48} className="sm:w-16 sm:h-16 text-gray-300" />
+                  <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">
+                    ไม่พบผู้ป่วยในห้อง {searchQuery}
+                  </p>
+                  <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
+                    ตรวจสอบเลขห้องว่าถูกต้องหรือไม่
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Search size={48} className="sm:w-16 sm:h-16 text-gray-300" />
+                  <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ไม่พบผู้ป่วย</p>
+                  <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
+                    ลองค้นหาด้วยคำอื่นหรือตรวจสอบความถูกต้อง
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-              <Search size={48} className="sm:w-16 sm:h-16 text-gray-300" />
-              <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ค้นหาผู้ป่วย</p>
-              <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
-                พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อเริ่มค้นหา
-              </p>
+              {searchMode === 'room' ? (
+                <>
+                  <Home size={48} className="sm:w-16 sm:h-16 text-gray-300" />
+                  <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ค้นหาผู้ป่วยตามห้อง</p>
+                  <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
+                    พิมพ์เลขห้องเพื่อดูผู้ป่วยทั้งหมดในห้องนั้น
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Search size={48} className="sm:w-16 sm:h-16 text-gray-300" />
+                  <p className="mt-3 sm:mt-4 text-base sm:text-lg font-semibold text-gray-600">ค้นหาผู้ป่วย</p>
+                  <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center px-4">
+                    พิมพ์เพื่อเริ่มค้นหา
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -182,7 +276,10 @@ const PatientProcedureForm = () => {
   const [showInfusionIVOptions, setShowInfusionIVOptions] = useState(false);
   const [editableAge, setEditableAge] = useState('');
   const [editableRoom, setEditableRoom] = useState('');
-
+  const [procedureImages, setProcedureImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const MAX_IMAGES = 10;
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   // Data from API
   const [patients, setPatients] = useState([]);
   // const [procedureItems, setProcedureItems] = useState([]);
@@ -259,6 +356,131 @@ const PatientProcedureForm = () => {
     }
   };
 
+  const handlePickImage = (event) => {
+    const files = Array.from(event.target.files);
+
+    if (procedureImages.length + files.length > MAX_IMAGES) {
+      alert(`สามารถแนบรูปได้สูงสุด ${MAX_IMAGES} รูป`);
+      return;
+    }
+
+    const validFiles = [];
+    const invalidFiles = [];
+
+    files.forEach((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        invalidFiles.push(file.name);
+      } else if (file.type.startsWith('image/')) {
+        validFiles.push({
+          file: file,
+          preview: URL.createObjectURL(file),
+          name: file.name,
+          type: file.type,
+          size: file.size
+        });
+      }
+    });
+
+    if (invalidFiles.length > 0) {
+      alert(`ไฟล์เหล่านี้มีขนาดเกิน 5MB: ${invalidFiles.join(', ')}`);
+    }
+
+    if (validFiles.length > 0) {
+      setProcedureImages([...procedureImages, ...validFiles]);
+    }
+
+    // Reset input
+    event.target.value = '';
+  };
+
+  const handleTakePhoto = (event) => {
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    if (procedureImages.length >= MAX_IMAGES) {
+      alert(`สามารถแนบรูปได้สูงสุด ${MAX_IMAGES} รูป`);
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      alert('ไฟล์มีขนาดเกิน 5MB');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.type.startsWith('image/')) {
+      setProcedureImages([...procedureImages, {
+        file: file,
+        preview: URL.createObjectURL(file),
+        name: file.name,
+        type: file.type,
+        size: file.size
+      }]);
+    }
+
+    event.target.value = '';
+  };
+
+  const handleRemoveImage = (index) => {
+    if (window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
+      const newImages = procedureImages.filter((_, i) => i !== index);
+      // ทำลาย URL.createObjectURL เพื่อป้องกัน memory leak
+      URL.revokeObjectURL(procedureImages[index].preview);
+      setProcedureImages(newImages);
+    }
+  };
+
+  // ✅ Function: อัพโหลดรูปภาพไปยัง API
+  const uploadImages = async () => {
+    if (procedureImages.length === 0) return [];
+
+    try {
+      setUploadingImages(true);
+
+      const formData = new FormData();
+
+      procedureImages.forEach((image) => {
+        formData.append('images', image.file);
+      });
+
+      console.log('🔵 Uploading images...');
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/procedure-records/upload-images`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const result = await response.json();
+      console.log('✅ Upload success:', result);
+
+      if (result.success) {
+        return result.imageUrls;
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+
+      let errorMessage = 'ไม่สามารถอัพโหลดรูปภาพได้';
+
+      if (error.message.includes('401')) {
+        errorMessage += '\nToken หมดอายุ กรุณา Login ใหม่';
+      } else if (error.message.includes('413')) {
+        errorMessage += '\nไฟล์ใหญ่เกินไป (เกิน 5MB)';
+      }
+
+      alert(errorMessage);
+      return [];
+    } finally {
+      setUploadingImages(false);
+    }
+  };
   // Update time every second
   useEffect(() => {
     const interval = setInterval(() => {
@@ -356,9 +578,19 @@ const PatientProcedureForm = () => {
 
       const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+      let imageUrls = [];
+      if (procedureImages.length > 0) {
+        imageUrls = await uploadImages();
+        if (imageUrls.length === 0 && procedureImages.length > 0) {
+          alert('ไม่สามารถอัพโหลดรูปภาพได้ กรุณาลองใหม่');
+          setLoading(false);
+          return;
+        }
+      }
+
       const payload = {
-        serviceRegistrationId: selectedPatient.id,      // ต้องมี
-        patientId: selectedPatient.patient_id,          // ต้องมี
+        serviceRegistrationId: selectedPatient.id,
+        patientId: selectedPatient.patient_id,
         admissionId: null,
         recordDate: date,
         recordTime: time,
@@ -371,6 +603,7 @@ const PatientProcedureForm = () => {
           subOptionValue: proc.subOptionValue || null
         })),
         nonChargeableProcedures: checkedOther,
+        imageUrls: imageUrls, // ✅ เพิ่ม imageUrls
         createdBy: user.user_id || 1
       };
 
@@ -445,6 +678,10 @@ const PatientProcedureForm = () => {
     setShowOxygenOptions(false);
     setShowInfusionNGOptions(false);
     setShowInfusionIVOptions(false);
+
+    // ✅ ล้างรูปภาพ
+    procedureImages.forEach(img => URL.revokeObjectURL(img.preview));
+    setProcedureImages([]);
   };
 
   const handlePatientSelect = (patient) => {
@@ -469,6 +706,91 @@ const PatientProcedureForm = () => {
     "เปลี่ยนผ้าอ้อม", "พลิกตะแคงตัว", "พยาบาลตรวจเยี่ยมประเมินอาการประจำเวร/แรกรับ",
     "ตรวจเยี่ยมประเมินอาการประจำเวร", "ทำความสะอาด Unit ผู้ป่วยประจำวัน", "หัตถการอื่นๆ"
   ];
+
+  const renderImageUpload = () => (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <Camera size={18} className="text-purple-600" />
+          รูปภาพการทำหัตถการ
+        </label>
+        <span className="text-xs text-gray-500">
+          ({procedureImages.length}/{MAX_IMAGES})
+        </span>
+      </div>
+
+      {/* แสดงรูปภาพที่เลือก */}
+      {procedureImages.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {procedureImages.map((image, index) => (
+            <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+              <img
+                src={image.preview}
+                alt={`Preview ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+              <button
+                onClick={() => handleRemoveImage(index)}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+              >
+                <X size={14} />
+              </button>
+              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate">
+                {(image.size / 1024).toFixed(0)} KB
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ปุ่มอัพโหลด */}
+      {procedureImages.length < MAX_IMAGES && (
+        <div className="flex gap-2">
+          {/* ปุ่มถ่ายรูป */}
+          <label className="flex-1 bg-purple-500 hover:bg-purple-600 text-white rounded-lg py-2 px-3 cursor-pointer flex items-center justify-center gap-2 transition">
+            <Camera size={18} />
+            <span className="text-sm font-medium">ถ่ายรูป</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleTakePhoto}
+              className="hidden"
+            />
+          </label>
+
+          {/* ปุ่มเลือกรูป */}
+          <label className="flex-1 bg-blue-500 hover:bg-blue-600 text-white rounded-lg py-2 px-3 cursor-pointer flex items-center justify-center gap-2 transition">
+            <ImageIcon size={18} />
+            <span className="text-sm font-medium">เลือกรูป</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handlePickImage}
+              className="hidden"
+            />
+          </label>
+        </div>
+      )}
+
+      {procedureImages.length >= MAX_IMAGES && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2 flex items-center gap-2">
+          <div className="w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center text-white text-xs">!</div>
+          <span className="text-xs text-yellow-800">
+            แนบรูปครบ {MAX_IMAGES} รูปแล้ว
+          </span>
+        </div>
+      )}
+
+      {uploadingImages && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2 mt-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+          <span className="text-sm text-blue-600">กำลังอัพโหลดรูปภาพ...</span>
+        </div>
+      )}
+    </div>
+  );
 
   if (loading && patients.length === 0) {
     return (
@@ -548,7 +870,18 @@ const PatientProcedureForm = () => {
                 <img src={selectedPatient.image} alt="" className="w-12 h-12 rounded-full object-cover" />
                 <div className="flex-1">
                   <p className="font-medium">{selectedPatient.prefix}{selectedPatient.firstname} {selectedPatient.lastname}</p>
-                  <p className="text-sm text-gray-500">{selectedPatient.service_number}</p>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>{selectedPatient.service_number}</span>
+                    {selectedPatient.room && selectedPatient.room !== '-' && (
+                      <>
+                        <span>•</span>
+                        <div className="flex items-center gap-1">
+                          <Home size={12} />
+                          <span>ห้อง {selectedPatient.room}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <ChevronDown size={20} className="text-gray-400" />
               </>
@@ -682,6 +1015,8 @@ const PatientProcedureForm = () => {
               )}
             </div>
 
+            {renderImageUpload()}
+
             {/* Note */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">หมายเหตุ</label>
@@ -696,9 +1031,10 @@ const PatientProcedureForm = () => {
             {/* Submit Button */}
             <button
               onClick={handleSubmit}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-full py-3 font-medium transition-colors"
+              disabled={loading || uploadingImages}
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white rounded-full py-3 font-medium transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              Submit
+              {uploadingImages ? 'กำลังอัพโหลดรูปภาพ...' : loading ? 'กำลังบันทึก...' : 'Submit'}
             </button>
           </>
         )}
@@ -965,6 +1301,15 @@ const PatientProcedureForm = () => {
                     </div>
                   </div>
                 )}
+
+                {/* ✅ แสดงจำนวนรูปภาพที่แนบ */}
+                {procedureImages.length > 0 && (
+                  <div className="flex justify-between py-2 border-b text-sm sm:text-base">
+                    <span className="text-gray-600">รูปภาพที่แนบ:</span>
+                    <span className="font-medium">{procedureImages.length} รูป</span>
+                  </div>
+                )}
+
                 {note && (
                   <div className="py-2 border-b">
                     <span className="text-gray-600 block mb-1 text-sm sm:text-base">หมายเหตุ:</span>

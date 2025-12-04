@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package, Search } from 'lucide-react';
+import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package, Search, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
+import { jsPDF } from 'jspdf';
+import '../fonts/SarabunNew.js';
+import '../fonts/SarabunNewBold.js';
+import JsBarcode from 'jsbarcode';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { saveAs } from 'file-saver';
+import { FileText } from 'lucide-react';
+import { calculateMonthsAndDays } from '../utils/dateCalculator.js';
+import { generateBarcode } from '../utils/barcodeGenerator.js';
+import ImageModule from 'docxtemplater-image-module-free';
+import { processPatientName } from '../utils/prenameUtils.js';
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -15,12 +27,14 @@ export default function ThaiServiceForm() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const patientId = id || searchParams.get('patientId') || location.state?.patientId;
-  
-  
+
+
   const [currentDate, setCurrentDate] = useState(formatThaiDate(new Date()));
+
   const [formData, setFormData] = useState({
     hn: '',
     an: '',
+    prename: '',
     firstName: '',
     lastName: '',
     idNumber: '',
@@ -29,7 +43,39 @@ export default function ThaiServiceForm() {
     toDate: '',
     building: '',
     floor: 'รายวัน',
-    price: ''
+    price: '',
+    birth_date: '',
+    age: '',
+    address: '',
+    village: '',
+    subDistrict: '',
+    district: '',
+    province: '',
+    phone: '',
+    email: '',
+    lineId: '',
+    relationship: '',
+    authorizedPerson: '',
+    authorizedIdCard: '',
+    patientName: '',
+    patientAge: '',
+    patientIdCard: '',
+    startDate: '',
+    endDate: '',
+    totalMonths: '',
+    totalDays: '',
+    roomType: '',
+    roomNumber: '',
+    serviceRate: '',
+    nursingRate: '',
+    medicalSupplies: '',
+    doctorVisitRate: '',
+    initialExamFee: '',
+    totalServiceFee: '',
+    extraDoctorVisitFee: '',
+    gender: '',  // ✅ เพิ่มบรรทัดนี้
+    finalGender: '',  // ✅ เพิ่มบรรทัดนี้
+
   });
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -123,7 +169,7 @@ export default function ThaiServiceForm() {
   };
 
   const selectPatientFromSearch = (patient) => {
-    
+
     setFormData(prev => ({
       ...prev,
       hn: patient.hn || '',
@@ -225,6 +271,136 @@ export default function ThaiServiceForm() {
       setDepartmentsLoading(false);
     }
   };
+  const exportToWord = async (formData, templatePath, setError) => {
+    try {
+      console.log('Starting Word export...');
+      console.log('Form data:', formData);
+
+      // 🔹 เพิ่มตรงนี้ - สร้าง barcode จาก HN (บรรทัด 8-20)
+      let barcodeData = null;
+      if (formData.hn) {
+        const base64 = await generateBarcode(formData.hn);
+        if (base64) {
+          barcodeData = {
+            data: base64,
+            opts: {
+              width: 100,
+              height: 50
+            }
+          };
+        }
+        console.log('Barcode generated');
+      }
+
+      // 🆕 คำนวณเดือนและวัน (ใช้ฟังก์ชันที่ import มา)
+      let totalMonths = '';
+      let totalDays = '';
+      if (formData.date && formData.toDate) {
+        const result = calculateMonthsAndDays(formData.date, formData.toDate);
+        // ❌ FIX: ผลลัพธ์มีแค่ months, days (ไม่มี year)
+        totalMonths = result.months.toString();
+        totalDays = result.days.toString();
+        console.log('Calculated months:', result.months, 'days:', result.days);
+      }
+      // Fetch the template
+      const response = await fetch(templatePath);
+
+      if (!response.ok) {
+        throw new Error(`Failed to load template: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('Template loaded, size:', arrayBuffer.byteLength);
+
+      // Create PizZip instance
+      const zip = new PizZip(arrayBuffer);
+      console.log('PizZip created');
+
+      // Create Docxtemplater instance
+      const doc = new Docxtemplater(zip, {
+        linebreaks: true,
+        delimiters: {
+          start: '{{',
+          end: '}}'
+        }
+      });
+      console.log('Docxtemplater initialized');
+
+      const patientInfo = processPatientName({
+        prename: formData.prename,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        gender: formData.gender
+      });
+
+      // Prepare data for template
+      const data = {
+        hn: formData.hn || '',
+        prename: formData.prename || '',
+        firstName: formData.firstName || '',
+        lastName: formData.lastName || '',
+        birthDate: formData.birth_date || '..........................................',
+        age: formData.age || '................................................',
+        idCard: formData.idNumber || '.............',
+        address: formData.address || '...................',
+        village: formData.village || '....................',
+        subDistrict: formData.subDistrict || '....................',
+        district: formData.district || '....................',
+        province: formData.province || '....................',
+        phone: formData.phone || '....................',
+        email: formData.email || '....................',
+        lineId: formData.lineId || '....................',
+        relationship: formData.relationship || '....................',
+        patientName: formData.patientName || '....................',
+        patientAge: formData.patientAge || '....................',
+        patientIdCard: formData.patientIdCard || '...............................................................',
+        startDate: formData.date || '',
+        endDate: formData.toDate || '',
+        totalMonths: totalMonths || '',
+        totalDays: totalDays || '',
+        roomType: formData.floor || '',
+        roomNumber: formData.building || '',
+        serviceRate: formData.serviceRate || '....................',
+        nursingRate: formData.nursingRate || '....................',
+        medicalSupplies: formData.medicalSupplies || '...........................................................................................................................................................',
+        doctorVisitRate: formData.doctorVisitRate || '........................',
+        initialExamFee: formData.initialExamFee || '........................',
+        totalServiceFee: formData.totalServiceFee || '........................',
+        extraDoctorVisitFee: formData.extraDoctorVisitFee || '........................',
+        finalGender: formData.gender || formData.finalGender || '',  // ✅ แก้บรรทัดนี้
+        finalGender: patientInfo.finalGender,
+      };
+
+      console.log('Data prepared:', data);
+
+      // Set data in template
+      doc.setData(data);
+      console.log('Data set in template');
+
+      // Render the template
+      doc.render();
+      console.log('Template rendered');
+
+      // Generate the document
+      const blob = doc.getZip().generate({ type: 'blob' });
+      console.log('Blob generated, size:', blob.size);
+
+      // Save the file
+      const fileName = `สัญญา_${formData.firstName || 'contract'}_${formData.lastName || 'document'}.docx`;
+      saveAs(blob, fileName);
+      console.log('File saved:', fileName);
+
+      setError(null);
+      alert('Export Word สำเร็จ!');
+    } catch (error) {
+      console.error('Error exporting to Word:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error properties:', error.properties);
+      setError(`เกิดข้อผิดพลาดในการ export Word: ${error.message}`);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
 
   const fetchPatientById = async (id) => {
     try {
@@ -245,14 +421,24 @@ export default function ThaiServiceForm() {
         throw new Error(result.error || 'Failed to fetch patient');
       }
 
+      console.log('Fetched patient data:', result.data);
+
+
       const patientData = result.data;
+
+      console.log('Patient data to set in form:', patientData);
+
       setFormData(prev => ({
         ...prev,
-        hn: patientData.hn || '',
-        firstName: patientData.first_name || '',
-        lastName: patientData.last_name || '',
-        idNumber: patientData.id_card || '',
+        hn: patientData.hn,
+        prename: patientData.prename,
+        firstName: patientData.first_name,
+        lastName: patientData.last_name,
+        idNumber: patientData.id_card,
       }));
+
+
+
 
       setPreviewUrl(patientData.profile_image);
     } catch (err) {
@@ -378,7 +564,7 @@ export default function ThaiServiceForm() {
     }
   };
 
-const handleRoomChange = (e) => {
+  const handleRoomChange = (e) => {
     const roomId = e.target.value;
     const room = rooms.find(r => r.id === parseInt(roomId));
 
@@ -389,7 +575,7 @@ const handleRoomChange = (e) => {
       // 1. กำหนดประเภทเริ่มต้นเป็น 'รายวัน'
       const defaultBillingType = 'รายวัน';
       // 2. ดึงราคาตามประเภทเริ่มต้น (หรือ 0 ถ้าไม่มี)
-      const defaultPrice = room.daily_price || 0; 
+      const defaultPrice = room.daily_price || 0;
       // --- จบส่วนที่เพิ่มเข้ามา ---
 
       setFormData(prev => ({
@@ -397,8 +583,8 @@ const handleRoomChange = (e) => {
         building: room.room_number,
         roomTypeId: room.id,
         // --- อัปเดต state ด้วยค่าเริ่มต้น ---
-        floor: defaultBillingType,        
-        price: defaultPrice.toString()  
+        floor: defaultBillingType,
+        price: defaultPrice.toString()
       }));
 
     } else {
@@ -408,7 +594,7 @@ const handleRoomChange = (e) => {
         ...prev,
         building: '',
         roomTypeId: null,
-        floor: 'รายวัน', 
+        floor: 'รายวัน',
         price: ''
       }));
     }
@@ -647,7 +833,32 @@ const handleRoomChange = (e) => {
     <div className="flex min-h-screen bg-slate-100">
       <div className="flex-1 p-8">
         <div className="bg-white p-8 rounded-lg shadow-md">
-          <h1 className="text-2xl font-bold text-gray-800 mb-6">ผู้รับบริการวันที่ {currentDate}</h1>
+          <div className="flex justify-end items-center gap-4 mb-6">
+            <h1 className="text-2xl font-bold text-gray-800 mr-auto">
+              ผู้รับบริการวันที่ {currentDate}
+            </h1>
+
+            {isStrokeCenter() && (
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => exportToWord(formData, '/templates/CODE.docx', setError)}
+                  className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>สัญญาจ้างทางการแพทย์</span>
+                </button>
+                <button
+                  onClick={() => exportToWord(formData, '/templates/เอกสารAdmit.docx', setError)}
+                  className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                >
+                  📄 เอกสาร Admit
+                </button>
+              </div>
+
+            )}
+
+
+          </div>
 
           {/* Universal Search Section */}
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1177,7 +1388,7 @@ const handleRoomChange = (e) => {
             </>
           )}
 
-          <div className="flex justify-start space-x-4 mt-8">
+          <div className="flex justify-end space-x-4 mt-8 ">
             <button
               onClick={handleMainSaveClick}
               disabled={loading}
