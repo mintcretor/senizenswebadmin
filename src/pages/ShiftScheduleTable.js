@@ -67,7 +67,7 @@ const ShiftScheduleTable = () => {
                 setError(null);
 
                 // ดึงข้อมูลพนักงาน
-                const employeesResponse = await fetch(`${API_BASE_URL}/users/nurse`);
+                const employeesResponse = await fetch(`${API_BASE_URL}/users`);
                 if (!employeesResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลพนักงานได้');
                 
                 const employeesData = await employeesResponse.json();
