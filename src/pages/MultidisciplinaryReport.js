@@ -3,7 +3,7 @@ import { Search, X, UserPlus, Users, User, Save, Share2, ChevronRight, Info, Ale
 import { useParams } from 'react-router-dom';
 
 // API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
+const API_BASE_URL = 'http://172.16.40.11:3001/api;';
 
 const createApiClient = () => {
   const getToken = () => localStorage.getItem('authToken');
