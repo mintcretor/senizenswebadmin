@@ -12,6 +12,7 @@ import {
   LogOut,
   ClipboardMinus,
   Calendar,
+  Pill,
 } from 'lucide-react';
 
 const Sidebar = ({ isSidebarOpen }) => {
@@ -93,6 +94,10 @@ const Sidebar = ({ isSidebarOpen }) => {
           <a href="/wellness" className={getLinkClass('/wellness')} title={!isOpen ? 'สุขภาพและความงาม' : ''}>
             <Sparkles size={20} className="flex-shrink-0" />
             {isOpen && <span>สุขภาพและความงาม</span>}
+          </a>
+          <a href="/drug-inventory" className={getLinkClass('/drug-inventory')}>
+            <Pill size={20} className="flex-shrink-0" />
+            {isOpen && <span>คลังยา</span>}
           </a>
           <a href="/ProcedureRecordList" className={getLinkClass('/ProcedureRecordList')} title={!isOpen ? 'จัดการข้อมูลบันทึกหัตถการ' : ''}>
             <ClipboardMinus size={20} className="flex-shrink-0" />
