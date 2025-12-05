@@ -26,6 +26,7 @@ import Usermanagement from './pages/Usermanagement';
 import Graphicsheet from './pages/Graphicsheet';
 import ProcedureRecordList from './pages/ProcedureRecordList';
 import ProcedureRecordEdit from './pages/ProcedureRecordEdit';
+import DrugInventoryPage from './pages/DrugInventoryPage';
 import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
@@ -93,6 +94,7 @@ function App() {
           <Route path="/EditPatient/:id" element={<EditPatient />} />
           <Route path="/an-vn/add/:id?" element={<ThaiServiceForm />} />
           <Route path="/multidisciplinary" element={<MultidisciplinaryReport />} />
+          <Route path="/drug-inventory" element= { <DrugInventoryPage /> }/>
           <Route path="/rehab" element={<RehabReport />} />
           <Route path="/multidisciplinary/:hn?" element={<MultidisciplinaryReport />} />
           <Route

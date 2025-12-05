@@ -294,7 +294,7 @@ export default function MultidisciplinaryReportList() {
             checkRole: true,
             checkSameDay: true,
             hoursLimit: 24,
-            allowedRoles: ['หัวหน้าพยาบาล แผนก IPD', 'admin']
+            allowedRoles: ['หัวหน้าพยาบาล แผนก IPD', 'ธุรการประจำ Ward', 'admin']
         });
     };
 
@@ -307,7 +307,7 @@ export default function MultidisciplinaryReportList() {
             checkCreator: true,
             checkRole: true,
             hoursLimit: 2,
-            allowedRoles: ['admin', 'หัวหน้าพยาบาล แผนก IPD']
+            allowedRoles: ['ธุรการประจำ Ward', 'หัวหน้าพยาบาล แผนก IPD' , 'admin']
         });
     };
 

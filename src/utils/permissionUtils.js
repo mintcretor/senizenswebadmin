@@ -61,7 +61,7 @@ export const canEditRecord = (record, currentUser, options = {}) => {
     checkSameDay = false,
     checkStatus = false,
     hoursLimit = 24,
-    allowedRoles = ['หัวหน้าพยาบาล แผนก IPD', 'admin']
+    allowedRoles = ['หัวหน้าพยาบาล แผนก IPD', 'ธุรการประจำ Ward', 'admin']
   } = options;
 
   // Admin มีสิทธิ์เต็ม
@@ -113,7 +113,7 @@ export const canDeleteRecord = (record, currentUser, options = {}) => {
     checkTime = true,
     checkCreator = true,
     checkRole = true,
-    hoursLimit = 2, // ลบได้เฉพาะ 2 ชั่วโมง (เข้มงวดกว่าแก้ไข)
+    hoursLimit = 24, // ลบได้เฉพาะ 2 ชั่วโมง (เข้มงวดกว่าแก้ไข)
     allowedRoles = ['admin', 'head_nurse']
   } = options;
 
@@ -155,7 +155,7 @@ export const canEditreport = (record, currentUser, options = {}) => {
     checkSameDay = false,
     checkStatus = false,
     hoursLimit = 24,
-    allowedRoles = ['หัวหน้าพยาบาล แผนก IPD', 'admin']
+    allowedRoles = ['หัวหน้าพยาบาล แผนก IPD', 'ธุรการประจำ Ward', 'admin']
   } = options;
 
   // Admin มีสิทธิ์เต็ม
@@ -207,7 +207,7 @@ export const canDeleteReport = (record, currentUser, options = {}) => {
     checkTime = true,
     checkCreator = true,
     checkRole = true,
-    hoursLimit = 2, // ลบได้เฉพาะ 2 ชั่วโมง (เข้มงวดกว่าแก้ไข)
+    hoursLimit = 24, // ลบได้เฉพาะ 2 ชั่วโมง (เข้มงวดกว่าแก้ไข)
     allowedRoles = ['admin', 'head_nurse']
   } = options;
 
