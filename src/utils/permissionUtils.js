@@ -7,7 +7,7 @@ import { formatDateForInput, formatTime } from '../utils/dateUtils';
 
 // เงื่อนไข 1: ตรวจสอบตามเวลา (ห้ามแก้ไขหลังจากเวลาที่กำหนด)
 export const canEditByTime = (recordDate, recordTime, hoursLimit = 24) => {
-  const recordDateTime = new Date(`${formatDateForInput(recordDate)}T${recordTime}`);
+  const recordDateTime = new Date(`${formatDateForInput(recordDate)}`);
 
   
   const now = new Date();
@@ -95,6 +95,7 @@ export const canEditRecord = (record, currentUser, options = {}) => {
 
   // ตรวจสอบผู้สร้าง
   if (checkCreator && !canEditByCreator(record.created_by, currentUser.user_id)) {
+    console.log('Record for permission check:', currentUser.position_name);
     // ถ้าไม่ใช่คนสร้าง ให้ตรวจสอบบทบาท
     if (checkRole && !canEditByRole(currentUser.position_name, allowedRoles)) {
       return { 
@@ -170,7 +171,7 @@ export const canEditreport = (record, currentUser, options = {}) => {
       reason: 'บันทึกนี้ถูกอนุมัติแล้ว ไม่สามารถแก้ไขได้' 
     };
   }
-  console.log('Record for permission check:', record);
+ // console.log('Record for permission check:', record);
   // ตรวจสอบเวลา
   if (checkTime && !canEditByTimes(record.report_date, record.record_time, hoursLimit)) {
     return { 
@@ -215,9 +216,9 @@ export const canDeleteReport = (record, currentUser, options = {}) => {
   if (currentUser.role === 'admin') {
     return { canDelete: true, reason: null };
   }
-
+  //console.log('Record for delete permission check:', record);
   // ตรวจสอบเวลา
-  if (checkTime && !canEditByTime(record.report_date, record.record_time, hoursLimit)) {
+  if (checkTime && !canEditByTime(record.created_at, record.record_time, hoursLimit)) {
     return { 
       canDelete: false, 
       reason: `ลบได้เฉพาะภายใน ${hoursLimit} ชั่วโมงหลังบันทึก` 
@@ -226,8 +227,9 @@ export const canDeleteReport = (record, currentUser, options = {}) => {
 
   // ตรวจสอบผู้สร้าง
   if (checkCreator && !canEditByCreator(record.created_by, currentUser.user_id)) {
+
     // ถ้าไม่ใช่คนสร้าง ให้ตรวจสอบบทบาท
-    if (checkRole && !canEditByRole(currentUser.role, allowedRoles)) {
+    if (checkRole && !canEditByRole(currentUser.position_name, allowedRoles)) {
       return { 
         canDelete: false, 
         reason: 'คุณไม่มีสิทธิ์ลบบันทึกของผู้อื่น' 

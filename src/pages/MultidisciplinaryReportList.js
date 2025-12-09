@@ -306,7 +306,7 @@ export default function MultidisciplinaryReportList() {
             checkTime: true,
             checkCreator: true,
             checkRole: true,
-            hoursLimit: 2,
+            hoursLimit: 30,
             allowedRoles: ['ธุรการประจำ Ward', 'หัวหน้าพยาบาล แผนก IPD' , 'admin']
         });
     };

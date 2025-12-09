@@ -130,7 +130,7 @@ const ProcedureRecordList = () => {
             checkTime: true,
             checkCreator: true,
             checkRole: true,
-            hoursLimit: 2, // ลบได้แค่ 2 ชั่วโมง
+            hoursLimit: 24, // ลบได้แค่ 2 ชั่วโมง
             allowedRoles: ['admin', 'head_nurse']
         });
     };
@@ -233,7 +233,11 @@ const ProcedureRecordList = () => {
                         รายการบันทึกหัตถการพยาบาล
                     </h1>
                     <p className="text-gray-600">จัดการและแก้ไขบันทึกหัตถการ</p>
+
+                        
+
                 </div>
+                
 
                 {/* Error Message */}
                 {error && (
