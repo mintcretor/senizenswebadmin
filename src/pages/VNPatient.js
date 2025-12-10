@@ -21,6 +21,23 @@ const formatThaiDate = (date) => {
   return `${day}/${month}/${year}`;
 };
 
+const formatWesternDate = (date) => {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
+const formatThaiTime = (date) => {
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+};
+
+
 export default function ThaiServiceForm() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -276,6 +293,15 @@ export default function ThaiServiceForm() {
       console.log('Starting Word export...');
       console.log('Form data:', formData);
 
+      // 👇 เพิ่มตรงนี้
+      const now = new Date();
+      const dateNow = formatThaiDate(now);        // "05/12/2568"
+      const timeNow = formatThaiTime(now);        // "15:30:45"
+      const effectiveDate = formatWesternDate(now); // "5 Dec 2024"
+
+      console.log('Effective Date:', effectiveDate);
+      // 👆 จบ
+
       // 🔹 เพิ่มตรงนี้ - สร้าง barcode จาก HN (บรรทัด 8-20)
       let barcodeData = null;
       if (formData.hn) {
@@ -367,8 +393,13 @@ export default function ThaiServiceForm() {
         initialExamFee: formData.initialExamFee || '........................',
         totalServiceFee: formData.totalServiceFee || '........................',
         extraDoctorVisitFee: formData.extraDoctorVisitFee || '........................',
-        finalGender: formData.gender || formData.finalGender || '',  // ✅ แก้บรรทัดนี้
         finalGender: patientInfo.finalGender,
+        // ✅ แล้วเพิ่มต่อด้วย:
+        dateNow: dateNow,                          // "05/12/2568"
+        timeNow: timeNow,                          // "15:30:45"
+        dateTimeNow: `${dateNow} ${timeNow}`,      // "05/12/2568 15:30:45"
+        effectiveDate: effectiveDate,               // "5 Dec 2024"
+
       };
 
       console.log('Data prepared:', data);
@@ -841,7 +872,7 @@ export default function ThaiServiceForm() {
             {isStrokeCenter() && (
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => exportToWord(formData, '/templates/CODE.docx', setError)}
+                  onClick={() => exportToWord(formData, '/templates/CODE1.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                 >
                   <FileText className="w-4 h-4" />

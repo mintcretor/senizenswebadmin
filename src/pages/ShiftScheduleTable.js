@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, User, Plus, Edit2, Save, X, Loader, AlertCircle, Filter } from 'lucide-react';
+import { Calendar, User, Plus, Edit2, Save, X, Loader, AlertCircle, Filter, Printer } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
@@ -38,7 +38,6 @@ const ShiftScheduleTable = () => {
                 if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลประเภทเวรได้');
                 
                 const result = await response.json();
-                console.log('Shift types:', result);
                 
                 if (result.success) {
                     setShiftTypes(result.data);
@@ -49,9 +48,10 @@ const ShiftScheduleTable = () => {
                 setShiftTypes([
                     { code: 'D', name: 'กลางวัน', color_class: 'bg-blue-100 text-blue-800', start_time: '07:00:00', end_time: '19:00:00' },
                     { code: 'N', name: 'กลางคืน', color_class: 'bg-purple-100 text-purple-800', start_time: '19:00:00', end_time: '07:00:00' },
-                    { code: 'X', name: 'ว่าง', color_class: 'bg-gray-100 text-gray-600' },
                     { code: 'D/N', name: 'ทั้งวัน', color_class: 'bg-green-100 text-green-800', start_time: '07:00:00', end_time: '07:00:00' },
-                    { code: 'VAC', name: 'ลา', color_class: 'bg-yellow-100 text-yellow-800' },
+                    { code: 'X', name: 'วันหยุด/เวรหยุด', color_class: 'bg-gray-100 text-gray-600' },
+                    { code: 'V', name: 'หยุดพักผ่อน (Vacation)', color_class: 'bg-yellow-100 text-yellow-800' },
+                    { code: 'S', name: 'สิทธิการลา (ลาป่วย/ลากิจ/ลาอบรม)', color_class: 'bg-red-100 text-red-800' },
                 ]);
             }
         };
@@ -71,12 +71,11 @@ const ShiftScheduleTable = () => {
                 if (!employeesResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลพนักงานได้');
                 
                 const employeesData = await employeesResponse.json();
-                console.log('Employees data:', employeesData);
                 setEmployees(employeesData);
 
                 // สร้างรายการตำแหน่งและ ward ที่มี
-                const roles = [...new Set(employeesData.map(emp => emp.role_id).filter(Boolean))];
-                const wards = [...new Set(employeesData.map(emp => emp.ward).filter(Boolean))];
+                const roles = [...new Set(employeesData.map(emp => emp.division_name).filter(Boolean))];
+                const wards = [...new Set(employeesData.map(emp => emp.ward).filter(Boolean).sort())];
                 setAvailableRoles(roles);
                 setAvailableWards(wards);
 
@@ -85,12 +84,10 @@ const ShiftScheduleTable = () => {
                     `${API_BASE_URL}/schedules/monthly?month=${currentMonth}&year=${currentYear}`
                 );
                 
-                console.log('Fetching schedule:', `${API_BASE_URL}/schedules/monthly?month=${currentMonth}&year=${currentYear}`);
 
                 if (!scheduleResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลตารางเวรได้');
                 
                 const scheduleResult = await scheduleResponse.json();
-                console.log('Schedule result:', scheduleResult);
                 
                 if (scheduleResult.success && scheduleResult.data) {
                     // แปลงข้อมูลจาก API เป็นรูปแบบที่ใช้งาน
@@ -129,7 +126,6 @@ const ShiftScheduleTable = () => {
                         }
                     });
                     
-                    console.log('Formatted schedule:', formattedSchedule);
                     setScheduleData(formattedSchedule);
                 } else {
                     // ถ้าไม่มีข้อมูล สร้างตารางเปล่า
@@ -178,11 +174,11 @@ const ShiftScheduleTable = () => {
 
         // กรองตามตำแหน่ง
         if (selectedRole !== 'all') {
-            filtered = filtered.filter(emp => emp.role_id === selectedRole);
+            filtered = filtered.filter(emp => emp.division_name === selectedRole);
         }
 
         // กรองตาม ward (เฉพาะ PA และ NA)
-        if ((selectedRole === 'PA' || selectedRole === 'NA') && selectedWard !== 'all') {
+        if ((selectedRole === 'ผู้ช่วยพยาบาลและพนักงานผู้ช่วยพยาบาล') && selectedWard !== 'all') {
             filtered = filtered.filter(emp => emp.ward === selectedWard);
         }
 
@@ -191,7 +187,7 @@ const ShiftScheduleTable = () => {
 
     // ตรวจสอบว่าควรแสดง Ward selector หรือไม่
     const shouldShowWardSelector = () => {
-        return selectedRole === 'PA' || selectedRole === 'NA';
+        return selectedRole === 'ผู้ช่วยพยาบาลและพนักงานผู้ช่วยพยาบาล';
     };
 
     // Reset ward เมื่อเปลี่ยนตำแหน่งที่ไม่ใช่ PA/NA
@@ -233,7 +229,6 @@ const ShiftScheduleTable = () => {
                 });
             });
 
-            console.log('Saving schedules:', schedules.slice(0, 5)); // ดู 5 รายการแรก
 
             const response = await fetch(`${API_BASE_URL}/schedules/bulk`, {
                 method: 'POST',
@@ -249,7 +244,6 @@ const ShiftScheduleTable = () => {
             }
 
             const result = await response.json();
-            console.log('Save result:', result);
             
             if (result.success) {
                 setSaveSuccess(true);
@@ -308,6 +302,241 @@ const ShiftScheduleTable = () => {
         return time.substring(0, 5);
     };
 
+    // สร้างและพิมพ์ PDF
+    const generatePDF = () => {
+        const printWindow = window.open('', '_blank');
+        
+        // สร้าง HTML สำหรับพิมพ์
+        const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ตารางเวรพนักงาน - ${getThaiMonth(currentMonth)} ${currentYear + 543}</title>
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 10mm;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+            }
+        }
+        
+        body {
+            font-family: 'Sarabun', 'Arial', sans-serif;
+            font-size: 10pt;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .header h1 {
+            margin: 5px 0;
+            font-size: 18pt;
+            color: #333;
+        }
+        
+        .header h2 {
+            margin: 5px 0;
+            font-size: 14pt;
+            color: #666;
+        }
+        
+        .filter-info {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        
+        .filter-info strong {
+            color: #333;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        th, td {
+            border: 1px solid #333;
+            padding: 4px 2px;
+            text-align: center;
+            font-size: 9pt;
+        }
+        
+        th {
+            background-color: #4F46E5;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .name-col {
+            text-align: left;
+            padding-left: 8px;
+            min-width: 120px;
+        }
+        
+        .day-col {
+            min-width: 25px;
+            font-weight: bold;
+        }
+        
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .shift-D { background-color: #DBEAFE; color: #1E40AF; }
+        .shift-N { background-color: #F3E8FF; color: #6B21A8; }
+        .shift-DN { background-color: #DCFCE7; color: #166534; }
+        .shift-X { background-color: #F3F4F6; color: #4B5563; }
+        .shift-V { background-color: #FEF9C3; color: #854D0E; }
+        .shift-S { background-color: #FEE2E2; color: #991B1B; }
+        
+        .total-col {
+            background-color: #FEF3C7;
+            font-weight: bold;
+        }
+        
+        .ot-col {
+            background-color: #E0E7FF;
+            font-weight: bold;
+        }
+        
+        .legend {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .legend-item {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 9pt;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
+        }
+        
+        @media print {
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ตารางเวรพนักงาน</h1>
+        <h2>${getThaiMonth(currentMonth)} ${currentYear + 543}</h2>
+    </div>
+    
+    <div class="filter-info">
+        <strong>ตำแหน่ง:</strong> ${selectedRole === 'all' ? 'ทั้งหมด' : selectedRole}
+        ${shouldShowWardSelector() && selectedWard !== 'all' ? ` | <strong>Ward:</strong> ${selectedWard}` : ''}
+        | <strong>จำนวนพนักงาน:</strong> ${filteredEmployees.length} คน
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th class="name-col">ชื่อ - นามสกุล</th>
+                <th>ตำแหน่ง</th>
+                ${shouldShowWardSelector() ? '<th>Ward</th>' : ''}
+                ${Array.from({ length: daysInMonth }, (_, i) => `<th class="day-col">${i + 1}</th>`).join('')}
+                <th class="ot-col">OT</th>
+                <th class="total-col">รวม</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${filteredEmployees.map((emp) => {
+                const userId = emp.user_id;
+                return `
+                    <tr>
+                        <td class="name-col">${emp.first_name} ${emp.last_name}</td>
+                        <td>${emp.role_id || '-'}</td>
+                        ${shouldShowWardSelector() ? `<td>${emp.ward || '-'}</td>` : ''}
+                        ${Array.from({ length: daysInMonth }, (_, day) => {
+                            const dayNum = day + 1;
+                            const shift = scheduleData[userId]?.[dayNum] || 'X';
+                            const shiftClass = shift === 'D/N' ? 'DN' : shift;
+                            return `<td class="shift-${shiftClass}">${shift}</td>`;
+                        }).join('')}
+                        <td class="ot-col">${getDayCount(userId, 'D/N')}</td>
+                        <td class="total-col">${daysInMonth - getDayCount(userId, 'X') - getDayCount(userId, 'V') - getDayCount(userId, 'S')}</td>
+                    </tr>
+                `;
+            }).join('')}
+        </tbody>
+    </table>
+    
+    <div class="legend">
+        <div class="legend-title">สัญลักษณ์ประเภทเวร:</div>
+        <div class="legend-items">
+            ${shiftTypes.map(shift => {
+                const shiftClass = shift.code === 'D/N' ? 'DN' : shift.code;
+                return `
+                    <span class="legend-item shift-${shiftClass}">
+                        <strong>${shift.code}</strong> = ${shift.name}
+                        ${shift.start_time ? ` (${formatTime(shift.start_time)}-${formatTime(shift.end_time)})` : ''}
+                    </span>
+                `;
+            }).join('')}
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>พิมพ์เมื่อ: ${new Date().toLocaleDateString('th-TH', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}</p>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            window.print();
+            // ปิดหน้าต่างอัตโนมัติหลังจากพิมพ์หรือยกเลิก
+            window.onafterprint = function() {
+                window.close();
+            };
+        };
+    </script>
+</body>
+</html>
+        `;
+        
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    };
+
     const filteredEmployees = getFilteredEmployees();
 
     return (
@@ -343,15 +572,24 @@ const ShiftScheduleTable = () => {
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={isEditMode ? saveSchedule : () => setIsEditMode(true)}
-                            disabled={isLoading || isSaving}
-                            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
-                                isEditMode
-                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                            } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
+                        <div className="flex gap-3">
+                            <button
+                                onClick={generatePDF}
+                                disabled={isLoading || filteredEmployees.length === 0}
+                                className="px-6 py-2 rounded-lg font-semibold transition-all bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Printer size={18} className="inline mr-2" />
+                                พิมพ์ PDF
+                            </button>
+                            <button
+                                onClick={isEditMode ? saveSchedule : () => setIsEditMode(true)}
+                                disabled={isLoading || isSaving}
+                                className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                                    isEditMode
+                                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                                        : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
                             {isSaving ? (
                                 <>
                                     <Loader size={18} className="inline mr-2 animate-spin" />
@@ -368,7 +606,8 @@ const ShiftScheduleTable = () => {
                                     แก้ไข
                                 </>
                             )}
-                        </button>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Filters */}
@@ -583,7 +822,7 @@ const ShiftScheduleTable = () => {
                                                         {getDayCount(userId, 'D/N')}
                                                     </td>
                                                     <td className="px-3 py-3 text-center font-bold text-indigo-700 bg-indigo-50">
-                                                        {daysInMonth - getDayCount(userId, 'X') - getDayCount(userId, 'VAC')}
+                                                        {daysInMonth - getDayCount(userId, 'X') - getDayCount(userId, 'V') - getDayCount(userId, 'S')}
                                                     </td>
                                                 </tr>
                                             );
@@ -594,8 +833,8 @@ const ShiftScheduleTable = () => {
                         </div>
 
                         {/* Summary Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                            {shiftTypes.slice(0, 4).map(shift => {
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mt-6">
+                            {shiftTypes.map(shift => {
                                 const total = filteredEmployees.reduce((sum, emp) => 
                                     sum + getDayCount(emp.user_id, shift.code), 0
                                 );

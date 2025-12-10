@@ -7,7 +7,6 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 // Import API functions (you would create these in a separate file)
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 const API_IMG_BASE_URL = process.env.REACT_APP_API_BASE_IMG_URL;
-console.log('123321', API_IMG_BASE_URL);
 // API Helper functions
 const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -20,7 +19,6 @@ const apiRequest = async (endpoint, options = {}) => {
   };
 
   try {
-    console.log('API Request:', { url, config }); // Add this for debugging
     const response = await fetch(url, config);
 
     if (!response.ok) {
@@ -124,7 +122,6 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
       setUploadStatus('uploading');
       try {
         const result = await uploadPatientImage(file);
-        console.log('image', result)
         if (result.success && result.data.data) {
           setUploadStatus('success');
           onFileUpload(API_IMG_BASE_URL + result.data.data.imageUrl || result.data.data.url);
@@ -435,7 +432,6 @@ const PatientForm = ({ mode = "add" }) => {
 
   // Load initial data
   useEffect(() => {
-    console.log(mode);
     if (mode === "edit") {
       loadPatientDataForEdit();
     } else {
@@ -462,8 +458,7 @@ const PatientForm = ({ mode = "add" }) => {
     };
 
     // เพิ่ม console.log เพื่อ debug
-    console.log('Payload being sent:', payload);
-    console.log('Image URL:', imageUrl);
+   
 
     const httpMethod = mode === "edit" ? 'PUT' : 'POST';
     const endpoint = mode === "edit" ? `/patients/${id}` : '/patients';
@@ -523,7 +518,6 @@ const PatientForm = ({ mode = "add" }) => {
   const loadPatientDataForEdit = async () => {
     try {
       setIsLoading(true);
-      console.log('แก้ไข', patientFromState);
       if (patientFromState) {
         // ใช้ข้อมูลที่ส่งมาจาก location.state
         populateFormData(patientFromState);
@@ -534,7 +528,6 @@ const PatientForm = ({ mode = "add" }) => {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
-        console.log(result)
         if (result.success && result.data) {
           populateFormData(result.data.data || result.data);
         } else {
@@ -589,11 +582,9 @@ const PatientForm = ({ mode = "add" }) => {
     if (data.allergies) {
       setAllergies(data.allergies);
     }
-    console.log('data', data)
     if (data.emergencyContacts) {
       setEmergencyContacts(data.emergencyContacts);
     }
-    console.log('555', data)
     // ใส่รูปภาพถ้ามี
     if (data.imageUrl || data.profile_image) {
       const imageUrl = data.imageUrl || data.profile_image;
@@ -748,7 +739,6 @@ const PatientForm = ({ mode = "add" }) => {
   };
 
   const handleImageUpload = (url) => {
-    console.log('Image uploaded successfully:', url);
     setImageUrl(url);
     showToast('อัพโหลดรูปภาพสำเร็จ', 'success');
   };
@@ -833,7 +823,6 @@ const PatientForm = ({ mode = "add" }) => {
     setIsSaving(true);
     try {
       // เพิ่ม console.log เพื่อ debug
-      console.log('Image URL before save:', imageUrl);
 
       const result = await savePatientData(patientData, allergies, emergencyContacts, imageUrl);
 
