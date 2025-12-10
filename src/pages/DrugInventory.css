@@ -428,13 +428,7 @@
 }
 
 /* Utility Classes */
-.flex {
-  display: flex;
-}
 
-.flex-col {
-  flex-direction: column;
-}
 
 .gap-2 {
   gap: 0.5rem;
