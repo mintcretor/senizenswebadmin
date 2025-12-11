@@ -31,7 +31,7 @@ function AddMedicineModal({ onClose, onSave }) {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
-  
+
   // Autocomplete states
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredMedicines, setFilteredMedicines] = useState([]);
@@ -66,7 +66,7 @@ function AddMedicineModal({ onClose, onSave }) {
     }
 
     setLoading(true);
-    
+
     setTimeout(() => {
       onSave(formData);
       setLoading(false);
@@ -79,7 +79,7 @@ function AddMedicineModal({ onClose, onSave }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -92,7 +92,7 @@ function AddMedicineModal({ onClose, onSave }) {
   const handleMedicineNameChange = (e) => {
     const value = e.target.value;
     setFormData(prev => ({ ...prev, medicineName: value }));
-    
+
     if (errors.medicineName) {
       setErrors(prev => ({ ...prev, medicineName: '' }));
     }
@@ -149,7 +149,7 @@ function AddMedicineModal({ onClose, onSave }) {
             </h3>
             <p className="text-sm text-blue-100 mt-1">กรอกข้อมูลยาให้ครบถ้วน</p>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-white hover:text-blue-100 transition"
           >
@@ -204,10 +204,10 @@ function AddMedicineModal({ onClose, onSave }) {
           {/* MEDICINE NAME WITH AUTOCOMPLETE */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              ชื่อยา *
+              ชื่อยา(ชื่อทั่วไป) *
             </label>
             <div className="relative">
-              <input 
+              <input
                 type="text"
                 name="medicineName"
                 value={formData.medicineName}
@@ -222,13 +222,13 @@ function AddMedicineModal({ onClose, onSave }) {
                   }
                 }}
                 placeholder="พิมพ์ชื่อยาเพื่อค้นหา หรือ กรอกชื่อยาใหม่"
-                className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 transition ${
-                  errors.medicineName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                }`}
+                className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.medicineName ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                  }`}
               />
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
             </div>
-            
+
+
             {/* AUTOCOMPLETE DROPDOWN */}
             {showSuggestions && filteredMedicines.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -245,8 +245,42 @@ function AddMedicineModal({ onClose, onSave }) {
                 ))}
               </div>
             )}
-            
+
             {errors.medicineName && <p className="text-xs text-red-600 mt-1">{errors.medicineName}</p>}
+          </div>
+
+          {/* Generic name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ชื่อสามัญ(Generic name) *
+            </label>
+            <input
+              type="text"
+              name="genericName"
+              value={formData.genericName}
+              onChange={handleChange}
+              placeholder="เช่น Chlorpheniramine , Paracetamol "
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.dose ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
+            />
+            {errors.dose && <p className="text-xs text-red-600 mt-1">{errors.dose}</p>}
+          </div>
+
+          {/* Generic name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ชื่อทางการค้า(Trade name) *
+            </label>
+            <input
+              type="text"
+              name="Trade"
+              value={formData.Trade}
+              onChange={handleChange}
+              placeholder="เช่น Histata, Tylenol, Sara"
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.dose ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
+            />
+            {errors.dose && <p className="text-xs text-red-600 mt-1">{errors.dose}</p>}
           </div>
 
           {/* DOSE */}
@@ -254,25 +288,55 @@ function AddMedicineModal({ onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               ขนาดยา *
             </label>
-            <input 
+            <input
               type="text"
               name="dose"
               value={formData.dose}
               onChange={handleChange}
               placeholder="500 mg"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${
-                errors.dose ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.dose ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
             />
             {errors.dose && <p className="text-xs text-red-600 mt-1">{errors.dose}</p>}
           </div>
+
+          {/* STOCK AND EXPIRY */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                วันหมดอายุ
+              </label>
+              <input
+                type="text"
+                name="timeout"
+                value={formData.timeout}
+                onChange={handleChange}
+                placeholder="เช่น 12/2026"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lot No.
+              </label>
+              <input
+                type="text"
+                name="LotNo"
+                value={formData.Lotno}
+                onChange={handleChange}
+                placeholder="เช่น ABC123"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+            </div>
+          </div>
+
 
           {/* INJECTION METHOD */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               💉 เส้นทางการให้ยา
             </label>
-            <select 
+            <select
               name="injectionMethod"
               value={formData.injectionMethod}
               onChange={handleChange}
@@ -297,15 +361,14 @@ function AddMedicineModal({ onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               💊 วิธีใช้ยา *
             </label>
-            <input 
+            <input
               type="text"
               name="howToUse"
               value={formData.howToUse}
               onChange={handleChange}
               placeholder="เช่น รับประทานหลังอาหาร 1 เม็ด"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${
-                errors.howToUse ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.howToUse ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
             />
             {errors.howToUse && <p className="text-xs text-red-600 mt-1">{errors.howToUse}</p>}
           </div>
@@ -315,13 +378,12 @@ function AddMedicineModal({ onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               📋 ความถี่ *
             </label>
-            <select 
+            <select
               name="frequency"
               value={formData.frequency}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${
-                errors.frequency ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.frequency ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+                }`}
             >
               <option value="">เลือกความถี่...</option>
               <option value="od">OD - วันละครั้ง (omni die)</option>
@@ -343,7 +405,7 @@ function AddMedicineModal({ onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               🗒️ เวลา
             </label>
-            <select 
+            <select
               name="note"
               value={formData.note}
               onChange={handleChange}
@@ -365,7 +427,7 @@ function AddMedicineModal({ onClose, onSave }) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 จำนวนยา
               </label>
-              <input 
+              <input
                 type="text"
                 name="stock"
                 value={formData.stock}
@@ -378,7 +440,7 @@ function AddMedicineModal({ onClose, onSave }) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 มื้อสุดท้าย
               </label>
-              <input 
+              <input
                 type="text"
                 name="expiry"
                 value={formData.expiry}
@@ -394,7 +456,7 @@ function AddMedicineModal({ onClose, onSave }) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               ⚠️ คำแนะนำพิเศษ
             </label>
-            <textarea 
+            <textarea
               name="warning"
               value={formData.warning}
               onChange={handleChange}
@@ -429,11 +491,10 @@ function AddMedicineModal({ onClose, onSave }) {
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, medicationStatus: 'used-already' }))}
-                className={`p-4 border-2 rounded-lg transition ${
-                  formData.medicationStatus === 'used-already'
+                className={`p-4 border-2 rounded-lg transition ${formData.medicationStatus === 'used-already'
                     ? 'border-green-500 bg-green-50'
                     : 'border-gray-300 bg-white hover:border-green-300'
-                }`}
+                  }`}
               >
                 <div className="text-3xl mb-2">✓</div>
                 <p className="font-medium text-gray-900 text-sm">ใช้ต่อขนาดเดิม</p>
@@ -441,11 +502,10 @@ function AddMedicineModal({ onClose, onSave }) {
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, medicationStatus: 'continue-different' }))}
-                className={`p-4 border-2 rounded-lg transition ${
-                  formData.medicationStatus === 'continue-different'
+                className={`p-4 border-2 rounded-lg transition ${formData.medicationStatus === 'continue-different'
                     ? 'border-yellow-500 bg-yellow-50'
                     : 'border-gray-300 bg-white hover:border-yellow-300'
-                }`}
+                  }`}
               >
                 <div className="text-3xl mb-2">⚡</div>
                 <p className="font-medium text-gray-900 text-sm">ใช้ต่อปรับขนาด</p>
@@ -453,11 +513,10 @@ function AddMedicineModal({ onClose, onSave }) {
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, medicationStatus: 'temporarily-stop' }))}
-                className={`p-4 border-2 rounded-lg transition ${
-                  formData.medicationStatus === 'temporarily-stop'
+                className={`p-4 border-2 rounded-lg transition ${formData.medicationStatus === 'temporarily-stop'
                     ? 'border-orange-500 bg-orange-50'
                     : 'border-gray-300 bg-white hover:border-orange-300'
-                }`}
+                  }`}
               >
                 <div className="text-3xl mb-2">⏸</div>
                 <p className="font-medium text-gray-900 text-sm">พักใช้ยาไว้</p>
@@ -465,11 +524,10 @@ function AddMedicineModal({ onClose, onSave }) {
               <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, medicationStatus: 'not-use' }))}
-                className={`p-4 border-2 rounded-lg transition ${
-                  formData.medicationStatus === 'not-use'
+                className={`p-4 border-2 rounded-lg transition ${formData.medicationStatus === 'not-use'
                     ? 'border-red-500 bg-red-50'
                     : 'border-gray-300 bg-white hover:border-red-300'
-                }`}
+                  }`}
               >
                 <div className="text-3xl mb-2">✕</div>
                 <p className="font-medium text-gray-900 text-sm">ไม่ใช้ต่อ</p>
@@ -496,14 +554,14 @@ function AddMedicineModal({ onClose, onSave }) {
 
           {/* BUTTONS */}
           <div className="flex gap-3 pt-4">
-            <button 
+            <button
               type="button"
               onClick={onClose}
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition"
             >
               ยกเลิก
             </button>
-            <button 
+            <button
               type="button"
               onClick={handleSubmit}
               disabled={loading}
