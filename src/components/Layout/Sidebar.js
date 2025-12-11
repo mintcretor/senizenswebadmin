@@ -68,7 +68,7 @@ const Sidebar = ({ isSidebarOpen }) => {
       </div>
 
       {/* Quick Access */}
-      <div className="p-4 overflow-y-auto flex-1">
+      <div className="p-4  flex-1">
         {isOpen && <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3">Quick Access</h3>}
         <nav className="space-y-2">
           <a href="/dashboard" className={getLinkClass('/dashboard')} title={!isOpen ? 'Dashboard' : ''}>

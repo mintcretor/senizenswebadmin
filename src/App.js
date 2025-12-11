@@ -28,6 +28,8 @@ import ProcedureRecordList from './pages/ProcedureRecordList';
 import ProcedureRecordEdit from './pages/ProcedureRecordEdit';
 import DrugInventoryPage from './pages/DrugInventoryPage';
 import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
+import MedicalSupplyManagement from './pages/MedicalSupplyManagement';
+
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
 
@@ -116,6 +118,8 @@ function App() {
           <Route path="/ProcedureRecordList" element={<ProcedureRecordList />} />
           <Route path="/ProcedureRecordEdit/:id" element={<ProcedureRecordEdit />} />
           <Route path="/MultidisciplinaryReportList" element={<MultidisciplinaryReportList />} />
+          <Route path="/medical-supplies" element={<MedicalSupplyManagement />} />
+
         </Route>
 
         <Route
