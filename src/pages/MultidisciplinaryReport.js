@@ -5,7 +5,7 @@ import { formatDateForInput, formatTime } from '../utils/dateUtils';
 
 
 // API Configuration
-const API_BASE_URL = 'http://172.16.40.11:3001/api';
+const API_BASE_URL = 'https://api.thesenizens.com/api';
 
 const createApiClient = () => {
   const getToken = () => localStorage.getItem('authToken');
