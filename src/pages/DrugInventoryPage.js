@@ -6,30 +6,281 @@ import FilterSection from '../components/DrugInventory/FilterSection';
 import DispenseModal from '../components/DrugInventory/DispenseModal';
 import ReturnModal from '../components/DrugInventory/ReturnModal';
 import AddMedicineModal from '../components/DrugInventory/AddMedicineModal';
-import { mockPatients, mockMedications, mockPatientMedications, mockTransactions } from './mockData';
+import api from '../api/baseapi';
 import './DrugInventory.css';
 
 function DrugInventoryPage() {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [filters, setFilters] = useState({
-    room: '',
     ward: '',
+    room: '',   
     search: ''
   });
-  const [showModal, setShowModal] = useState(null); // 'add', 'dispense', 'return'
+  const [showModal, setShowModal] = useState(null);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
-  const [patients, setPatients] = useState(mockPatients);
-  const [medications, setMedications] = useState(mockMedications);
-  const [patientMeds, setPatientMeds] = useState(mockPatientMedications);
-  const [transactions, setTransactions] = useState(mockTransactions);
-  const [loading, setLoading] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [medications, setMedications] = useState([]);
+  const [patientMeds, setPatientMeds] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showPatientList, setShowPatientList] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const [uniqueWards, setUniqueWards] = useState([]);
+  const [uniqueRooms, setUniqueRooms] = useState([]);
 
-  // Filter patients
-  const filteredPatients = patients.filter(p =>
-    (!filters.room || p.room === filters.room) &&
-    (!filters.ward || p.ward === filters.ward) &&
-    (!filters.search || p.firstName.includes(filters.search) || p.lastName.includes(filters.search))
-  );
+  // Load initial data
+  useEffect(() => {
+    loadPatients();
+  }, []);
+
+  // Load patient medications when patient is selected
+  useEffect(() => {
+    if (selectedPatient) {
+      loadPatientMedications(selectedPatient);
+    }
+  }, [selectedPatient]);
+
+  // Load patient medications from Medication Reconciliation API
+  const loadPatientMedications = async (patientId) => {
+    try {
+      console.log('Loading medications for patient:', patientId);
+      
+      // หา service_registration_id ของผู้ป่วยที่เลือก
+      const patient = patients.find(p => p.id === patientId);
+      if (!patient || !patient.service_registration_id) {
+        console.log('No service_registration_id found for patient:', patientId);
+        setPatientMeds([]);
+        return;
+      }
+      
+      const serviceRegId = patient.service_registration_id;
+      console.log('Loading medications for service_registration_id:', serviceRegId);
+      
+      // ดึงข้อมูล Medication Reconciliation ล่าสุด
+      const response = await api.get(`/medication-reconciliation/${serviceRegId}`);
+      
+      console.log('Medications response:', response.data);
+      
+      if (response.data.success && response.data.data) {
+        const reconData = response.data.data;
+        const medications = reconData.medications || [];
+        
+        // Transform medications data สำหรับ Drug Inventory UI
+        const transformedMeds = medications.map((med, index) => ({
+          id: med.id || `med-${index}`,
+          patientId: patientId,
+          medicationId: med.medicine_id,
+          medicineName: med.medication_name || med.generic_name,
+          genericName: med.generic_name,
+          tradeName: med.trade_name,
+          dose: med.dosage,
+          unit: 'เม็ด', // ปรับตามความเหมาะสม
+          route: med.route,
+          frequency: med.frequency,
+          timing: med.timing,
+          doctorOrder: `${med.dosage_instruction || ''} ${med.frequency || ''}`.trim() || 'ไม่ระบุ',
+          scheduleTime: med.schedule_time,
+          scheduleTimeDisplay: med.schedule_time_display,
+          quantity: med.quantity || 0,
+          initialStock: med.quantity || 0,
+          currentStock: med.quantity || 0, // จะคำนวณจาก transaction จริงๆ
+          status: med.status === 'continue_same' ? 'Active' : med.status,
+          imageUrl: med.image_url,
+          notes: med.dosage_instruction || '',
+          prescribedDate: reconData.reconciliation_date,
+          ...med
+        }));
+        
+        console.log('Transformed medications:', transformedMeds);
+        setPatientMeds(transformedMeds);
+        
+        // ล้าง transactions เพราะ Medication Reconciliation ไม่มีระบบ transaction แบบ inventory
+        setTransactions([]);
+      } else {
+        console.log('No medications found');
+        setPatientMeds([]);
+        setTransactions([]);
+      }
+    } catch (error) {
+      console.error('Load medications error:', error);
+      if (error.response?.status === 404) {
+        console.log('No reconciliation found for this patient');
+      }
+      setPatientMeds([]);
+      setTransactions([]);
+    }
+  };
+
+  // Load wards from API
+  const loadWards = async () => {
+    try {
+      const response = await api.get('/');
+      console.log('Wards response:', response.data);
+      if (response.data.success) {
+        const wards = response.data.data || [];
+        setUniqueWards(wards.map(w => w.name || w.ward_name).filter(Boolean));
+      }
+    } catch (error) {
+      console.error('Load wards error:', error);
+    }
+  };
+
+  // Load patients with filters (limit to 10)
+  const loadPatients = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        limit: 50,
+        page: 1
+      };
+
+      // ส่งเฉพาะ search ไป API, ward และ room จะ filter ฝั่ง frontend
+      if (filters.search) params.search = filters.search;
+
+      const response = await api.get('/service-registrations/patients-on-hold', { params });
+      
+      console.log('Patients response:', response.data);
+      
+      if (response.data.success) {
+        let patientsData = response.data.data || [];
+        
+        console.log('Raw patients:', patientsData.length, patientsData.slice(0, 3));
+        console.log('Raw patient FULL DATA:', JSON.stringify(patientsData[0], null, 2));
+        
+        // Transform data to match component structure
+        const transformedPatients = patientsData.map((p, index) => {
+          // Ensure unique ID - prioritize patient_id, then id, then generate unique one
+          const patientId = p.patient_id || p.id || `patient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          // แยกชื่อจาก patient_name (เช่น "นางสมจิตต์ สรนันต์ศรี")
+          let firstName = '';
+          let lastName = '';
+          
+          if (p.patient_name) {
+            const nameParts = p.patient_name.trim().split(' ');
+            if (nameParts.length >= 2) {
+              firstName = nameParts[0]; // คำนำหน้า + ชื่อ เช่น "นางสมจิตต์"
+              lastName = nameParts.slice(1).join(' '); // นามสกุล เช่น "สรนันต์ศรี"
+            } else {
+              firstName = p.patient_name; // ถ้ามีแค่คำเดียว
+            }
+          } else {
+            firstName = p.first_name || p.firstName || '';
+            lastName = p.last_name || p.lastName || '';
+          }
+          
+          return {
+            id: patientId,
+            firstName: firstName,
+            lastName: lastName,
+            ward: p.ward || p.ward_name || '',
+            room: p.room || p.room_number || '',
+            age: p.age || 0,
+            gender: p.gender || '',
+            hn: p.hn || '',
+            service_number: p.service_number || '',
+            patient_name: p.patient_name || '',
+            ...p,
+            // Override important fields to make sure they're not overwritten
+            id: patientId,
+            firstName: firstName,
+            lastName: lastName
+          };
+        });
+        
+        console.log('Transformed patients:', transformedPatients.slice(0, 3));
+        
+        // Remove duplicates based on ID (more strict checking)
+        let uniquePatients = transformedPatients.filter((patient, index, self) => {
+          // Check if patient has valid ID
+          if (!patient.id) return false;
+          
+          // Find first occurrence with same ID
+          return index === self.findIndex((p) => {
+            // Compare IDs strictly
+            return p.id === patient.id;
+          });
+        });
+        
+        // Filter by ward and room in frontend
+        if (filters.ward) {
+          uniquePatients = uniquePatients.filter(p => p.ward === filters.ward);
+        }
+        if (filters.room) {
+          uniquePatients = uniquePatients.filter(p => p.room === filters.room);
+        }
+        
+        // จำกัดแค่ 10 คนแรก
+        uniquePatients = uniquePatients.slice(0, 10);
+        
+        console.log('Unique patients (10):', uniquePatients);
+        console.log('Patient IDs:', uniquePatients.map(p => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, room: p.room })));
+        
+        setPatients(uniquePatients);
+        
+        // Extract unique wards and rooms from ALL patient data (before filtering)
+        const allTransformed = transformedPatients.filter((patient, index, self) =>
+          index === self.findIndex((p) => p.id === patient.id)
+        );
+        
+        const wards = [...new Set(allTransformed.map(p => p.ward).filter(Boolean))];
+        setUniqueWards(wards.sort());
+        
+        if (filters.ward) {
+          const rooms = [...new Set(
+            allTransformed
+              .filter(p => p.ward === filters.ward)
+              .map(p => p.room)
+              .filter(Boolean)
+          )];
+          setUniqueRooms(rooms.sort());
+        } else {
+          const rooms = [...new Set(allTransformed.map(p => p.room).filter(Boolean))];
+          setUniqueRooms(rooms.sort());
+        }
+        
+        // Auto-select first patient
+        if (uniquePatients.length > 0 && !selectedPatient) {
+          setSelectedPatient(uniquePatients[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Load patients error:', error);
+      setPatients([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Clear room when ward changes
+  useEffect(() => {
+    if (filters.ward) {
+      // ล้าง room เมื่อเปลี่ยน ward
+      setFilters(prev => ({ ...prev, room: '' }));
+    }
+  }, [filters.ward]);
+
+  // Reload patients when filters change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadPatients();
+    }, 300); // debounce
+    
+    return () => clearTimeout(timer);
+  }, [filters.ward, filters.room, filters.search]);
+
+  // Track window size for responsive behavior
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Filter patients (already limited from API)
+  const filteredPatients = patients;
 
   // Get patient medications
   const getPatientMedications = (patientId) => {
@@ -81,7 +332,7 @@ function DrugInventoryPage() {
       transactionType: 'DISPENSE',
       quantity: parseInt(quantity),
       transactionTime: new Date().toISOString(),
-      performedByName: 'Current User', // Replace with actual user
+      performedByName: 'Current User',
       reason: null,
       notes,
       stockBefore: calculateStock(selectedMedicine),
@@ -105,7 +356,7 @@ function DrugInventoryPage() {
       transactionType: 'RETURN',
       quantity: parseInt(quantity),
       transactionTime: new Date().toISOString(),
-      performedByName: 'Current User', // Replace with actual user
+      performedByName: 'Current User',
       reason,
       notes,
       stockBefore: calculateStock(selectedMedicine),
@@ -136,7 +387,6 @@ function DrugInventoryPage() {
       createdAt: new Date().toISOString()
     };
 
-    // Add new medication to list
     const newMedicine = {
       id: newPatientMed.medicationId,
       medicineCode: `MED-${Date.now()}`,
@@ -146,7 +396,7 @@ function DrugInventoryPage() {
       manufacturer: 'TBD',
       batchNumber: 'TBD',
       expiryDate: medicineData.expiryDate,
-      storageLocation: 'ชั้นปกติ'
+      storageLocation: 'ชั้นเก็บ'
     };
 
     setMedications([...medications, newMedicine]);
@@ -160,73 +410,121 @@ function DrugInventoryPage() {
     // Implement export logic
   };
 
-  // Get unique rooms and wards for filters
-  const uniqueRooms = [...new Set(patients.map(p => p.room))].sort();
-  const uniqueWards = [...new Set(patients.map(p => p.ward))].sort();
-
   const currentPatient = patients.find(p => p.id === selectedPatient);
   const currentPatientMeds = selectedPatient ? getPatientMedications(selectedPatient) : [];
 
+  // Handle patient selection on mobile - hide list, show detail
+  const handleSelectPatientMobile = (patientId) => {
+    setSelectedPatient(patientId);
+    // On mobile: hide list and show detail
+    if (windowWidth < 1024) {
+      setShowPatientList(false);
+    }
+  };
+
+  // On desktop: always show both panels
+  const isMobile = windowWidth < 1024;
+  const shouldShowPatientList = isMobile ? showPatientList : true;
+  const shouldShowDetail = isMobile ? !showPatientList && selectedPatient : true;
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="drug-inventory-container min-h-screen bg-gray-50">
       {/* HEADER */}
-      <div className="bg-white border-b border-gray-200 p-6 shadow-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">🏥 คลังยา</h1>
-            <p className="text-gray-600 mt-1">จัดการยาและติดตามสต็อกผู้ป่วย</p>
+      <div className="drug-inventory-header sticky top-0 z-20">
+        <div className="header-content">
+          <div className="header-title flex-1">
+            <h1>💊 คลังยา</h1>
+            <p>จัดการยาและติดตามผู้ป่วย</p>
           </div>
-          <div className="flex gap-2">
+          <div className="header-actions">
             <button
               onClick={() => handleExport('pdf')}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 font-medium transition"
+              className="btn btn-primary no-print"
+              title="Export as PDF"
             >
-              <Download size={18} /> Export PDF
+              <Download size={16} /> 
+              <span className="hidden sm:inline">PDF</span>
             </button>
             <button
               onClick={() => handleExport('excel')}
-              className="flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 font-medium transition"
+              className="btn btn-success no-print"
+              title="Export as Excel"
             >
-              <Download size={18} /> Export Excel
+              <Download size={16} />
+              <span className="hidden sm:inline">Excel</span>
             </button>
           </div>
-
         </div>
+
         {/* FILTER SECTION */}
         <FilterSection
           filters={filters}
           setFilters={setFilters}
-          uniqueRooms={uniqueRooms}
           uniqueWards={uniqueWards}
+          uniqueRooms={uniqueRooms}
         />
       </div>
 
-
+      {/* MOBILE TOGGLE PANEL (only on mobile) */}
+      {isMobile && (
+        <div className="mobile-panel-toggle no-print">
+          <button
+            onClick={() => setShowPatientList(true)}
+            className={`btn flex-1 ${showPatientList ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            👥 ผู้ป่วย
+          </button>
+          <button
+            onClick={() => setShowPatientList(false)}
+            className={`btn flex-1 ${!showPatientList ? 'btn-primary' : 'btn-secondary'}`}
+            disabled={!selectedPatient}
+          >
+            💊 ยา
+          </button>
+        </div>
+      )}
 
       {/* MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto p-6 flex gap-6">
-
+      <div className="main-content">
         {/* LEFT PANEL - PATIENT LIST */}
-        <PatientList
-          patients={filteredPatients}
-          selectedPatient={selectedPatient}
-          onSelectPatient={setSelectedPatient}
-          loading={loading}
-        />
+        {shouldShowPatientList && (
+          <div className="patient-list-panel">
+            <PatientList
+              patients={filteredPatients}
+              selectedPatient={selectedPatient}
+              onSelectPatient={handleSelectPatientMobile}
+              loading={loading}
+            />
+          </div>
+        )}
 
         {/* RIGHT PANEL - DETAIL */}
-        <MedicationDetail
-          patient={currentPatient}
-          medications={currentPatientMeds}
-          onDispense={() => setShowModal('dispense')}
-          onReturn={() => setShowModal('return')}
-          onAddMedicine={() => setShowModal('add')}
-          onSelectMedicine={setSelectedMedicine}
-          selectedMedicine={selectedMedicine}
-          calculateStock={calculateStock}
-          getTransactionHistory={getTransactionHistory}
-          getStockStatus={getStockStatus}
-        />
+        {shouldShowDetail ? (
+          <div className="detail-panel">
+            <MedicationDetail
+              patient={currentPatient}
+              medications={currentPatientMeds}
+              onDispense={() => setShowModal('dispense')}
+              onReturn={() => setShowModal('return')}
+              onAddMedicine={() => setShowModal('add')}
+              onSelectMedicine={setSelectedMedicine}
+              selectedMedicine={selectedMedicine}
+              calculateStock={calculateStock}
+              getTransactionHistory={getTransactionHistory}
+              getStockStatus={getStockStatus}
+            />
+          </div>
+        ) : (
+          !shouldShowPatientList && (
+            <div className="detail-panel flex items-center justify-center min-h-60">
+              <div className="empty-state">
+                <div className="empty-state-icon">👤</div>
+                <div className="empty-state-title">เลือกผู้ป่วย</div>
+                <div className="empty-state-text">เลือกผู้ป่วยจากรายการเพื่อดูรายละเอียด</div>
+              </div>
+            </div>
+          )
+        )}
       </div>
 
       {/* MODALS */}
