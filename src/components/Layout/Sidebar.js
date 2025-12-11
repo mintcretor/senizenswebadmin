@@ -103,6 +103,11 @@ const Sidebar = ({ isSidebarOpen }) => {
             <ClipboardMinus size={20} className="flex-shrink-0" />
             {isOpen && <span>จัดการข้อมูลบันทึกหัตถการ</span>}
           </a>
+          <a href="/MultidisciplinaryReportList" className={getLinkClass('/MultidisciplinaryReportList')} title={!isOpen ? 'จัดการข้อมูลรายงานสหวิชาชีพ' : ''}>
+            <ClipboardMinus size={20} className="flex-shrink-0" />
+            {isOpen && <span>จัดการข้อมูลรายงานสหวิชาชีพ</span>}
+          </a>
+          
           <a href="/reports-list" className={getLinkClass('/reports-list')} title={!isOpen ? 'รายงานรายวัน' : ''}>
             <ClipboardMinus size={20} className="flex-shrink-0" />
             {isOpen && <span>รายงานรายวัน</span>}

@@ -39,7 +39,6 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
       });
 
       const result = await response.json();
-      console.log('Search result:', result);
 
       if (result.success) {
         const transformedPatients = result.data.map(p => ({
@@ -302,7 +301,6 @@ const PatientProcedureForm = () => {
       const patientsResult = await procedureService.getANPatients();
       //const patientsResult = await response.json();
 
-      console.log(patientsResult);
 
       if (patientsResult.success) {
         // Transform data to match component format
@@ -445,7 +443,6 @@ const PatientProcedureForm = () => {
         formData.append('images', image.file);
       });
 
-      console.log('🔵 Uploading images...');
 
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/procedure-records/upload-images`, {
@@ -457,7 +454,6 @@ const PatientProcedureForm = () => {
       });
 
       const result = await response.json();
-      console.log('✅ Upload success:', result);
 
       if (result.success) {
         return result.imageUrls;
@@ -569,7 +565,6 @@ const PatientProcedureForm = () => {
     setLoading(true);
     try {
       // Validate ก่อนส่ง
-      console.log('Submitting with selectedPatient:', selectedPatient);
       if (!selectedPatient || !selectedPatient.id || !selectedPatient.id) {
         alert('ข้อมูลผู้ป่วยไม่ครบถ้วน กรุณาเลือกผู้ป่วยใหม่');
         setLoading(false);
@@ -607,7 +602,6 @@ const PatientProcedureForm = () => {
         createdBy: user.user_id || 1
       };
 
-      console.log('Final Payload:', JSON.stringify(payload, null, 2));
 
       const result = await procedureService.createProcedureRecord(payload);
 

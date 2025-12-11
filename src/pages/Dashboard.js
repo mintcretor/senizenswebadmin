@@ -47,7 +47,6 @@ const Dashboard = () => {
       }
 
       const result = await response.json();
-      console.log('789',result)
       if (result.success) {
         setDashboardData(result.data);
         setLastUpdated(new Date());

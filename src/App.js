@@ -27,6 +27,7 @@ import Graphicsheet from './pages/Graphicsheet';
 import ProcedureRecordList from './pages/ProcedureRecordList';
 import ProcedureRecordEdit from './pages/ProcedureRecordEdit';
 import DrugInventoryPage from './pages/DrugInventoryPage';
+import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
 
@@ -96,6 +97,11 @@ function App() {
           <Route path="/drug-inventory" element= { <DrugInventoryPage /> }/>
           <Route path="/rehab" element={<RehabReport />} />
           <Route path="/multidisciplinary/:hn?" element={<MultidisciplinaryReport />} />
+          <Route
+            path="/multidisciplinary/edit/:id"
+            element={<MultidisciplinaryReport />}
+          />
+
           <Route path="/rehab/:hn?" element={<RehabReport />} />
           <Route path="/daily-report/:hn?" element={<DailyReport />} />
           <Route path="/reports-list" element={<ReportsList />} />
@@ -109,6 +115,7 @@ function App() {
           <Route path="/Graphicsheet" element={<Graphicsheet />} />
           <Route path="/ProcedureRecordList" element={<ProcedureRecordList />} />
           <Route path="/ProcedureRecordEdit/:id" element={<ProcedureRecordEdit />} />
+          <Route path="/MultidisciplinaryReportList" element={<MultidisciplinaryReportList />} />
         </Route>
 
         <Route
