@@ -18,6 +18,7 @@ function DrugInventoryPage() {
   });
   const [showModal, setShowModal] = useState(null);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
+  const [editingMedicine, setEditingMedicine] = useState(null);  // ← NEW
   const [patients, setPatients] = useState([]);
   const [medications, setMedications] = useState([]);
   const [patientMeds, setPatientMeds] = useState([]);
@@ -70,21 +71,32 @@ function DrugInventoryPage() {
           id: med.id || `med-${index}`,
           patientId: patientId,
           medicationId: med.medicine_id,
+          medication_name: med.medication_name,
           medicineName: med.medication_name || med.generic_name,
-          genericName: med.generic_name,
-          tradeName: med.trade_name,
+          generic_name: med.generic_name,
+          trade_name: med.trade_name,
+          dosage: med.dosage,
           dose: med.dosage,
           unit: 'เม็ด', // ปรับตามความเหมาะสม
           route: med.route,
           frequency: med.frequency,
           timing: med.timing,
+          dosage_instruction: med.dosage_instruction,
+          quantity: med.quantity,
+          expiry_date: med.expiry_date,
+          lot_number: med.lot_number,
+          status: med.status,
+          special_instruction: med.special_instruction,
+          has_changes: med.has_changes,
+          adjusted_dosage: med.adjusted_dosage,
+          change_reason: med.change_reason,
+          is_external: med.is_external,
+          external_hospital: med.external_hospital,
           doctorOrder: `${med.dosage_instruction || ''} ${med.frequency || ''}`.trim() || 'ไม่ระบุ',
           scheduleTime: med.schedule_time,
           scheduleTimeDisplay: med.schedule_time_display,
-          quantity: med.quantity || 0,
           initialStock: med.quantity || 0,
           currentStock: med.quantity || 0, // จะคำนวณจาก transaction จริงๆ
-          status: med.status === 'continue_same' ? 'Active' : med.status,
           imageUrl: med.image_url,
           notes: med.dosage_instruction || '',
           prescribedDate: reconData.reconciliation_date,
@@ -320,6 +332,14 @@ function DrugInventoryPage() {
     return 'OUT_OF_STOCK';
   };
 
+  // Handle edit medicine ← NEW
+  const handleEditMedicine = (medicineId) => {
+    const med = patientMeds.find(m => m.id === medicineId);
+    console.log('Editing medicine:', med);
+    setEditingMedicine(med);
+    setShowModal('add');
+  };
+
   // Handle dispense
   const handleDispense = (quantity, notes) => {
     if (!selectedPatient || !selectedMedicine) return;
@@ -368,40 +388,68 @@ function DrugInventoryPage() {
     setShowModal(null);
   };
 
-  // Handle add medicine
+  // Handle add/edit medicine ← UPDATED
   const handleAddMedicine = (medicineData) => {
     if (!selectedPatient) return;
 
-    const newPatientMed = {
-      id: `pm-${Date.now()}`,
-      patientId: selectedPatient,
-      medicationId: `med-${Date.now()}`,
-      doctorOrder: medicineData.doctorOrder,
-      prescribedDate: medicineData.prescribedDate,
-      startDate: medicineData.startDate,
-      endDate: medicineData.endDate,
-      initialStock: parseInt(medicineData.initialStock),
-      currentStock: parseInt(medicineData.initialStock),
-      status: 'Active',
-      notes: medicineData.notes,
-      createdAt: new Date().toISOString()
-    };
+    if (editingMedicine) {
+      // UPDATE existing medicine
+      console.log('Updating medicine:', editingMedicine.id, medicineData);
+      const updatedMeds = patientMeds.map(med => {
+        if (med.id === editingMedicine.id) {
+          return {
+            ...med,
+            medication_name: medicineData.medication_name,
+            generic_name: medicineData.generic_name,
+            trade_name: medicineData.trade_name,
+            dosage: medicineData.dosage,
+            route: medicineData.route,
+            dosage_instruction: medicineData.dosage_instruction,
+            frequency: medicineData.frequency,
+            timing: medicineData.timing,
+            quantity: medicineData.quantity,
+            expiry_date: medicineData.expiry_date,
+            lot_number: medicineData.lot_number,
+            status: medicineData.status,
+            special_instruction: medicineData.special_instruction,
+            has_changes: medicineData.has_changes,
+            adjusted_dosage: medicineData.adjusted_dosage,
+            change_reason: medicineData.change_reason,
+            is_external: medicineData.is_external,
+            external_hospital: medicineData.external_hospital,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return med;
+      });
+      setPatientMeds(updatedMeds);
+      setEditingMedicine(null);
+    } else {
+      // CREATE new medicine
+      console.log('Adding new medicine:', medicineData);
+      const newPatientMed = {
+        id: `pm-${Date.now()}`,
+        patientId: selectedPatient,
+        medicationId: `med-${Date.now()}`,
+        doctorOrder: medicineData.doctorOrder,
+        prescribedDate: medicineData.prescribedDate,
+        initialStock: parseInt(medicineData.quantity || 0),
+        currentStock: parseInt(medicineData.quantity || 0),
+        status: medicineData.status,
+        createdAt: new Date().toISOString(),
+        ...medicineData
+      };
 
-    const newMedicine = {
-      id: newPatientMed.medicationId,
-      medicineCode: `MED-${Date.now()}`,
-      medicineName: medicineData.medicineName,
-      dose: medicineData.dose,
-      unit: medicineData.unit,
-      manufacturer: 'TBD',
-      batchNumber: 'TBD',
-      expiryDate: medicineData.expiryDate,
-      storageLocation: 'ชั้นเก็บ'
-    };
-
-    setMedications([...medications, newMedicine]);
-    setPatientMeds([...patientMeds, newPatientMed]);
+      setPatientMeds([...patientMeds, newPatientMed]);
+    }
     setShowModal(null);
+  };
+
+  // Handle delete medicine ← NEW (optional)
+  const handleDeleteMedicine = (medicineId) => {
+    console.log('Deleting medicine:', medicineId);
+    const filtered = patientMeds.filter(med => med.id !== medicineId);
+    setPatientMeds(filtered);
   };
 
   // Handle export
@@ -508,6 +556,8 @@ function DrugInventoryPage() {
               onReturn={() => setShowModal('return')}
               onAddMedicine={() => setShowModal('add')}
               onSelectMedicine={setSelectedMedicine}
+              onEditMedicine={handleEditMedicine}  // ← PASS HERE
+              onDeleteMedicine={handleDeleteMedicine}  // ← PASS HERE
               selectedMedicine={selectedMedicine}
               calculateStock={calculateStock}
               getTransactionHistory={getTransactionHistory}
@@ -530,7 +580,11 @@ function DrugInventoryPage() {
       {/* MODALS */}
       {showModal === 'add' && (
         <AddMedicineModal
-          onClose={() => setShowModal(null)}
+          editingMedicine={editingMedicine}  // ← PASS HERE
+          onClose={() => {
+            setShowModal(null);
+            setEditingMedicine(null);
+          }}
           onSave={handleAddMedicine}
         />
       )}
