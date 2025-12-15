@@ -29,6 +29,7 @@ import ProcedureRecordEdit from './pages/ProcedureRecordEdit';
 import DrugInventoryPage from './pages/DrugInventoryPage';
 import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
 import MedicalSupplyManagement from './pages/MedicalSupplyManagement';
+import EditVN from './pages/EditVN';
 
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
@@ -90,6 +91,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/Patient" element={<Patient />} />
           <Route path="/stroke-center" element={<VNPatientList />} />
+          <Route path="/stroke-center/edit/:vnId" element={<EditVN />} /> {/* ← เพิ่มตรงนี้ */}
           <Route path="/Settings" element={<ServiceManagementSystem />} />
           <Route path="/Patient/:id" element={<PatientDetails />} />
           <Route path="/AddPatient" element={<AddPatient />} />

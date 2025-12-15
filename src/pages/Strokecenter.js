@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Users, FileText, AlertCircle, Menu, RefreshCw, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Users, FileText, AlertCircle, Menu, RefreshCw, Eye, ChevronLeft, ChevronRight, Edit, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function VNPatientList() {
   const navigate = useNavigate();
-  
+
   // State declarations
   const [searchTerm, setSearchTerm] = useState('');
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -37,7 +37,7 @@ export default function VNPatientList() {
 
       // Build query parameters
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
-      
+
       const response = await fetch(
         `${API_BASE_URL}/service-registrations?patientType=AN&departmentId=STROKE&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`,
         {
@@ -183,7 +183,7 @@ export default function VNPatientList() {
               />
             </div>
           </div>
-          
+
 
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-start">
@@ -227,6 +227,18 @@ export default function VNPatientList() {
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   ดูรายละเอียด
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/stroke-center/edit/${patient.registration_id}`);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="แก้ไขข้อมูล VN"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  แก้ไข VN
                 </button>
               </div>
             </div>
@@ -318,12 +330,12 @@ export default function VNPatientList() {
       <div className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex items-center justify-between mb-4">
-             <button
-              onClick={() => navigate('/an-vn/add/')}
-              className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl p-6 flex items-center justify-center space-x-3 transition-colors"
+            <button
+              onClick={() => navigate('/stroke-center/new')}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 sm:px-6 sm:py-3 flex items-center justify-center space-x-2 transition-colors font-medium"
             >
-              <Users size={24} />
-              <span className="font-medium">เปิดเลข AN</span>
+              <Plus size={20} />
+              <span className="hidden sm:inline">แก้ไข</span>
             </button>
             <div className="flex items-center space-x-3">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
@@ -467,13 +479,12 @@ export default function VNPatientList() {
                     key={index}
                     onClick={() => typeof page === 'number' && handlePageChange(page)}
                     disabled={page === '...' || paginationLoading}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                      page === currentPage
-                        ? 'bg-blue-600 text-white'
-                        : page === '...'
+                    className={`px-3 py-2 rounded-lg text-sm font-medium ${page === currentPage
+                      ? 'bg-blue-600 text-white'
+                      : page === '...'
                         ? 'text-gray-400 cursor-default'
                         : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
-                    } ${paginationLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${paginationLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {page}
                   </button>
