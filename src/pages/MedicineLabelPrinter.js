@@ -24,6 +24,8 @@ const MedicineLabelPrinter = () => {
   const [medicineSearchTerm, setMedicineSearchTerm] = useState(''); // ค้นหายา
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const printRef = useRef();
+  const [medications, setMedications] = useState([]);
+  const [reconciliationData, setReconciliationData] = useState(null);
 
   // Fetch wards on component mount
   useEffect(() => {
@@ -51,10 +53,113 @@ const MedicineLabelPrinter = () => {
   // Fetch schedules when resident is selected
   useEffect(() => {
     if (selectedResident) {
-      fetchSchedules(selectedResident.patient_id);
+      // ใช้ service_registration_id หรือ patient_id ขึ้นอยู่กับที่ API รับ
+      fetchMedications(selectedResident.service_registration_id || selectedResident.registration_id);
     }
   }, [selectedResident, printDate, timeSlot]);
 
+
+  const fetchMedications = async (registrationId) => {
+    console.log('Fetching medications for registration ID:', registrationId);
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/medication-reconciliation/${registrationId}`
+      );
+      const data = await response.json();
+      console.log('Medication Reconciliation API Response:', data);
+
+      if (data.data && data.data.medications && Array.isArray(data.data.medications)) {
+        // เก็บข้อมูล reconciliation ทั้งหมด
+        setReconciliationData(data.data);
+
+        // แปลงข้อมูลยาให้อยู่ในรูปแบบที่ใช้ในระบบ
+        const formattedMeds = data.data.medications.map((med) => {
+          // แยกเวลาตาม schedule_time_display
+          const scheduleDisplay = med.schedule_time_display || '';
+          let timeMorning = null;
+          let timeNoon = null;
+          let timeEvening = null;
+          let timeBedtime = null;
+
+          // ตรวจสอบและกำหนดเวลาตามช่วง
+          if (scheduleDisplay.includes('เช้า') && med.schedule_time && med.schedule_time.length > 0) {
+            timeMorning = med.schedule_time[0];
+          }
+          if (scheduleDisplay.includes('เที่ยง') && med.schedule_time) {
+            const noonIndex = scheduleDisplay.split(',').findIndex(s => s.includes('เที่ยง'));
+            if (noonIndex >= 0 && med.schedule_time[noonIndex]) {
+              timeNoon = med.schedule_time[noonIndex];
+            }
+          }
+          if (scheduleDisplay.includes('เย็น') && med.schedule_time) {
+            const eveningIndex = scheduleDisplay.split(',').findIndex(s => s.includes('เย็น'));
+            if (eveningIndex >= 0 && med.schedule_time[eveningIndex]) {
+              timeEvening = med.schedule_time[eveningIndex];
+            }
+          }
+          if (scheduleDisplay.includes('นอน') && med.schedule_time) {
+            const bedtimeIndex = scheduleDisplay.split(',').findIndex(s => s.includes('นอน'));
+            if (bedtimeIndex >= 0 && med.schedule_time[bedtimeIndex]) {
+              timeBedtime = med.schedule_time[bedtimeIndex];
+            }
+          }
+
+          return {
+            schedule_id: med.id,
+            medicine_id: med.medicine_id,
+            medicine_name: med.medication_name,
+            medicine_code: '',
+            generic_name: med.generic_name || '',
+            trade_name: med.trade_name || '',
+            dosage: med.dosage,
+            route: med.route,
+            dosage_instruction: med.dosage_instruction,
+            frequency: med.frequency,
+            timing: med.timing,
+            time_morning: timeMorning,
+            time_noon: timeNoon,
+            time_evening: timeEvening,
+            time_bedtime: timeBedtime,
+            schedule_time: med.schedule_time,
+            schedule_time_display: med.schedule_time_display,
+            before_after_meal: med.schedule_time_display || '', // ใช้ schedule_time_display แทน
+            special_instruction: med.special_instruction || '',
+            quantity: med.quantity,
+            is_active: true,
+            status: med.status,
+            image_url: med.image_url,
+          };
+        });
+
+        // Filter by time slot if selected
+        let filtered = formattedMeds;
+        if (timeSlot !== 'all') {
+          filtered = formattedMeds.filter(med => {
+            const timeField = `time_${timeSlot}`;
+            return med[timeField] !== null && med[timeField] !== undefined;
+          });
+        }
+        console.log(filtered);
+        setSchedules(filtered);
+        setMedications(formattedMeds);
+        setSelectedSchedules([]);
+        console.log('✅ Loaded medications:', formattedMeds.length);
+      } else {
+        setSchedules([]);
+        setMedications([]);
+        setReconciliationData(null);
+        console.log('ℹ️ No medications found');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching medications:', error);
+      setSchedules([]);
+      setMedications([]);
+      setReconciliationData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
   // API Calls
   const fetchWards = async () => {
     setLoading(true);
@@ -90,7 +195,7 @@ const MedicineLabelPrinter = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/ward/residents?room_id=${roomId}&is_active=true`);
       const data = await response.json();
-      console.log('Residents data:', data);
+      //console.log('Residents data:', data);
       setResidents(data.data);
     } catch (error) {
       console.error('Error fetching residents:', error);
@@ -100,89 +205,9 @@ const MedicineLabelPrinter = () => {
     }
   };
 
-  const fetchSchedules = async (residentId) => {
-    console.log('Fetching schedules for resident ID:', residentId);
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/ward/medicine-schedules?resident_id=${residentId}&is_active=true`
-      );
-      const data = await response.json();
-      console.log('Schedules data:', data);
-      // Filter by time slot if selected
-      let filtered = data.data;
-      if (timeSlot !== 'all') {
-        filtered = data.data.filter(schedule => {
-          const timeField = `time_${timeSlot}`;
-          return schedule[timeField] !== null;
-        });
-      }
 
-      setSchedules(filtered);
-      setSelectedSchedules([]);
-      setEditedSchedules({}); // รีเซ็ตข้อมูลที่แก้ไข
-    } catch (error) {
-      console.error('Error fetching schedules:', error);
-      alert('ไม่สามารถโหลดข้อมูลตารางยาได้');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ฟังก์ชันสำหรับเริ่มแก้ไข schedule
-  const startEditingSchedule = useCallback((scheduleId) => {
-    const schedule = schedules.find(s => s.schedule_id === scheduleId);
-    if (schedule) {
-      setEditedSchedules(prev => {
-        if (!prev[scheduleId]) {
-          return {
-            ...prev,
-            [scheduleId]: {
-              dosage_instruction: schedule.dosage_instruction || '',
-              frequency: schedule.frequency || '',
-              time_morning: schedule.time_morning || '',
-              time_noon: schedule.time_noon || '',
-              time_evening: schedule.time_evening || '',
-              time_bedtime: schedule.time_bedtime || '',
-              before_after_meal: schedule.before_after_meal || '',
-              special_instruction: schedule.special_instruction || ''
-            }
-          };
-        }
-        return prev;
-      });
-      setEditingScheduleId(scheduleId);
-    }
-  }, [schedules]);
-
-  // ฟังก์ชันสำหรับบันทึกการแก้ไข
-  const saveScheduleEdit = (scheduleId) => {
-    setEditingScheduleId(null);
-  };
-
-  // ฟังก์ชันสำหรับยกเลิกการแก้ไข
-  const cancelScheduleEdit = useCallback((scheduleId) => {
-    setEditedSchedules(prev => {
-      const newEdited = { ...prev };
-      delete newEdited[scheduleId];
-      return newEdited;
-    });
-    setEditingScheduleId(null);
-  }, []);
-  // ฟังก์ชันสำหรับอัพเดทค่าที่แก้ไข
-  const updateEditedSchedule = useCallback((scheduleId, field, value) => {
-    setEditedSchedules(prev => ({
-      ...prev,
-      [scheduleId]: {
-        ...(prev[scheduleId] || {}),
-        [field]: value
-      }
-    }));
-  }, []);
-
-  // ฟังก์ชันสำหรับดึงข้อมูลที่จะใช้แสดงผล (ถ้ามีการแก้ไขใช้ของแก้ไข ไม่งั้นใช้ของเดิม)
   const getScheduleData = (schedule) => {
-    return editedSchedules[schedule.schedule_id] || schedule;
+    return schedule;
   };
 
   // Toggle schedule selection
@@ -218,39 +243,81 @@ const MedicineLabelPrinter = () => {
 
   // Get time slot label
   const getTimeSlotLabel = (schedule) => {
-    const scheduleData = getScheduleData(schedule);
-    const times = [];
-    if (scheduleData.time_morning) times.push(`เช้า ${scheduleData.time_morning}`);
-    if (scheduleData.time_noon) times.push(`เที่ยง ${scheduleData.time_noon}`);
-    if (scheduleData.time_evening) times.push(`เย็น ${scheduleData.time_evening}`);
-    if (scheduleData.time_bedtime) times.push(`ก่อนนอน ${scheduleData.time_bedtime}`);
-    return times.join(', ') || '-';
+    return schedule.schedule_time_display || '-';
+  };
+
+  const getFrequencyLabel = (frequency) => {
+
+    const frequencyMap = {
+      'od': 'วันละครั้ง',
+      'qd': 'วันละครั้ง',
+      'bid': 'วันละ 2 ครั้ง',
+      'tid': 'วันละ 3 ครั้ง',
+      'qid': 'วันละ 4 ครั้ง',
+      'q2h': 'ทุก 2 ชั่วโมง',
+      'q3h': 'ทุก 3 ชั่วโมง',
+      'q4h': 'ทุก 4 ชั่วโมง',
+      'q6h': 'ทุก 6 ชั่วโมง',
+      'q8h': 'ทุก 8 ชั่วโมง',
+      'q12h': 'ทุก 12 ชั่วโมง',
+      'q48h': 'วันเว้นวัน',
+      'q72h': 'ทุก 72 ชั่วโมง',
+      'prn': 'เมื่อต้องการ',
+      'stat': 'ทันที',
+    };
+
+    if (!frequency) return '';
+
+    // แปลงเป็นตัวพิมพ์เล็กเพื่อเทียบ
+    const freq = frequency.toLowerCase();
+    return frequencyMap[freq] || frequency; // ถ้าไม่เจอในแมพ ให้ return ค่าเดิม
   };
 
   // Print function
-const handlePrint = async () => {
-  if (selectedSchedules.length === 0) {
-    alert('กรุณาเลือกยาที่ต้องการพิมพ์');
-    return;
-  }
+  const handlePrint = async () => {
+    if (selectedSchedules.length === 0) {
+      alert('กรุณาเลือกยาที่ต้องการพิมพ์');
+      return;
+    }
 
-  if (editingScheduleId !== null) {
-    alert('กรุณาบันทึกหรือยกเลิกการแก้ไขก่อนพิมพ์');
-    return;
-  }
+    const ImageUrl = window.location.origin + '/images/logo.png';
 
-  const ImageUrl = window.location.origin + '/images/logo.png';
+    const labelsHTML = schedulesToPrint.map((schedule) => {
+      const currentDate = new Date(printDate);
+      const dateStr = currentDate.toLocaleDateString('th-TH', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      });
 
-  const labelsHTML = schedulesToPrint.map((schedule) => {
-    const scheduleData = getScheduleData(schedule);
-    const currentDate = new Date(printDate);
-    const dateStr = currentDate.toLocaleDateString('th-TH', {
-      day: '2-digit',
-      month: '2-digit',
-      year: '2-digit'
-    });
+      // สร้างชื่อยาแบบเต็ม
+      let fullMedicineName = schedule.medicine_name;
+      if (schedule.generic_name) {
+        fullMedicineName += ` (${schedule.generic_name})`;
+      }
+      if (schedule.dosage) {
+        fullMedicineName += ` (${schedule.dosage})`;
+      }
 
-    return `
+      // สร้างรายละเอียดวิธีใช้
+      let usageDetail = '';
+      let special_instruction = '';
+      if (schedule.dosage_instruction) {
+        usageDetail += schedule.dosage_instruction;
+      }
+      if (schedule.frequency) {
+        const freqLabel = getFrequencyLabel(schedule.frequency);
+        usageDetail += ` ${freqLabel}`;
+      }
+      if (schedule.schedule_time_display) {
+        usageDetail += `<div>${schedule.schedule_time_display}</div>`;
+      }
+      if (schedule.special_instruction) {
+        special_instruction += `<div class="usage-detail2">
+            ${schedule.special_instruction || '-'}
+          </div> `
+      }
+      return `
       <div class="page">
         <div class="header">
           <div class="header-left">
@@ -264,31 +331,20 @@ const handlePrint = async () => {
         </div>
         
         <div class="content">
-          <div class="patient"><strong>${selectedResident.patient_name}</strong> ${selectedResident.hn}</div>
-          <div class="medicine"><strong>${schedule.medicine_name}</strong></div>
-          <div class="info-row">
-            
-            <span>${scheduleData.dosage_instruction || '-'} ${scheduleData.frequency || ''}</span>
-          </div>
-          <div class="info-row">
-            
-            <span>${scheduleData.before_after_meal || '-'}</span>
-          </div>
-          ${scheduleData.special_instruction ? `
-            <div class="special">
-              <span class="label">หมายเหตุ:</span>
-              <span>${scheduleData.special_instruction}</span>
-            </div>
-          ` : ''}
+          <div class="patient"><strong>${selectedResident.patient_name}</strong></div>
+          <div class="medicine"><strong>${fullMedicineName}</strong></div>
+          ${schedule.trade_name ? `<div class="trade-name">ชื่อการค้า: ${schedule.trade_name}</div>` : ''}
+          <div class="usage-detail">${usageDetail}</div>
+          ${special_instruction}
         </div>
-        
-        <div class="footer">วอร์ด ${selectedWard.floor} ห้อง ${selectedRoom.room_number}</div>
+      
+        <div class="footer">วอร์ด ${reconciliationData?.ward_name || selectedWard?.ward_name || ''} ห้อง ${reconciliationData?.room_number || selectedRoom?.room_number || ''}</div>
       </div>
     `;
-  }).join('');
+    }).join('');
 
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(`
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
     <!DOCTYPE html>
     <html>
     <head>
@@ -398,29 +454,34 @@ const handlePrint = async () => {
         
         .medicine {
           font-size: 12px;
-          margin-bottom: 1.5mm;
-          line-height: 1.3;
+          margin-bottom: 0.5mm;
+          line-height: 1.4;
           color: #000;
         }
-        
-        .info-row {
-          font-size: 11px;
+
+        .trade-name {
+          font-size: 9px;
+          color: #7c3aed;
           margin-bottom: 1mm;
           line-height: 1.3;
-          color: #000;
         }
-        
-        .label {
-          font-weight: normal;
-          color: #000;
-        }
-        
-        .special {
+
+        .usage-detail {
           font-size: 11px;
-          margin-top: 1mm;
-          padding-left: 2mm;
-          line-height: 1.3;
+          margin-bottom: 1mm;
+          line-height: 1.5;
           color: #000;
+        }
+        .usage-detail2 {
+          font-size: 9px;
+          margin-bottom: 1mm;
+          line-height: 1.5;
+          color: #000;
+        }
+        .quantity {
+          font-size: 10px;
+          color: #666;
+          margin-top: 1mm;
         }
         
         .footer {
@@ -462,6 +523,10 @@ const handlePrint = async () => {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+
+          .trade-name {
+            color: #7c3aed !important;
+          }
         }
       </style>
     </head>
@@ -469,14 +534,14 @@ const handlePrint = async () => {
     </html>
   `);
 
-  printWindow.document.close();
-  
-  printWindow.onload = function() {
-    setTimeout(() => {
-      printWindow.print();
-    }, 1000);
+    printWindow.document.close();
+
+    printWindow.onload = function () {
+      setTimeout(() => {
+        printWindow.print();
+      }, 1000);
+    };
   };
-};
   // Reset selection
   const handleReset = () => {
     setSelectedWard(null);
@@ -504,17 +569,16 @@ const handlePrint = async () => {
       if (!medicineSearchTerm) return true;
 
       const searchLower = medicineSearchTerm.toLowerCase();
-      // ใช้ข้อมูลจาก schedule เดิมในการค้นหา ไม่ใช้ editedSchedules
-
       return (
         schedule.medicine_name?.toLowerCase().includes(searchLower) ||
-        schedule.medicine_code?.toLowerCase().includes(searchLower) ||
+        schedule.generic_name?.toLowerCase().includes(searchLower) ||
+        schedule.trade_name?.toLowerCase().includes(searchLower) ||
         schedule.dosage_instruction?.toLowerCase().includes(searchLower) ||
         schedule.frequency?.toLowerCase().includes(searchLower) ||
-        schedule.before_after_meal?.toLowerCase().includes(searchLower) ||
-        schedule.special_instruction?.toLowerCase().includes(searchLower)
+        schedule.schedule_time_display?.toLowerCase().includes(searchLower) ||
+        schedule.dosage?.toLowerCase().includes(searchLower)
       );
-    }), [schedules, medicineSearchTerm]  // ลบ editedSchedules ออก
+    }), [schedules, medicineSearchTerm]
   );
 
   // Selected schedules for printing
@@ -542,56 +606,29 @@ const handlePrint = async () => {
   };
 
   const currentStep = getCurrentStep();
-
-  // Component สำหรับแสดงและแก้ไขข้อมูล schedule
   const ScheduleCard = ({ schedule }) => {
     const isSelected = selectedSchedules.includes(schedule.schedule_id);
-    const isEditing = editingScheduleId === schedule.schedule_id;
-    const scheduleData = editedSchedules[schedule.schedule_id] || schedule;
-
-    // เพิ่ม local state สำหรับเก็บค่าขณะกำลังพิมพ์
-    const [localData, setLocalData] = React.useState(scheduleData);
-
-    // Sync local data กับ scheduleData เมื่อเริ่มแก้ไขหรือเปลี่ยน schedule
-    React.useEffect(() => {
-      setLocalData(scheduleData);
-    }, [isEditing, schedule.schedule_id]);
 
     const handleToggleSelect = React.useCallback((e) => {
       e.stopPropagation();
-      if (!isEditing) {
-        toggleScheduleSelection(schedule.schedule_id);
+      toggleScheduleSelection(schedule.schedule_id);
+    }, [schedule.schedule_id]);
+
+    // ฟังก์ชันสร้างข้อความรายละเอียดยา
+    const getMedicineDetail = () => {
+      let detail = schedule.dosage_instruction || '';
+
+      if (schedule.frequency) {
+        const freqLabel = getFrequencyLabel(schedule.frequency);
+        detail += ` ${freqLabel}`;
       }
-    }, [isEditing, schedule.schedule_id]);
 
-    const handleStartEdit = React.useCallback((e) => {
-      e.stopPropagation();
-      startEditingSchedule(schedule.schedule_id);
-    }, [schedule.schedule_id]);
+      if (schedule.schedule_time_display) {
+        detail += ` ${schedule.schedule_time_display}`;
+      }
 
-    const handleSaveEdit = React.useCallback((e) => {
-      e.stopPropagation();
-      // บันทึกข้อมูลจาก local state ไปยัง parent
-      Object.keys(localData).forEach(field => {
-        updateEditedSchedule(schedule.schedule_id, field, localData[field]);
-      });
-      saveScheduleEdit(schedule.schedule_id);
-    }, [schedule.schedule_id, localData]);
-
-    const handleCancelEdit = React.useCallback((e) => {
-      e.stopPropagation();
-      setLocalData(schedule); // Reset กลับไปเป็นค่าเดิม
-      cancelScheduleEdit(schedule.schedule_id);
-    }, [schedule.schedule_id]);
-
-    // เปลี่ยนจาก updateEditedSchedule เป็น setLocalData
-    const handleInputChange = React.useCallback((field, value) => {
-      setLocalData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    }, []);
-    console.log('Rendering ScheduleCard for:', schedule.medicine_name, 'isEditing:', isEditing);
+      return detail || '-';
+    };
 
     return (
       <div
@@ -604,10 +641,9 @@ const handlePrint = async () => {
           {/* Checkbox */}
           <div
             onClick={handleToggleSelect}
-            className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${!isEditing ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-              } ${isSelected
-                ? 'bg-green-500 border-green-500 shadow-sm'
-                : 'border-gray-300 group-hover:border-green-400'
+            className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 cursor-pointer ${isSelected
+              ? 'bg-green-500 border-green-500 shadow-sm'
+              : 'border-gray-300 group-hover:border-green-400'
               }`}
           >
             {isSelected && <Check className="w-4 h-4 text-white" />}
@@ -615,151 +651,30 @@ const handlePrint = async () => {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-3">
-              <h3 className="font-bold text-gray-900 text-base sm:text-lg">
+            {/* ชื่อยาและข้อมูลหลัก */}
+            <div className="mb-2">
+              <h3 className="font-bold text-gray-900 text-base sm:text-lg leading-tight">
                 {schedule.medicine_name}
+                {schedule.generic_name && (
+                  <span className="text-blue-600"> ({schedule.generic_name})</span>
+                )}
+                {schedule.dosage && (
+                  <span className="text-gray-600"> ({schedule.dosage})</span>
+                )}
               </h3>
-              {!isEditing ? (
-                <button
-                  onClick={handleStartEdit}
-                  className="ml-2 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex-shrink-0"
-                  title="แก้ไขข้อมูล"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              ) : (
-                <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-                  <button
-                    onClick={handleSaveEdit}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                    title="บันทึก"
-                  >
-                    <Save className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                    title="ยกเลิก"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+              {schedule.trade_name && (
+                <p className="text-xs text-purple-600 mt-1">
+                  ชื่อการค้า: {schedule.trade_name}
+                </p>
               )}
             </div>
 
-            {isEditing ? (
-              // โหมดแก้ไข - ใช้ localData แทน scheduleData
-              <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">💊 วิธีใช้:</label>
-                  <textarea
-                    value={localData.dosage_instruction || ''}
-                    onChange={(e) => handleInputChange('dosage_instruction', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows="2"
-                    placeholder="เช่น รับประทานครั้งละ 1 เม็ด"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">📋 ความถี่:</label>
-                  <input
-                    type="text"
-                    value={localData.frequency || ''}
-                    onChange={(e) => handleInputChange('frequency', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="เช่น วันละ 3 ครั้ง"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">🍽️ กับอาหาร:</label>
-                  <select
-                    value={localData.before_after_meal || ''}
-                    onChange={(e) => handleInputChange('before_after_meal', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <option value="">เลือก...</option>
-
-                    {/* ก่อนอาหาร */}
-                    <option value="ก่อนอาหารเช้า">ก่อนอาหาร เช้า</option>
-                    <option value="ก่อนอาหารกลางวัน">ก่อนอาหาร กลางวัน</option>
-                    <option value="ก่อนอาหารเย็น">ก่อนอาหาร เย็น</option>
-                   
-                    <option value="ก่อนอาหารเช้า กลางวัน">ก่อนอาหาร เช้า กลางวัน</option>
-                    <option value="ก่อนอาหารเช้า เย็น">ก่อนอาหาร เช้า เย็น</option>
-                    <option value="ก่อนอาหารกลางวัน เย็น">ก่อนอาหาร กลางวัน เย็น</option>
-                    <option value="ก่อนอาหารเช้า กลางวัน เย็น">ก่อนอาหาร เช้า กลางวัน เย็น</option>
-                    <option value="ก่อนอาหารเช้า กลางวัน เย็น และก่อนนอน">ก่อนอาหาร เช้า กลางวัน เย็น และก่อนนอน</option>
-                    <option value="ก่อนอาหารเช้า และก่อนนอน">ก่อนอาหาร เช้า และก่อนนอน</option>
-                    <option value="ก่อนอาหารกลางวัน และก่อนนอน">ก่อนอาหาร กลางวัน และก่อนนอน</option>
-                    <option value="ก่อนอาหารเย็น และก่อนนอน">ก่อนอาหาร เย็น และก่อนนอน</option>
-
-                    {/* หลังอาหาร */}
-                    <option value="หลังอาหารเช้า">หลังอาหาร เช้า</option>
-                    <option value="หลังอาหารกลางวัน">หลังอาหาร กลางวัน</option>
-                    <option value="หลังอาหารเย็น">หลังอาหาร เย็น</option>
-                    <option value="หลังอาหารเช้า กลางวัน">หลังอาหาร เช้า กลางวัน</option>
-                    <option value="หลังอาหารเช้า เย็น">หลังอาหาร เช้า เย็น</option>
-                    <option value="หลังอาหารกลางวัน เย็น">หลังอาหาร กลางวัน เย็น</option>
-                    <option value="หลังอาหารเช้า กลางวัน เย็น">หลังอาหาร เช้า กลางวัน เย็น</option>
-                    <option value="หลังอาหารเช้า กลางวัน เย็น และก่อนนอน">หลังอาหาร เช้า กลางวัน เย็น และก่อนนอน</option>
-                    <option value="หลังอาหารเช้า และก่อนนอน">หลังอาหาร เช้า และก่อนนอน</option>
-                    <option value="หลังอาหารกลางวัน และก่อนนอน">หลังอาหาร กลางวัน และก่อนนอน</option>
-                    <option value="หลังอาหารเย็น และก่อนนอน">หลังอาหาร เย็น และก่อนนอน</option>
+            {/* รายละเอียดวิธีใช้แบบกระชับ */}
+            <div className="text-sm text-gray-700 leading-relaxed">
+              <p>{getMedicineDetail()}</p>
 
 
-                     <option value="ก่อนนอน">ก่อนนอน</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">⚠️ คำแนะนำพิเศษ:</label>
-                  <textarea
-                    value={localData.special_instruction || ''}
-                    onChange={(e) => handleInputChange('special_instruction', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows="2"
-                    placeholder="เช่น ห้ามรับประทานกับนม"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              </div>
-            ) : (
-              // โหมดแสดงผล
-              <div className="space-y-2 text-xs sm:text-sm">
-                <div className="flex items-start">
-                  <span className="font-semibold text-gray-700 min-w-[80px]">💊 วิธีใช้:</span>
-                  <span className="text-gray-600 flex-1">{scheduleData.dosage_instruction || '-'}</span>
-                </div>
-
-                <div className="flex items-start">
-                  <span className="font-semibold text-gray-700 min-w-[80px]">📋 ความถี่:</span>
-                  <span className="text-gray-600 flex-1">{scheduleData.frequency || '-'}</span>
-                </div>
-
-
-                <div className="flex items-start">
-                  <span className="font-semibold text-gray-700 min-w-[80px]">🍽️ อาหาร:</span>
-                  <span className="text-gray-600 flex-1">{scheduleData.before_after_meal || '-'}</span>
-                </div>
-
-                {scheduleData.special_instruction && (
-                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-start">
-                      <AlertCircle className="w-4 h-4 text-amber-600 mr-2 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-semibold text-amber-900 text-xs">คำแนะนำพิเศษ:</span>
-                        <p className="text-amber-800 text-xs mt-1">{scheduleData.special_instruction}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -1040,7 +955,7 @@ const handlePrint = async () => {
                       <div className="text-sm text-gray-600 space-y-1">
                         <div className="flex items-center">
                           <Calendar className="w-4 h-4 mr-2" />
-                          อายุ: {resident.age} ปี
+                          อายุ: {resident.age || 'ไม่พบข้อมูล'} ปี
                         </div>
                         {resident.bed_number && (
                           <div className="flex items-center">
@@ -1086,7 +1001,7 @@ const handlePrint = async () => {
                       <div className="text-sm text-gray-900 font-semibold truncate">
                         {selectedResident.patient_name}
                       </div>
-                      <div className="text-xs text-gray-600">อายุ {selectedResident.age} ปี</div>
+                      <div className="text-xs text-gray-600">อายุ {selectedResident.age || 'ไม่พบข้อมูล'} ปี</div>
                     </div>
                   </div>
 
@@ -1379,6 +1294,7 @@ const handlePrint = async () => {
                       </div>
                     ) : (
                       filteredResidents.map(resident => (
+
                         <div
                           key={resident.id}
                           onClick={() => setSelectedResident(resident)}
@@ -1393,11 +1309,11 @@ const handlePrint = async () => {
                           <div className="text-xs sm:text-sm text-gray-600 flex flex-wrap gap-2">
                             <span className="inline-flex items-center">
                               <Calendar className="w-3 h-3 mr-1" />
-                              {resident.age} ปี
+                              {resident.age || 'ไม่พบข้อมูล'} ปี
                             </span>
-                            {resident.bed_number && (
+                            {resident.room_number && (
                               <span className="inline-flex items-center">
-                                🛏️ เตียง {resident.bed_number}
+                                🛏️ ห้อง {resident.room_number}
                               </span>
                             )}
                           </div>
