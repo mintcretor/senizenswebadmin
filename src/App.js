@@ -1,4 +1,4 @@
-// App.js - Updated version
+// App.js - Updated version with Meal Consumption Tracking
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import SenizensLogin from './pages/Login';
@@ -30,6 +30,8 @@ import DrugInventoryPage from './pages/DrugInventoryPage';
 import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
 import MedicalSupplyManagement from './pages/MedicalSupplyManagement';
 import EditVN from './pages/EditVN';
+import NutritionManagement from './pages/NutritionManagement';
+import MealConsumptionTracking from './pages/MealConsumptionTracking';
 
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
@@ -91,7 +93,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/Patient" element={<Patient />} />
           <Route path="/stroke-center" element={<VNPatientList />} />
-          <Route path="/stroke-center/edit/:vnId" element={<EditVN />} /> {/* ← เพิ่มตรงนี้ */}
+          <Route path="/stroke-center/edit/:vnId" element={<EditVN />} />
           <Route path="/Settings" element={<ServiceManagementSystem />} />
           <Route path="/Patient/:id" element={<PatientDetails />} />
           <Route path="/AddPatient" element={<AddPatient />} />
@@ -99,6 +101,8 @@ function App() {
           <Route path="/an-vn/add/:id?" element={<ThaiServiceForm />} />
           <Route path="/multidisciplinary" element={<MultidisciplinaryReport />} />
           <Route path="/drug-inventory" element= { <DrugInventoryPage /> }/>
+          <Route path="/nutrition" element={<NutritionManagement />} />
+          <Route path="/meal-consumption" element={<MealConsumptionTracking />} /> {/* ← เพิ่มเส้นทางเช็คการทาน */}
           <Route path="/rehab" element={<RehabReport />} />
           <Route path="/multidisciplinary/:hn?" element={<MultidisciplinaryReport />} />
           <Route

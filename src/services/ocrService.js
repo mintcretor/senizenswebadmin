@@ -1,13 +1,40 @@
-import * as FileSystem from 'expo-file-system/legacy';
+/**
+ * OCR Service - Web Version (ไม่ต้อง expo-file-system)
+ * ใช้ได้กับ Web React ธรรมดา
+ */
 
-export const performOCR = async (imageUri, apiKey = 'K87899142388957') => {
+export const performOCR = async (imageSource, apiKey = 'K87899142388957') => {
   try {
     console.log('Starting OCR with OCR.space...');
 
-    const base64Image = await FileSystem.readAsStringAsync(imageUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    // ✅ imageSource เป็น Base64 string แล้ว (จาก FileReader.readAsDataURL().split(',')[1])
+    let base64Image = '';
 
+    if (typeof imageSource === 'string') {
+      if (imageSource.startsWith('data:')) {
+        // ถ้าเป็น Data URL ให้เอา Base64 ส่วนหลัง comma
+        base64Image = imageSource.split(',')[1];
+      } else {
+        // ถ้าเป็น Base64 แล้ว ใช้เลย
+        base64Image = imageSource;
+      }
+    } else {
+      throw new Error('Invalid image source');
+    }
+
+    if (!base64Image) {
+      throw new Error('Invalid base64 image');
+    }
+
+    // ============================================
+    // 🆕 บีบรูปให้เล็กลงถ้าเกิน 1MB
+    // ============================================
+    const maxSizeKB = 900; // เก็บไว้ 900KB ให้มีขอบไป
+    base64Image = await compressImage(base64Image, maxSizeKB);
+
+    // ============================================
+    // ส่งไปยัง OCR.space API
+    // ============================================
     const formData = new FormData();
     formData.append('base64Image', `data:image/jpeg;base64,${base64Image}`);
     formData.append('language', 'tha');
@@ -28,12 +55,18 @@ export const performOCR = async (imageUri, apiKey = 'K87899142388957') => {
       throw new Error(result.ErrorMessage || 'OCR failed');
     }
 
+    if (!result.ParsedResults || !result.ParsedResults[0]) {
+      throw new Error('No OCR results found');
+    }
+
     const text = result.ParsedResults[0].ParsedText;
     console.log('OCR Text:', text);
 
     const lines = text.split(/[\n\r]+/).filter(line => line.trim().length > 0);
 
-    // แยกชื่อยา
+    // ============================================
+    // แยกข้อมูลจากข้อความ
+    // ============================================
     const { genericName, tradeName } = extractMedicationName(lines, text);
 
     const parsed = {
@@ -47,8 +80,8 @@ export const performOCR = async (imageUri, apiKey = 'K87899142388957') => {
       quantity: extractQuantity(lines, text),
       hospital: extractHospital(lines, text),
       specialInstruction: extractSpecialInstruction(lines, text),
-      expiryDate: extractExpiryDate(lines, text),        // 🆕 เพิ่ม
-      lotNumber: extractLotNumber(lines, text),          // 🆕 เพิ่ม
+      expiryDate: extractExpiryDate(lines, text),
+      lotNumber: extractLotNumber(lines, text),
       rawText: text,
     };
 
@@ -63,16 +96,80 @@ export const performOCR = async (imageUri, apiKey = 'K87899142388957') => {
 
 
 // ============================================
-// 🔍 ปรับปรุง Helper Functions ให้แม่นยำขึ้น
+// 🆕 ฟังก์ชันบีบรูป (Compression)
+// ============================================
+const compressImage = async (base64String, maxSizeKB = 900) => {
+  return new Promise((resolve) => {
+    // สร้าง img element เพื่อโหลดรูป
+    const img = new Image();
+    img.src = `data:image/jpeg;base64,${base64String}`;
+
+    img.onload = () => {
+      // สร้าง canvas สำหรับบีบรูป
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // ตั้งค่าขนาด canvas
+      let width = img.width;
+      let height = img.height;
+
+      // ลดขนาดรูปถ้าเกินกว่า 2000px
+      if (width > 2000 || height > 2000) {
+        const maxDimension = 2000;
+        if (width > height) {
+          height = (height * maxDimension) / width;
+          width = maxDimension;
+        } else {
+          width = (width * maxDimension) / height;
+          height = maxDimension;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      // วาดรูปลงใน canvas
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // บีบรูป - เริ่มจาก 0.9 quality แล้วลดลง
+      let quality = 0.9;
+      let compressed = canvas.toDataURL('image/jpeg', quality);
+
+      // วนลูปบีบรูปจนกว่าจะเล็กกว่า maxSizeKB
+      while (
+        compressed.length > maxSizeKB * 1024 * 1.33 && // 1.33 เพราะ Base64 ใช้ 33% มากกว่า binary
+        quality > 0.1
+      ) {
+        quality -= 0.1;
+        compressed = canvas.toDataURL('image/jpeg', quality);
+        console.log(`Compressing... Quality: ${quality.toFixed(1)}, Size: ${(compressed.length / 1024).toFixed(2)} KB`);
+      }
+
+      // เอา data:image/jpeg;base64, ออก ให้ได้แค่ Base64 string
+      const base64Compressed = compressed.split(',')[1];
+
+      const finalSizeKB = (base64Compressed.length / 1.33 / 1024).toFixed(2);
+      console.log(`✅ Compression complete! Final size: ${finalSizeKB} KB`);
+
+      resolve(base64Compressed);
+    };
+
+    img.onerror = () => {
+      console.warn('⚠️ Image compression failed, using original');
+      resolve(base64String);
+    };
+  });
+};
+
+
+// ============================================
+// 🔍 Helper Functions สำหรับแยกข้อมูล
 // ============================================
 
 const extractMedicationName = (lines, fullText) => {
   let genericName = '';
   let tradeName = '';
 
-  // ============================================
-  // วิธีที่ 1: ยาน้ำ เช่น "HEPALAC 10 gm/15 mL syr"
-  // ============================================
   const syrupPattern = /([A-Z][A-Z\s]+?)\s+\d+(?:\.\d+)?\s*(?:gm?|mg)[\s\/]+\d+(?:\.\d+)?\s*m[lL]\s*(?:syr|syrup|sol|solution|susp|suspension)/i;
   const syrupMatch = fullText.match(syrupPattern);
   if (syrupMatch) {
@@ -80,14 +177,9 @@ const extractMedicationName = (lines, fullText) => {
       .split(/\s+/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
-    console.log('Syrup/Solution found:', { genericName });
     return { genericName, tradeName: '' };
   }
 
-  // ============================================
-  // วิธีที่ 2: หาชื่อยาที่อยู่ก่อน dosage
-  // เช่น "HEPALAC 10 gm" หรือ "Amoxicillin 250 mg/5 mL"
-  // ============================================
   const beforeDosagePattern = /([A-Z][A-Z\s]+?)\s+\d+(?:\.\d+)?\s*(?:gm?|mg|g)(?:\/|\s*\/\s*|\s+)\d+/i;
   const beforeDosageMatch = fullText.match(beforeDosagePattern);
   if (beforeDosageMatch) {
@@ -95,13 +187,9 @@ const extractMedicationName = (lines, fullText) => {
       .split(/\s+/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
-    console.log('Before dosage pattern found:', { genericName });
     return { genericName, tradeName: '' };
   }
 
-  // ============================================
-  // วิธีที่ 3: ยาแบบผสม
-  // ============================================
   const combinationPattern = /([A-Z][A-Z\s]+\+[A-Z\s]+)(?:\s+\d+(?:\.\d+)?\+\d+(?:\.\d+)?\s*(?:mg|g|ml))/i;
   const combMatch = fullText.match(combinationPattern);
   if (combMatch) {
@@ -112,9 +200,6 @@ const extractMedicationName = (lines, fullText) => {
     return { genericName, tradeName: '' };
   }
 
-  // ============================================
-  // วิธีที่ 4: รูปแบบ "TradeName (Dosage) GenericName"
-  // ============================================
   const pattern1 = /([A-Z][a-zA-Z]+)\s*\(([^)]*(?:mg|g|ml|mcg)[^)]*)\)\s*([a-zA-Z]+)/i;
   const match1 = fullText.match(pattern1);
   if (match1) {
@@ -123,9 +208,6 @@ const extractMedicationName = (lines, fullText) => {
     return { genericName, tradeName };
   }
 
-  // ============================================
-  // วิธีที่ 5: รูปแบบ "GenericName (TradeName) Dosage"
-  // ============================================
   for (let line of lines) {
     if (/\d+\s*(mg|g|ml|mcg)/i.test(line)) {
       const pattern2 = /([A-Z][a-zA-Z]+)\s*\(([A-Z][a-zA-Z]+)\)/i;
@@ -138,9 +220,6 @@ const extractMedicationName = (lines, fullText) => {
     }
   }
 
-  // ============================================
-  // วิธีที่ 6: ค้นหาจาก "ชื่อสามัญ"
-  // ============================================
   for (let line of lines) {
     if (line.includes('ชื่อสามัญ') || line.toLowerCase().includes('generic')) {
       const match = line.match(/(?:ชื่อสามัญ|generic)[\s:]*([A-Z][a-zA-Z\s+]+)/i);
@@ -150,7 +229,6 @@ const extractMedicationName = (lines, fullText) => {
     }
   }
 
-  console.log('Final result:', { genericName, tradeName });
   return { genericName, tradeName };
 };
 
@@ -158,7 +236,6 @@ const extractExpiryDate = (lines, fullText) => {
   const patterns = [
     /(?:exp\.?|expiry|หมดอายุ|ใช้ได้ถึง)[\s:]*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
     /(?:exp\.?|expiry|หมดอายุ)[\s:]*(\d{1,2}[\/\-\.]\d{2,4})/i,
-    // หาจาก : ตามด้วยวันที่
     /:\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/,
   ];
 
@@ -194,8 +271,6 @@ const extractExpiryDate = (lines, fullText) => {
   return '';
 };
 
-
-
 const isValidDate = (dateStr) => {
   if (!/\d+[\/\-\.]\d+/.test(dateStr)) return false;
 
@@ -218,7 +293,6 @@ const isValidDate = (dateStr) => {
   return false;
 };
 
-// 🆕 ฟังก์ชัน format วันที่ให้สวยงาม
 const formatDate = (dateStr) => {
   let formatted = dateStr.replace(/[\-\.]/g, '/');
   const parts = formatted.split('/');
@@ -227,35 +301,24 @@ const formatDate = (dateStr) => {
     let lastPart = parts[parts.length - 1];
     let yearNum = parseInt(lastPart, 10);
 
-    // ============================================
-    // แปลง พ.ศ. เป็น ค.ศ.
-    // ============================================
     if (lastPart.length === 4) {
-      // ถ้าปีมากกว่า 2500 = พ.ศ. (ต้องลบ 543)
       if (yearNum > 2500) {
         yearNum = yearNum - 543;
         parts[parts.length - 1] = yearNum.toString();
       }
-    }
-    // ถ้าเป็นปี 2 หลัก
-    else if (lastPart.length === 2) {
+    } else if (lastPart.length === 2) {
       const currentYear = new Date().getFullYear();
-      const currentCentury = Math.floor(currentYear / 100) * 100; // 2000
 
-      // ลองทั้ง 3 แบบ: 19XX, 20XX, 25XX-543
       const year19 = 1900 + yearNum;
       const year20 = 2000 + yearNum;
-      const yearBE = 2500 + yearNum - 543; // พ.ศ. แปลง ค.ศ.
+      const yearBE = 2500 + yearNum - 543;
 
-      // เลือกปีที่ใกล้เคียงกับปัจจุบันที่สุดและอยู่ในอนาคต
       const allYears = [year19, year20, yearBE];
       const futureYears = allYears.filter(y => y >= currentYear && y <= currentYear + 10);
 
       if (futureYears.length > 0) {
-        // เลือกปีที่น้อยที่สุดในอนาคต
         parts[parts.length - 1] = Math.min(...futureYears).toString();
       } else {
-        // ถ้าไม่มีปีไหนในอนาคต ให้เลือกปีที่ใกล้ที่สุด
         const closest = allYears.reduce((prev, curr) =>
           Math.abs(curr - currentYear) < Math.abs(prev - currentYear) ? curr : prev
         );
@@ -264,20 +327,23 @@ const formatDate = (dateStr) => {
     }
   }
 
-  return parts.join('/');
+  // ============================================
+  // 🆕 Convert to yyyy-MM-dd format for input[type=date]
+  // ============================================
+  let day = parts[0] || '01';
+  let month = parts[1] || '01';
+  let year = parts[2] || new Date().getFullYear();
+
+  // Pad with zeros
+  day = String(day).padStart(2, '0');
+  month = String(month).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 };
 
-
-// 🆕 ฟังก์ชันสำหรับหา Lot Number
 const extractLotNumber = (lines, fullText) => {
-  // ============================================
-  // รูปแบบ Lot Number ที่พบได้
-  // ============================================
   const patterns = [
-    // LotNo.0044, Lot No: 0044
     /(?:lot\s*no\.?|lot\s*number|batch\s*no\.?)[\s:\.]*([A-Z0-9\-]+)/i,
-
-    // LOT123456, BATCH123456
     /(?:lot|batch)([A-Z0-9]+)/i,
   ];
 
@@ -285,21 +351,18 @@ const extractLotNumber = (lines, fullText) => {
     const match = fullText.match(pattern);
     if (match && match[1]) {
       let lotNum = match[1].trim();
-      // ตรวจสอบว่ามีความยาวเหมาะสม
       if (lotNum.length >= 2 && lotNum.length <= 20) {
         return lotNum.toUpperCase();
       }
     }
   }
 
-  // ค้นหาแบบทีละบรรทัด
   for (let line of lines) {
     const lineLower = line.toLowerCase();
     if (lineLower.includes('lotno') ||
       lineLower.includes('lot no') ||
       lineLower.includes('batch')) {
 
-      // หาตัวเลข/ตัวอักษรหลัง lot
       const lotMatch = line.match(/(?:lotno\.?|lot\s*no\.?)[\s:]*([A-Z0-9]+)/i);
       if (lotMatch && lotMatch[1]) {
         return lotMatch[1].toUpperCase();
@@ -310,28 +373,17 @@ const extractLotNumber = (lines, fullText) => {
   return '';
 };
 
-
-
 const extractDosage = (lines, fullText) => {
-  // ============================================
-  // รูปแบบยาน้ำ: "10 gm/15 mL" หรือ "250 mg/5 mL"
-  // ============================================
   let match = fullText.match(/(\d+(?:\.\d+)?)\s*(?:gm?|mg)\s*\/\s*(\d+(?:\.\d+)?)\s*m[lL]/i);
   if (match) {
     return `${match[1]} ${match[0].includes('gm') || match[0].includes('g ') ? 'g' : 'mg'}/${match[2]} mL`;
   }
 
-  // ============================================
-  // รูปแบบยาผสม: "231.5+195 mg"
-  // ============================================
   match = fullText.match(/(\d+(?:\.\d+)?\+\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|microgram|unit)/i);
   if (match) {
     return match[0].trim();
   }
 
-  // ============================================
-  // รูปแบบปกติ: "500 mg"
-  // ============================================
   match = fullText.match(/(\d+(?:\.\d+)?)\s*(mg|g|ml|mcg|microgram|unit|มก\.)/i);
   if (match) {
     return match[0].trim();
@@ -340,11 +392,7 @@ const extractDosage = (lines, fullText) => {
   return '';
 };
 
-
 const extractDosageInstruction = (lines, fullText) => {
-  // ============================================
-  // รูปแบบยาน้ำ: "ให้ทางสายยาง 30 mL", "ให้ครั้งละ 15 ซีซี"
-  // ============================================
   const liquidPatterns = [
     /ให้.*?\d+(?:\.\d+)?\s*(?:mL|ml|ซีซี|cc)/i,
     /รับประทาน.*?\d+(?:\.\d+)?\s*(?:mL|ml|ซีซี|cc)/i,
@@ -358,9 +406,6 @@ const extractDosageInstruction = (lines, fullText) => {
     }
   }
 
-  // ============================================
-  // รูปแบบยาเม็ด
-  // ============================================
   const tabletPatterns = [
     /รับประทาน\s+ครั้งละ\s+\d+\s+เม็ด/i,
     /ครั้งละ\s*\d+\s*เม็ด/i,
@@ -374,7 +419,6 @@ const extractDosageInstruction = (lines, fullText) => {
     }
   }
 
-  // ค้นหาทีละบรรทัด
   for (let line of lines) {
     if ((line.includes('รับประทาน') || line.includes('ให้')) &&
       (line.includes('เม็ด') || line.includes('mL') || line.includes('ซีซี'))) {
@@ -387,18 +431,13 @@ const extractDosageInstruction = (lines, fullText) => {
 
   return '';
 };
+
 const extractFrequency = (lines, fullText) => {
   const text = fullText.toLowerCase();
   
-  // ============================================
-  // รูปแบบพิเศษ
-  // ============================================
   if (text.includes('วันเว้นวัน') || text.match(/ทุก\s*48\s*ชั?(?:วโมง|ม)/)) return 'q48h';
   if (text.match(/ทุก\s*72\s*ชั?(?:วโมง|ม)/)) return 'q72h';
   
-  // ============================================
-  // รูปแบบมาตรฐาน
-  // ============================================
   if (text.includes('tid') || text.match(/วันละ\s*3\s*ครั้ง/) || text.match(/3\s*ครั้ง.*วัน/)) return 'tid';
   if (text.includes('bid') || text.match(/วันละ\s*2\s*ครั้ง/) || text.match(/2\s*ครั้ง.*วัน/)) return 'bid';
   if (text.includes('qid') || text.match(/วันละ\s*4\s*ครั้ง/) || text.match(/4\s*ครั้ง.*วัน/)) return 'qid';
@@ -416,7 +455,6 @@ const extractFrequency = (lines, fullText) => {
 const extractTiming = (lines, fullText) => {
   const text = fullText.toLowerCase();
 
-  // พร้อมอาหาร หรือ หลังอาหารทันที
   if (text.includes('พร้อมอาหาร') || text.includes('หลังอาหารทันที')) return 'pc';
   if (text.includes('ก่อนนอน') || text.includes('hs') || text.includes('before bed')) return 'hs';
   if (text.includes('ก่อนอาหาร') || text.includes('ac') || text.includes('before meal')) return 'ac';
@@ -428,21 +466,14 @@ const extractTiming = (lines, fullText) => {
 };
 
 const extractQuantity = (lines, fullText) => {
-  // ============================================
-  // ยาน้ำ: "100 ml", "120 mL"
-  // ============================================
   let match = fullText.match(/(\d+)\s*m[lL](?:\s|\.|\)|$)/);
   if (match) {
     const num = parseInt(match[1]);
-    // ตรวจสอบว่าไม่ใช่ dosage (เช่น 15 mL ใน "10 g/15 mL")
-    if (num >= 30) { // ขวดยามักจะ 30 mL ขึ้นไป
+    if (num >= 30) {
       return `${num} mL`;
     }
   }
   
-  // ============================================
-  // ยาเม็ด: [278 เม็ด]
-  // ============================================
   match = fullText.match(/\[(\d+)\s*(?:เม็ด|แคปซูล|tablet|capsule|cap)\]/i);
   if (match) return match[1];
   
@@ -452,7 +483,6 @@ const extractQuantity = (lines, fullText) => {
   match = fullText.match(/[x×]\s*(\d+)\s*(?:เม็ด|แคปซูล|tablet|capsule)/i);
   if (match) return match[1];
   
-  // หาจำนวนเม็ดที่มากกว่า 5 เม็ด
   const lines_filtered = lines.filter(line => 
     !line.includes('ครั้งละ') && !line.includes('วันละ')
   );
@@ -473,13 +503,9 @@ const extractQuantity = (lines, fullText) => {
 const extractHospital = (lines, fullText) => {
   const hospitalLines = [];
 
-  // ============================================
-  // รวบรวมบรรทัดที่เกี่ยวกับโรงพยาบาล
-  // ============================================
   for (let line of lines) {
     const lineLower = line.toLowerCase();
 
-    // ข้ามบรรทัดที่สั้นเกินไป (น้อยกว่า 5 ตัวอักษร)
     if (line.trim().length < 5) continue;
 
     if (line.includes('โรงพยาบาล') ||
@@ -494,12 +520,8 @@ const extractHospital = (lines, fullText) => {
     }
   }
 
-  // ============================================
-  // เลือกบรรทัดที่ดีที่สุด
-  // ============================================
   if (hospitalLines.length === 0) return '';
 
-  // เรียงตาม score จากมากไปน้อย
   hospitalLines.sort((a, b) => b.score - a.score);
 
   return hospitalLines[0].text;
@@ -508,12 +530,10 @@ const extractHospital = (lines, fullText) => {
 const calculateHospitalScore = (line) => {
   let score = 0;
 
-  // +10 คะแนน ถ้ามีคำว่า "โรงพยาบาล" เต็มๆ (ไม่ใช่แค่ hospital)
   if (line.includes('โรงพยาบาล')) {
     score += 10;
   }
 
-  // +5 คะแนน ถ้ามีชื่อเฉพาะ เช่น "พระราม", "รามาธิบดี", "จุฬา"
   const specificNames = [
     'พระราม', 'รามาธิบดี', 'จุฬา', 'ศิริราช', 'เชียงใหม่',
     'ขอนแก่น', 'สงขลา', 'วชิรพยาบาล', 'ตำรวจ', 'ราชวิถี',
@@ -528,7 +548,6 @@ const calculateHospitalScore = (line) => {
     }
   }
 
-  // +3 คะแนน ถ้ามีคำอธิบายประเภท เช่น "ทั่วไป", "เอกชน", "มหาวิทยาลัย"
   const types = [
     'ทั่วไป', 'เอกชน', 'รัฐ', 'มหาวิทยาลัย', 'คณะแพทย์',
     'ขนาดใหญ่', 'ศูนย์', 'สถาบัน'
@@ -541,15 +560,12 @@ const calculateHospitalScore = (line) => {
     }
   }
 
-  // +2 คะแนน สำหรับทุกๆ 10 ตัวอักษร (ชื่อยาวมักเป็นชื่อเต็ม)
   score += Math.floor(line.length / 10) * 2;
 
-  // +5 คะแนน ถ้ามีตัวเลขหมายเลขโทรศัพท์ หรือที่อยู่
   if (/\d{2,}/.test(line)) {
     score += 2;
   }
 
-  // -10 คะแนน ถ้าเป็นแค่คำว่า "Hospital" หรือ "โรงพยาบาล" อย่างเดียว
   const trimmed = line.trim();
   if (trimmed === 'Hospital' ||
     trimmed === 'hospital' ||
@@ -558,7 +574,6 @@ const calculateHospitalScore = (line) => {
     score -= 10;
   }
 
-  // +5 คะแนน ถ้ามีภาษาไทย (ชื่อไทยมักเป็นชื่อเต็ม)
   if (/[ก-๙]/.test(line)) {
     score += 5;
   }
