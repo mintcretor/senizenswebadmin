@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import api from '../api/baseapi';
+import MenuSetManagement from './MenuSetManagement';
 
 const NutritionManagement = () => {
   const [activeTab, setActiveTab] = useState('add-food');
@@ -21,10 +22,6 @@ const NutritionManagement = () => {
   const [expandedFood, setExpandedFood] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showMealModal, setShowMealModal] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [selectedMealType, setSelectedMealType] = useState(null);
-  const [selectedFood, setSelectedFood] = useState(null);
 
   const [formData, setFormData] = useState({
     foodName: '',
@@ -39,15 +36,6 @@ const NutritionManagement = () => {
     image: null,
     imageFile: null,
   });
-
-  const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
-  const dayOrder = [1, 2, 3, 4, 5, 6, 0];
-  const mealTypes = [
-    { value: 'breakfast', label: 'มื้อเช้า' },
-    { value: 'lunch', label: 'มื้อกลางวัน' },
-    { value: 'dinner', label: 'มื้อเย็น' },
-    { value: 'snack', label: 'มื้อว่าง' },
-  ];
 
   useEffect(() => {
     fetchFoodItems();
@@ -209,54 +197,9 @@ const NutritionManagement = () => {
     setEditingFood(null);
   };
 
-  const handleAddMealToDay = (day, mealType) => {
-    setSelectedDay(day);
-    setSelectedMealType(mealType);
-    setSelectedFood(null);
-    setShowMealModal(true);
-  };
-
-  const handleConfirmMeal = async () => {
-    if (!selectedFood) {
-      alert('กรุณาเลือกอาหาร');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await api.post('/nutrition/weekly-menus', {
-        weekNumber: getWeekNumber(new Date()),
-        dayOfWeek: selectedDay,
-        mealType: selectedMealType,
-        foodItemId: selectedFood.id,
-      });
-
-      if (response.status === 200 || response.status === 201) {
-        setShowMealModal(false);
-        setSelectedDay(null);
-        setSelectedMealType(null);
-        setSelectedFood(null);
-        alert('เพิ่มเมนูสำเร็จ');
-      }
-    } catch (error) {
-      console.error('Error adding meal:', error);
-      alert('เกิดข้อผิดพลาด');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const filteredFoodItems = foodItems.filter((food) =>
     food.foodName.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const getWeekNumber = (date) => {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -264,7 +207,7 @@ const NutritionManagement = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">จัดการเมนูอาหาร</h1>
-          <p className="text-gray-600">ขั้นตอน 1: เพิ่มอาหาร | ขั้นตอน 2: จัดเมนูสัปดาห์</p>
+          <p className="text-gray-600">ขั้นตอน 1: เพิ่มอาหาร | ขั้นตอน 2: จัดเซ็ตเมนูสัปดาห์</p>
         </div>
 
         {/* Tabs */}
@@ -280,14 +223,14 @@ const NutritionManagement = () => {
             ขั้นตอน 1: เพิ่มอาหาร
           </button>
           <button
-            onClick={() => setActiveTab('weekly-menu')}
+            onClick={() => setActiveTab('menu-sets')}
             className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'weekly-menu'
+              activeTab === 'menu-sets'
                 ? 'border-b-2 border-blue-600 text-blue-600'
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            ขั้นตอน 2: จัดเมนูสัปดาห์
+            ขั้นตอน 2: จัดเซ็ตเมนูสัปดาห์
           </button>
         </div>
 
@@ -625,99 +568,8 @@ const NutritionManagement = () => {
           </div>
         )}
 
-        {/* TAB 2: WEEKLY MENU */}
-        {activeTab === 'weekly-menu' && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold text-gray-800">จัดเมนูอาหารประจำสัปดาห์</h3>
-
-            {dayOrder.map((dayNum) => (
-              <div key={dayNum} className="bg-white rounded-lg shadow p-6">
-                <h4 className="text-lg font-bold text-gray-800 mb-4">{dayNames[dayNum]}</h4>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {mealTypes.map((meal) => (
-                    <div key={meal.value} className="space-y-2">
-                      <p className="text-sm font-medium text-gray-700 mb-2">{meal.label}</p>
-                      <button
-                        onClick={() => handleAddMealToDay(dayNum, meal.value)}
-                        className="w-full bg-blue-100 text-blue-600 hover:bg-blue-200 px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition"
-                      >
-                        <Plus size={18} />
-                        เพิ่มเมนู
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Meal Selection Modal */}
-        {showMealModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
-              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  เลือกอาหาร - {dayNames[selectedDay]} {mealTypes.find(m => m.value === selectedMealType)?.label}
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowMealModal(false);
-                    setSelectedDay(null);
-                    setSelectedMealType(null);
-                    setSelectedFood(null);
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              <div className="p-6">
-                <div className="max-h-64 overflow-y-auto space-y-2 mb-4">
-                  {foodItems.map((food) => (
-                    <button
-                      key={food.id}
-                      onClick={() => setSelectedFood(food)}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition ${
-                        selectedFood?.id === food.id
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-300 hover:border-blue-400'
-                      }`}
-                    >
-                      <p className="font-semibold text-gray-800">{food.foodName}</p>
-                      <p className="text-sm text-gray-600">
-                        {food.portion} | {food.calories} kcal
-                      </p>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleConfirmMeal}
-                    disabled={!selectedFood || loading}
-                    className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-                  >
-                    {loading ? 'กำลังบันทึก...' : 'เลือก'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMealModal(false);
-                      setSelectedDay(null);
-                      setSelectedMealType(null);
-                      setSelectedFood(null);
-                    }}
-                    className="flex-1 bg-gray-300 text-gray-800 px-6 py-2 rounded-lg"
-                  >
-                    ยกเลิก
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* TAB 2: MENU SETS */}
+        {activeTab === 'menu-sets' && <MenuSetManagement />}
       </div>
     </div>
   );
