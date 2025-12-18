@@ -44,9 +44,16 @@ const NutritionManagement = () => {
   const fetchFoodItems = async () => {
     try {
       const response = await api.get('/nutrition/food-items');
-      setFoodItems(response.data);
+      // ✅ ตรวจสอบว่า response.data เป็น array
+      if (Array.isArray(response.data)) {
+        setFoodItems(response.data);
+      } else {
+        console.warn('API response is not an array, setting empty array');
+        setFoodItems([]);
+      }
     } catch (error) {
       console.error('Error fetching food items:', error);
+      // ✅ เมื่อ error ก็ให้ใช้ข้อมูล mock แบบเดิม
       setFoodItems([
         {
           id: 1,
@@ -197,9 +204,12 @@ const NutritionManagement = () => {
     setEditingFood(null);
   };
 
-  const filteredFoodItems = foodItems.filter((food) =>
-    food.foodName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // ✅ Ensure foodItems is always an array before calling filter
+  const filteredFoodItems = Array.isArray(foodItems)
+    ? foodItems.filter((food) =>
+        food.foodName.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

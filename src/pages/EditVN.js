@@ -1,18 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package, Search, Printer } from 'lucide-react';
+import { Upload, ChevronDown, Plus, Edit, Trash2, X, Package, Search, FileText } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { jsPDF } from 'jspdf';
-import '../fonts/SarabunNew.js';
-import '../fonts/SarabunNewBold.js';
-import JsBarcode from 'jsbarcode';
-import PizZip from 'pizzip';
-import Docxtemplater from 'docxtemplater';
-import { saveAs } from 'file-saver';
-import { FileText } from 'lucide-react';
-import { calculateMonthsAndDays } from '../utils/dateCalculator.js';
-import { generateBarcode } from '../utils/barcodeGenerator.js';
-import ImageModule from 'docxtemplater-image-module-free';
-import { processPatientName } from '../utils/prenameUtils.js';
+import api from '../api/baseapi';
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -21,30 +10,12 @@ const formatThaiDate = (date) => {
   return `${day}/${month}/${year}`;
 };
 
-const formatWesternDate = (date) => {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const day = date.getDate();
-  const month = months[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-};
-
-const formatThaiTime = (date) => {
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const seconds = date.getSeconds().toString().padStart(2, '0');
-  return `${hours}:${minutes}:${seconds}`;
-};
-
 export default function EditVN() {
   const navigate = useNavigate();
   const { vnId } = useParams();
   const location = useLocation();
   const vnFromState = location.state?.vnId || vnId;
 
-  const [currentDate, setCurrentDate] = useState(formatThaiDate(new Date()));
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -93,14 +64,12 @@ export default function EditVN() {
     finalGender: '',
   });
 
-  const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [patient_id, setPatient_id] = useState(null);
   const [service_id, setService_id] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(true);
-  const [generatingAnVn, setGeneratingAnVn] = useState(false);
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -112,7 +81,6 @@ export default function EditVN() {
   const [packageData, setPackageData] = useState([]);
   const [medicalData, setMedicalData] = useState([]);
   const [contractData, setContractData] = useState([]);
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   const [modalForm, setModalForm] = useState({
     name: '',
@@ -133,7 +101,6 @@ export default function EditVN() {
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [availablePackages, setAvailablePackages] = useState([]);
   const [selectedPackageForPatient, setSelectedPackageForPatient] = useState(null);
-  const [packageDiscount, setPackageDiscount] = useState({ type: 'percent', value: 0 });
 
   const [showMedicalModal, setShowMedicalModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
@@ -141,36 +108,26 @@ export default function EditVN() {
   const [availableContracts, setAvailableContracts] = useState([]);
   const [selectedMedical, setSelectedMedical] = useState(null);
   const [selectedContract, setSelectedContract] = useState(null);
-  const [medicalDiscount, setMedicalDiscount] = useState({ type: 'percent', value: 0 });
-  const [contractDiscount, setContractDiscount] = useState({ type: 'percent', value: 0 });
 
-  // ✅ Fetch VN/Service Registration Data - แก้ให้รองรับ flat structure
+  // ✅ STEP 3: Fetch VN/Service Registration Data - ใช้ baseAPI
   const fetchServiceRegistration = async (vnId) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/service-registrations/${vnId}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await api.get(`/service-registrations/${vnId}`);
+      
+      console.log('✅ Fetched service registration:', response.data);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch service registration: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch service registration');
       }
-
-      console.log('Fetched service registration:', result.data);
 
       const serviceReg = result.data;
       setService_id(serviceReg.registration_id);
       setPatient_id(serviceReg.patient_id);
 
-      // ✅ เปลี่ยน structure เพราะ API ส่งมาแบบ flat (ไม่มี patient object)
       setFormData(prev => ({
         ...prev,
         hn: serviceReg.hn || '',
@@ -188,13 +145,15 @@ export default function EditVN() {
       }));
 
     } catch (err) {
-      console.error('Fetch service registration error:', err);
-      setError(`ไม่สามารถโหลดข้อมูล VN ได้: ${err.message}`);
+      console.error('❌ Fetch service registration error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'ไม่สามารถโหลดข้อมูล VN ได้';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ STEP 4: Handle Universal Search - ใช้ baseAPI
   const handleUniversalSearch = async () => {
     if (!searchQuery || searchQuery.trim().length < 2) {
       setError('กรุณากรอกข้อมูลอย่างน้อย 2 ตัวอักษร');
@@ -205,19 +164,11 @@ export default function EditVN() {
       setIsSearching(true);
       setError(null);
 
-      const response = await fetch(
-        `${API_BASE_URL}/patients/search?q=${encodeURIComponent(searchQuery.trim())}`,
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      const response = await api.get(`/patients/search`, {
+        params: { q: searchQuery.trim() }
+      });
 
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-
-      const results = await response.json();
+      const results = response.data;
       if (results.data && results.data.length > 0) {
         setSearchResults(results.data);
         setShowSearchModal(true);
@@ -226,8 +177,9 @@ export default function EditVN() {
         setError('ไม่พบข้อมูลผู้ป่วย');
       }
     } catch (err) {
-      console.error('Error searching patients:', err);
-      setError('เกิดข้อผิดพลาดในการค้นหา');
+      console.error('❌ Error searching patients:', err);
+      const errorMsg = err.response?.data?.error || 'เกิดข้อผิดพลาดในการค้นหา';
+      setError(errorMsg);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -252,40 +204,37 @@ export default function EditVN() {
     setSearchResults([]);
   };
 
+  // ✅ STEP 5: Fetch Departments - ใช้ baseAPI
   const fetchDepartments = async () => {
     try {
       setDepartmentsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/departments`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await api.get(`/departments`);
 
-      const data = await response.json();
+      const data = response.data;
       if (data.success && data.data) {
         const activeDepartments = data.data.filter(dept => dept.is_active);
         setDepartments(activeDepartments);
       }
     } catch (err) {
-      console.error('Error fetching departments:', err);
-      setError(`เกิดข้อผิดพลาดในการดึงข้อมูลแผนก: ${err.message}`);
+      console.error('❌ Error fetching departments:', err);
+      const errorMsg = err.response?.data?.error || err.message;
+      setError(`เกิดข้อผิดพลาดในการดึงข้อมูลแผนก: ${errorMsg}`);
     } finally {
       setDepartmentsLoading(false);
     }
   };
 
+  // ✅ STEP 6: Fetch Rooms - ใช้ baseAPI
   const fetchRooms = async () => {
     try {
       setRoomsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/room?active=true`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+
+      const response = await api.get(`/room`, {
+        params: { active: true }
       });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const data = await response.json();
+      const data = response.data;
       if (data.success && data.data) {
         const sortedRooms = data.data.sort((a, b) =>
           (a.display_order || 0) - (b.display_order || 0)
@@ -293,40 +242,59 @@ export default function EditVN() {
         setRooms(sortedRooms);
       }
     } catch (err) {
-      console.error('Error fetching rooms:', err);
-      setError(`เกิดข้อผิดพลาดในการดึงข้อมูลห้อง: ${err.message}`);
+      console.error('❌ Error fetching rooms:', err);
+      const errorMsg = err.response?.data?.error || err.message;
+      setError(`เกิดข้อผิดพลาดในการดึงข้อมูลห้อง: ${errorMsg}`);
     } finally {
       setRoomsLoading(false);
     }
   };
 
+  // ✅ STEP 7: Fetch Available Packages - ใช้ baseAPI
   const fetchAvailablePackages = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/packages?active=true`);
-      const result = await response.json();
-      if (result.success) setAvailablePackages(result.data);
+      const response = await api.get(`/packages`, {
+        params: { active: true }
+      });
+      
+      const result = response.data;
+      if (result.success) {
+        setAvailablePackages(result.data);
+      }
     } catch (error) {
-      console.error('Error fetching packages:', error);
+      console.error('❌ Error fetching packages:', error);
     }
   };
 
+  // ✅ STEP 8: Fetch Available Medical - ใช้ baseAPI
   const fetchAvailableMedical = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/medical?active=true`);
-      const result = await response.json();
-      if (result.success) setAvailableMedical(result.data);
+      const response = await api.get(`/medical`, {
+        params: { active: true }
+      });
+      
+      const result = response.data;
+      if (result.success) {
+        setAvailableMedical(result.data);
+      }
     } catch (error) {
-      console.error('Error fetching medical:', error);
+      console.error('❌ Error fetching medical:', error);
     }
   };
 
+  // ✅ STEP 9: Fetch Available Contracts - ใช้ baseAPI
   const fetchAvailableContracts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/contracts?active=true`);
-      const result = await response.json();
-      if (result.success) setAvailableContracts(result.data);
+      const response = await api.get(`/contracts`, {
+        params: { active: true }
+      });
+      
+      const result = response.data;
+      if (result.success) {
+        setAvailableContracts(result.data);
+      }
     } catch (error) {
-      console.error('Error fetching contracts:', error);
+      console.error('❌ Error fetching contracts:', error);
     }
   };
 
@@ -403,44 +371,26 @@ export default function EditVN() {
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const calculatePackagePrice = () => {
-    if (!selectedPackageForPatient) return 0;
-    const basePrice = selectedPackageForPatient.price;
-    const discountAmount = packageDiscount.type === 'percent'
-      ? (basePrice * packageDiscount.value) / 100
-      : packageDiscount.value;
-    return Math.max(0, basePrice - discountAmount);
-  };
-
-  const calculateMedicalPrice = () => {
-    if (!selectedMedical) return 0;
-    const basePrice = selectedMedical.price;
-    const discountAmount = medicalDiscount.type === 'percent'
-      ? (basePrice * medicalDiscount.value) / 100
-      : medicalDiscount.value;
-    return Math.max(0, basePrice - discountAmount);
-  };
-
-  const calculateContractPrice = () => {
-    if (!selectedContract) return 0;
-    const basePrice = selectedContract.price;
-    const discountAmount = contractDiscount.type === 'percent'
-      ? (basePrice * contractDiscount.value) / 100
-      : contractDiscount.value;
-    return Math.max(0, basePrice - discountAmount);
-  };
-
+  // ✅ STEP 2: Calculate Total Price - ใช้ parseInt()
   const calculateTotalPrice = () => {
     const basePrice = parseInt(formData.price) || 0;
-    const packageTotal = packageData.reduce((sum, item) => sum + item.price, 0);
-    const medicalTotal = medicalData.reduce((sum, item) => sum + item.price, 0);
-    const contractTotal = contractData.reduce((sum, item) => sum + item.price, 0);
-    return basePrice + packageTotal + medicalTotal + contractTotal;
+    const packageTotal = packageData.reduce((sum, item) => {
+      return sum + (parseInt(item.price) || 0);
+    }, 0);
+    const medicalTotal = medicalData.reduce((sum, item) => {
+      return sum + (parseInt(item.price) || 0);
+    }, 0);
+    const contractTotal = contractData.reduce((sum, item) => {
+      return sum + (parseInt(item.price) || 0);
+    }, 0);
+    
+    const total = basePrice + packageTotal + medicalTotal + contractTotal;
+    console.log(`✅ calculateTotalPrice: ${basePrice} + ${packageTotal} + ${medicalTotal} + ${contractTotal} = ${total}`);
+    return total;
   };
 
   const openModal = (type) => {
@@ -503,88 +453,133 @@ export default function EditVN() {
     setShowConfirmationModal(true);
   };
 
+  // ✅ STEP 10: Handle Confirm Save - ใช้ baseAPI + snake_case + parseInt
   const handleConfirmSave = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!formData.hn) throw new Error('กรุณากรอก HN');
-      if (!formData.an) throw new Error('กรุณากรอก AN');
+      // ============ VALIDATION ============
+      if (!patient_id) {
+        throw new Error('❌ กรุณาเลือกผู้ป่วยก่อน');
+      }
+      if (!formData.hn) {
+        throw new Error('❌ กรุณากรอก HN');
+      }
+      if (!formData.an) {
+        throw new Error('❌ กรุณากรอก AN');
+      }
+      if (!formData.date) {
+        throw new Error('❌ กรุณาเลือกวันที่เริ่มต้น');
+      }
+      if (!formData.toDate) {
+        throw new Error('❌ กรุณาเลือกวันที่สิ้นสุด');
+      }
+      if (!formData.building) {
+        throw new Error('❌ กรุณาเลือกห้อง');
+      }
+      if (!formData.price || parseInt(formData.price) <= 0) {
+        throw new Error('❌ กรุณากรอกราคาที่มากกว่า 0');
+      }
 
+      // ============ FIND DEPARTMENT ============
+      const strokeDept = departments.find(d => d.code === 'STROKE');
+      if (!strokeDept) {
+        console.error('Available departments:', departments);
+        throw new Error('❌ ไม่พบแผนก STROKE ในระบบ');
+      }
+
+      // ============ CONVERT TO NUMBER ============
+      const basePrice = parseInt(formData.price) || 0;
+      const totalPrice = calculateTotalPrice();
+
+      console.log('📋 DEBUG INFO:');
+      console.log('  patient_id:', patient_id);
+      console.log('  service_id:', service_id);
+      console.log('  basePrice:', basePrice, '(type:', typeof basePrice + ')');
+      console.log('  totalPrice:', totalPrice, '(type:', typeof totalPrice + ')');
+      console.log('  packageData items:', packageData.length);
+      console.log('  medicalData items:', medicalData.length);
+      console.log('  contractData items:', contractData.length);
+
+      // ============ BUILD PAYLOAD (snake_case) ============
       const payload = {
-        patientId: patient_id,
-        departmentId: departments.find(d => d.code === 'STROKE')?.id,
-        patientType: 'AN',
-        profileImage: previewUrl,
-        contractData: {
-          startDate: formData.date,
-          endDate: formData.toDate,
-          roomType: formData.building,
-          billingType: formData.floor,
-          basePrice: parseInt(formData.price) || 0,
-          totalPrice: calculateTotalPrice(),
+        patient_id: patient_id,
+        department_id: strokeDept.id,
+        patient_type: 'AN',
+        profile_image: previewUrl || null,
+        contract_data: {
+          start_date: formData.date,
+          end_date: formData.toDate,
+          room_number: formData.building,
+          billing_type: formData.floor,
+          base_price: basePrice,
+          total_price: totalPrice,
           notes: null,
           packages: packageData.map(pkg => ({
-            id: pkg.id,
+            id: pkg.packageId || pkg.id,
             name: pkg.name,
-            originalPrice: pkg.originalPrice || pkg.price,
-            discountType: pkg.discount?.type || null,
-            discountValue: pkg.discount?.value || 0,
-            finalPrice: pkg.price
+            original_price: parseInt(pkg.originalPrice || pkg.price) || 0,
+            discount_type: pkg.discount?.type || null,
+            discount_value: parseInt(pkg.discount?.value) || 0,
+            final_price: parseInt(pkg.price) || 0
           })),
-          medicalSupplies: medicalData.map(med => ({
-            id: med.id,
+          medical_supplies: medicalData.map(med => ({
+            id: med.medicalId || med.id,
             name: med.name,
-            originalPrice: med.originalPrice || med.price,
-            discountType: med.discount?.type || null,
-            discountValue: med.discount?.value || 0,
-            finalPrice: med.price
+            original_price: parseInt(med.originalPrice || med.price) || 0,
+            discount_type: med.discount?.type || null,
+            discount_value: parseInt(med.discount?.value) || 0,
+            final_price: parseInt(med.price) || 0
           })),
-          contractItems: contractData.map(con => ({
-            id: con.id,
+          contract_items: contractData.map(con => ({
+            id: con.contractId || con.id,
             name: con.name,
-            category: con.category,
-            originalPrice: con.originalPrice || con.price,
-            discountType: con.discount?.type || null,
-            discountValue: con.discount?.value || 0,
-            finalPrice: con.price
+            category: con.category || '',
+            original_price: parseInt(con.originalPrice || con.price) || 0,
+            discount_type: con.discount?.type || null,
+            discount_value: parseInt(con.discount?.value) || 0,
+            final_price: parseInt(con.price) || 0
           }))
         }
       };
 
-      const response = await fetch(`${API_BASE_URL}/service-registrations/${service_id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(payload)
-      });
+      console.log('📤 SENDING PAYLOAD:', JSON.stringify(payload, null, 2));
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
+      // ============ SEND REQUEST (ใช้ baseAPI) ============
+      const response = await api.put(`/service-registrations/${service_id}`, payload);
 
-      const result = await response.json();
-      alert('แก้ไขข้อมูลสำเร็จ!');
+      console.log('✅ SUCCESS RESPONSE:', response.data);
+
+      alert('✅ แก้ไขข้อมูลสำเร็จ!');
       setShowConfirmationModal(false);
-      navigate('/stroke-center');
+      
+      setTimeout(() => {
+        navigate('/stroke-center');
+      }, 1000);
+
     } catch (err) {
-      console.error('Error saving data:', err);
-      setError(err.message);
+      console.error('❌ ERROR:', err.message);
+      console.error('Full error:', err);
+      
+      const errorMsg = err.response?.data?.error 
+        || err.response?.data?.message 
+        || err.message 
+        || 'เกิดข้อผิดพลาดในการบันทึก';
+      
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  if (isLoading || (departmentsLoading && !formData.hn)) {
+  if ((departmentsLoading && !formData.hn)) {
     return (
       <div className="flex min-h-screen bg-slate-100 items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">
-            {isLoading ? 'กำลังโหลดข้อมูล VN...' : 'กำลังโหลดข้อมูลแผนก...'}
+            กำลังโหลดข้อมูลแผนก...
           </p>
         </div>
       </div>

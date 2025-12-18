@@ -43,9 +43,16 @@ const MenuSetManagement = () => {
   const fetchFoodItems = async () => {
     try {
       const response = await api.get('/nutrition/food-items');
-      setFoodItems(response.data);
+      // ✅ ตรวจสอบว่า response.data เป็น array
+      if (Array.isArray(response.data)) {
+        setFoodItems(response.data);
+      } else {
+        console.warn('API response is not an array, setting empty array');
+        setFoodItems([]);
+      }
     } catch (error) {
       console.error('Error fetching food items:', error);
+      // ✅ เมื่อ error ก็ให้ใช้ข้อมูล mock แบบเดิม
       setFoodItems([
         {
           id: 1,
@@ -171,6 +178,9 @@ const MenuSetManagement = () => {
     setEditingSet(null);
   };
 
+  // ✅ Ensure foodItems is always an array before using
+  const safeFoodItems = Array.isArray(foodItems) ? foodItems : [];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -262,7 +272,7 @@ const MenuSetManagement = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3 focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">เลือกอาหาร</option>
-                          {foodItems.map((food) => (
+                          {safeFoodItems.map((food) => (
                             <option key={food.id} value={food.id}>
                               {food.foodName}
                             </option>
@@ -342,7 +352,7 @@ const MenuSetManagement = () => {
                     ระยะเวลา
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">
-                    ชื่อเซ็ต ชื่อชื่อชื่อเมนู
+                    ชื่อเซ็ต
                   </th>
                   <th className="px-6 py-4 text-center text-sm font-semibold text-gray-800">
                     Action
