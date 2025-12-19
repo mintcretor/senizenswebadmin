@@ -116,7 +116,7 @@ export default function EditVN() {
       setError(null);
 
       const response = await api.get(`/service-registrations/${vnId}`);
-      
+
       console.log('✅ Fetched service registration:', response.data);
 
       const result = response.data;
@@ -256,7 +256,7 @@ export default function EditVN() {
       const response = await api.get(`/packages`, {
         params: { active: true }
       });
-      
+
       const result = response.data;
       if (result.success) {
         setAvailablePackages(result.data);
@@ -272,7 +272,7 @@ export default function EditVN() {
       const response = await api.get(`/medical`, {
         params: { active: true }
       });
-      
+
       const result = response.data;
       if (result.success) {
         setAvailableMedical(result.data);
@@ -288,7 +288,7 @@ export default function EditVN() {
       const response = await api.get(`/contracts`, {
         params: { active: true }
       });
-      
+
       const result = response.data;
       if (result.success) {
         setAvailableContracts(result.data);
@@ -387,7 +387,7 @@ export default function EditVN() {
     const contractTotal = contractData.reduce((sum, item) => {
       return sum + (parseInt(item.price) || 0);
     }, 0);
-    
+
     const total = basePrice + packageTotal + medicalTotal + contractTotal;
     console.log(`✅ calculateTotalPrice: ${basePrice} + ${packageTotal} + ${medicalTotal} + ${contractTotal} = ${total}`);
     return total;
@@ -553,7 +553,7 @@ export default function EditVN() {
 
       alert('✅ แก้ไขข้อมูลสำเร็จ!');
       setShowConfirmationModal(false);
-      
+
       setTimeout(() => {
         navigate('/stroke-center');
       }, 1000);
@@ -561,12 +561,12 @@ export default function EditVN() {
     } catch (err) {
       console.error('❌ ERROR:', err.message);
       console.error('Full error:', err);
-      
-      const errorMsg = err.response?.data?.error 
-        || err.response?.data?.message 
-        || err.message 
+
+      const errorMsg = err.response?.data?.error
+        || err.response?.data?.message
+        || err.message
         || 'เกิดข้อผิดพลาดในการบันทึก';
-      
+
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -1167,11 +1167,10 @@ export default function EditVN() {
                   <div
                     key={pkg.id}
                     onClick={() => setSelectedPackageForPatient(pkg)}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      selectedPackageForPatient?.id === pkg.id
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedPackageForPatient?.id === pkg.id
                         ? 'border-purple-600 bg-purple-50'
                         : 'border-gray-200 hover:border-purple-300'
-                    }`}
+                      }`}
                   >
                     <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
                     <p className="text-sm text-gray-600 mt-1">{pkg.description}</p>
@@ -1190,6 +1189,11 @@ export default function EditVN() {
               <button
                 onClick={() => {
                   if (selectedPackageForPatient) {
+                    console.log('✅ Adding package:', {
+                      id: selectedPackageForPatient.id,
+                      name: selectedPackageForPatient.name,
+                      price: selectedPackageForPatient.price
+                    });
                     const newPackage = {
                       id: Date.now(),
                       name: selectedPackageForPatient.name,
@@ -1230,11 +1234,10 @@ export default function EditVN() {
                   <div
                     key={item.id}
                     onClick={() => setSelectedMedical(item)}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      selectedMedical?.id === item.id
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedMedical?.id === item.id
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-green-300'
-                    }`}
+                      }`}
                   >
                     <h3 className="font-semibold text-gray-900">{item.name}</h3>
                     <div className="mt-3 text-lg font-bold text-green-600">
@@ -1292,11 +1295,10 @@ export default function EditVN() {
                   <div
                     key={item.id}
                     onClick={() => setSelectedContract(item)}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                      selectedContract?.id === item.id
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedContract?.id === item.id
                         ? 'border-purple-600 bg-purple-50'
                         : 'border-gray-200 hover:border-purple-300'
-                    }`}
+                      }`}
                   >
                     <h3 className="font-semibold text-gray-900">{item.name}</h3>
                     <div className="mt-3 text-lg font-bold text-purple-600">
