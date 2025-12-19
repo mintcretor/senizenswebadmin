@@ -109,7 +109,7 @@ export default function EditVN() {
   const [selectedMedical, setSelectedMedical] = useState(null);
   const [selectedContract, setSelectedContract] = useState(null);
 
-  // ✅ STEP 3: Fetch VN/Service Registration Data - ใช้ baseAPI
+  // ✅ STEP 3: Fetch VN/Service Registration Data - ใช้ baseAPI + โหลด contract data
   const fetchServiceRegistration = async (vnId) => {
     try {
       setLoading(true);
@@ -128,6 +128,7 @@ export default function EditVN() {
       setService_id(serviceReg.registration_id);
       setPatient_id(serviceReg.patient_id);
 
+      console.log('📋 Service Registration Data:', serviceReg);
       setFormData(prev => ({
         ...prev,
         hn: serviceReg.hn || '',
@@ -140,9 +141,78 @@ export default function EditVN() {
         date: serviceReg.contract_start_date ? serviceReg.contract_start_date.split('T')[0] : '',
         toDate: serviceReg.contract_end_date ? serviceReg.contract_end_date.split('T')[0] : '',
         building: serviceReg.room_number || '',
+        type: serviceReg.room_type || '',
         floor: serviceReg.billing_type || 'รายสัปดาห์',
         price: serviceReg.base_price?.toString() || '',
       }));
+      setSelectedRoom({
+        room_number: serviceReg.room_number || '',
+        room_type: serviceReg.room_type || '',
+      });
+
+      // ============================================
+      // ✅ โหลด packages/medical/contracts จาก contract object
+      // ============================================
+      if (serviceReg.contract) {
+        console.log('📦 Processing contract data...');
+        
+        // ✅ Set packages
+        if (serviceReg.contract.packages && Array.isArray(serviceReg.contract.packages)) {
+          const formattedPackages = serviceReg.contract.packages.map(pkg => ({
+            id: Date.now() + Math.random(),
+            packageId: pkg.package_id || pkg.id,
+            name: pkg.package_name || pkg.name,
+            price: parseInt(pkg.final_price) || 0,
+            originalPrice: parseInt(pkg.original_price) || 0,
+            discount: {
+              type: pkg.discount_type || null,
+              value: parseInt(pkg.discount_value) || 0
+            }
+          }));
+          setPackageData(formattedPackages);
+          console.log('✅ Packages loaded:', formattedPackages);
+        }
+
+        // ✅ Set medical supplies
+        if (serviceReg.contract.medical_supplies && Array.isArray(serviceReg.contract.medical_supplies)) {
+          const formattedMedical = serviceReg.contract.medical_supplies.map(med => ({
+            id: Date.now() + Math.random(),
+            medicalId: med.medical_supply_id || med.id,
+            name: med.item_name || med.name,
+            price: parseInt(med.final_price) || 0,
+            originalPrice: parseInt(med.original_price) || 0,
+            discount: {
+              type: med.discount_type || null,
+              value: parseInt(med.discount_value) || 0
+            }
+          }));
+          setMedicalData(formattedMedical);
+          console.log('✅ Medical supplies loaded:', formattedMedical);
+        }
+
+        // ✅ Set contract items
+        if (serviceReg.contract.contract_items && Array.isArray(serviceReg.contract.contract_items)) {
+          const formattedContracts = serviceReg.contract.contract_items.map(con => ({
+            id: Date.now() + Math.random(),
+            contractId: con.contract_item_id || con.id,
+            name: con.item_name || con.name,
+            category: con.category || '',
+            price: parseInt(con.final_price) || 0,
+            originalPrice: parseInt(con.original_price) || 0,
+            discount: {
+              type: con.discount_type || null,
+              value: parseInt(con.discount_value) || 0
+            }
+          }));
+          setContractData(formattedContracts);
+          console.log('✅ Contract items loaded:', formattedContracts);
+        }
+      } else {
+        console.warn('⚠️ No contract data found');
+        setPackageData([]);
+        setMedicalData([]);
+        setContractData([]);
+      }
 
     } catch (err) {
       console.error('❌ Fetch service registration error:', err);
@@ -774,14 +844,14 @@ export default function EditVN() {
                 <div className="relative">
                   <select
                     name="building"
-                    value={selectedRoom?.id || ''}
+                    value={selectedRoom?.room_number || ''}
                     onChange={handleRoomChange}
                     disabled={roomsLoading}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
                   >
                     <option value="">เลือกห้อง</option>
                     {rooms.map((room) => (
-                      <option key={room.id} value={room.id}>
+                      <option key={room.id} value={room.room_number}>
                         {room.room_number} - {room.room_type}
                       </option>
                     ))}
