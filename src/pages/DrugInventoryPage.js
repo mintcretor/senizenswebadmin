@@ -18,7 +18,7 @@ function DrugInventoryPage() {
   });
   const [showModal, setShowModal] = useState(null);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
-  const [editingMedicine, setEditingMedicine] = useState(null);  // ← NEW
+  const [editingMedicine, setEditingMedicine] = useState(null);
   const [patients, setPatients] = useState([]);
   const [medications, setMedications] = useState([]);
   const [patientMeds, setPatientMeds] = useState([]);
@@ -29,6 +29,16 @@ function DrugInventoryPage() {
   const [uniqueWards, setUniqueWards] = useState([]);
   const [uniqueRooms, setUniqueRooms] = useState([]);
   const [saveError, setSaveError] = useState('');
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -47,7 +57,6 @@ function DrugInventoryPage() {
     try {
       console.log('Loading medications for patient:', patientId);
       
-      // หา service_registration_id ของผู้ป่วยที่เลือก
       const patient = patients.find(p => p.id === patientId);
       if (!patient || !patient.service_registration_id) {
         console.log('No service_registration_id found for patient:', patientId);
@@ -58,7 +67,6 @@ function DrugInventoryPage() {
       const serviceRegId = patient.service_registration_id;
       console.log('Loading medications for service_registration_id:', serviceRegId);
       
-      // ดึงข้อมูล Medication Reconciliation ล่าสุด
       const response = await api.get(`/medication-reconciliation/${serviceRegId}`);
       
       console.log('Medications response:', response.data);
@@ -67,7 +75,6 @@ function DrugInventoryPage() {
         const reconData = response.data.data;
         const medications = reconData.medications || [];
         
-        // Transform medications data สำหรับ Drug Inventory UI
         const transformedMeds = medications.map((med, index) => ({
           id: med.id || `med-${index}`,
           patientId: patientId,
@@ -78,7 +85,7 @@ function DrugInventoryPage() {
           trade_name: med.trade_name,
           dosage: med.dosage,
           dose: med.dosage,
-          unit: 'เม็ด', // ปรับตามความเหมาะสม
+          unit: 'เม็ด',
           route: med.route,
           frequency: med.frequency,
           timing: med.timing,
@@ -97,7 +104,7 @@ function DrugInventoryPage() {
           scheduleTime: med.schedule_time,
           scheduleTimeDisplay: med.schedule_time_display,
           initialStock: med.quantity || 0,
-          currentStock: med.quantity || 0, // จะคำนวณจาก transaction จริงๆ
+          currentStock: med.quantity || 0,
           imageUrl: med.image_url,
           notes: med.dosage_instruction || '',
           prescribedDate: reconData.reconciliation_date,
@@ -106,8 +113,6 @@ function DrugInventoryPage() {
         
         console.log('Transformed medications:', transformedMeds);
         setPatientMeds(transformedMeds);
-        
-        // ล้าง transactions เพราะ Medication Reconciliation ไม่มีระบบ transaction แบบ inventory
         setTransactions([]);
       } else {
         console.log('No medications found');
@@ -138,7 +143,7 @@ function DrugInventoryPage() {
     }
   };
 
-  // Load patients with filters (limit to 10)
+  // Load patients with filters
   const loadPatients = async () => {
     try {
       setLoading(true);
@@ -147,7 +152,6 @@ function DrugInventoryPage() {
         page: 1
       };
 
-      // ส่งเฉพาะ search ไป API, ward และ room จะ filter ฝั่ง frontend
       if (filters.search) params.search = filters.search;
 
       const response = await api.get('/service-registrations/patients-on-hold', { params });
@@ -160,22 +164,19 @@ function DrugInventoryPage() {
         console.log('Raw patients:', patientsData.length, patientsData.slice(0, 3));
         console.log('Raw patient FULL DATA:', JSON.stringify(patientsData[0], null, 2));
         
-        // Transform data to match component structure
         const transformedPatients = patientsData.map((p, index) => {
-          // Ensure unique ID - prioritize patient_id, then id, then generate unique one
           const patientId = p.patient_id || p.id || `patient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           
-          // แยกชื่อจาก patient_name (เช่น "นางสมจิตต์ สรนันต์ศรี")
           let firstName = '';
           let lastName = '';
           
           if (p.patient_name) {
             const nameParts = p.patient_name.trim().split(' ');
             if (nameParts.length >= 2) {
-              firstName = nameParts[0]; // คำนำหน้า + ชื่อ เช่น "นางสมจิตต์"
-              lastName = nameParts.slice(1).join(' '); // นามสกุล เช่น "สรนันต์ศรี"
+              firstName = nameParts[0];
+              lastName = nameParts.slice(1).join(' ');
             } else {
-              firstName = p.patient_name; // ถ้ามีแค่คำเดียว
+              firstName = p.patient_name;
             }
           } else {
             firstName = p.first_name || p.firstName || '';
@@ -194,7 +195,6 @@ function DrugInventoryPage() {
             service_number: p.service_number || '',
             patient_name: p.patient_name || '',
             ...p,
-            // Override important fields to make sure they're not overwritten
             id: patientId,
             firstName: firstName,
             lastName: lastName
@@ -203,19 +203,14 @@ function DrugInventoryPage() {
         
         console.log('Transformed patients:', transformedPatients.slice(0, 3));
         
-        // Remove duplicates based on ID (more strict checking)
         let uniquePatients = transformedPatients.filter((patient, index, self) => {
-          // Check if patient has valid ID
           if (!patient.id) return false;
           
-          // Find first occurrence with same ID
           return index === self.findIndex((p) => {
-            // Compare IDs strictly
             return p.id === patient.id;
           });
         });
         
-        // Filter by ward and room in frontend
         if (filters.ward) {
           uniquePatients = uniquePatients.filter(p => p.ward === filters.ward);
         }
@@ -226,7 +221,6 @@ function DrugInventoryPage() {
         setPatients(uniquePatients);
         setLoading(false);
         
-        // Extract unique wards and rooms
         const wards = [...new Set(uniquePatients.map(p => p.ward).filter(Boolean))];
         const rooms = [...new Set(uniquePatients.map(p => p.room).filter(Boolean))];
         
@@ -255,11 +249,9 @@ function DrugInventoryPage() {
   };
 
   const filteredPatients = patients.filter(p => {
-    // Filter by ward and room from the filters state
     if (filters.ward && p.ward !== filters.ward) return false;
     if (filters.room && p.room !== filters.room) return false;
     
-    // Filter by search
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
@@ -275,19 +267,15 @@ function DrugInventoryPage() {
   });
 
   const calculateStock = (medicineId) => {
-    // ค้นหายาจาก patientMeds
     const medicine = patientMeds.find(m => m.id === medicineId);
     if (!medicine) return 0;
 
-    // คำนวณจำนวนคงเหลือ
     let currentStock = medicine.initialStock || 0;
     
-    // ดึง transactions ที่เกี่ยวข้อง
     const relevantTransactions = transactions.filter(
       t => t.medicineId === medicineId
     );
 
-    // ลบจำนวนที่จำหน่าย บวกจำนวนที่รับคืน
     relevantTransactions.forEach(t => {
       if (t.type === 'dispense') {
         currentStock -= parseInt(t.quantity || 0);
@@ -345,16 +333,14 @@ function DrugInventoryPage() {
     setShowModal(null);
   };
 
-  // NEW: Handle Add/Edit Medicine with API
+  // Handle Add/Edit Medicine with API
   const handleAddMedicine = async (medicineData) => {
     setSaveError('');
     
     if (editingMedicine) {
-      // UPDATE existing medicine - send to Medication Reconciliation API
       try {
         console.log('Updating medicine:', editingMedicine.id, medicineData);
         
-        // ส่งไปยัง API สำหรับอัปเดต
         const payload = {
           medication_name: medicineData.medication_name,
           generic_name: medicineData.generic_name,
@@ -376,14 +362,12 @@ function DrugInventoryPage() {
           external_hospital: medicineData.external_hospital,
         };
 
-        // สมมติว่ามี API endpoint สำหรับอัปเดต medication
         const response = await api.put(
           `/medication-reconciliation/${editingMedicine.id}`,
           payload
         );
 
         if (response.data.success) {
-          // อัปเดต local state
           const updatedMeds = patientMeds.map(med => {
             if (med.id === editingMedicine.id) {
               return {
@@ -402,7 +386,6 @@ function DrugInventoryPage() {
         console.error('Update medicine error:', error);
         setSaveError('เกิดข้อผิดพลาดในการบันทึกยา: ' + (error.response?.data?.message || error.message));
         
-        // อัปเดต local state เก่าแบบสำรอง (fallback)
         const updatedMeds = patientMeds.map(med => {
           if (med.id === editingMedicine.id) {
             return {
@@ -435,7 +418,6 @@ function DrugInventoryPage() {
         setShowModal(null);
       }
     } else {
-      // CREATE new medicine - send to Medication Reconciliation API
       try {
         console.log('Adding new medicine:', medicineData);
         
@@ -445,7 +427,6 @@ function DrugInventoryPage() {
           return;
         }
 
-        // ✅ Full payload structure สำหรับ POST /medication-reconciliation
         const fullPayload = {
           service_registration_id: currentPatient.service_registration_id || currentPatient.id,
           patient_id: currentPatient.patient_id,
@@ -483,11 +464,9 @@ function DrugInventoryPage() {
 
         console.log('Sending payload to API:', fullPayload);
 
-        // ✅ Correct API endpoint
         const response = await api.post('/medication-reconciliation', fullPayload);
 
         if (response.data.success) {
-          // เพิ่มข้อมูลใน local state
           const newMed = {
             id: response.data.data?.id || `pm-${Date.now()}`,
             patientId: selectedPatient,
@@ -508,7 +487,6 @@ function DrugInventoryPage() {
         console.error('Add medicine error:', error);
         setSaveError('เกิดข้อผิดพลาดในการบันทึกยา: ' + (error.response?.data?.message || error.message));
         
-        // fallback: เพิ่มข้อมูลใน local state เก่า
         const newPatientMed = {
           id: `pm-${Date.now()}`,
           patientId: selectedPatient,
@@ -538,28 +516,26 @@ function DrugInventoryPage() {
   // Handle export
   const handleExport = (format) => {
     console.log(`Export as ${format}`);
-    // Implement export logic
   };
 
   const currentPatient = patients.find(p => p.id === selectedPatient);
   const currentPatientMeds = selectedPatient ? getPatientMedications(selectedPatient) : [];
 
-  // Handle patient selection on mobile - hide list, show detail
+  // Handle patient selection on mobile
   const handleSelectPatientMobile = (patientId) => {
     setSelectedPatient(patientId);
-    // On mobile: hide list and show detail
     if (windowWidth < 1024) {
       setShowPatientList(false);
     }
   };
 
-  // On desktop: always show both panels
+  // Responsive logic - Mobile แสดงแบบ stacked ทั้งหมด
   const isMobile = windowWidth < 1024;
   const shouldShowPatientList = isMobile ? showPatientList : true;
-  const shouldShowDetail = isMobile ? !showPatientList && selectedPatient : true;
+  const shouldShowDetail = isMobile ? !showPatientList && selectedPatient : selectedPatient || !isMobile;
 
   return (
-    <div className="drug-inventory-container min-h-screen bg-gray-50">
+    <div className="drug-inventory-container">
       {/* ERROR NOTIFICATION */}
       {saveError && (
         <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
@@ -571,9 +547,9 @@ function DrugInventoryPage() {
       )}
 
       {/* HEADER */}
-      <div className="drug-inventory-header sticky top-0 z-20">
+      <div className="drug-inventory-header">
         <div className="header-content">
-          <div className="header-title flex-1">
+          <div className="header-title">
             <h1>💊 คลังยา</h1>
             <p>จัดการยาและติดตามผู้ป่วย</p>
           </div>
@@ -606,7 +582,7 @@ function DrugInventoryPage() {
         />
       </div>
 
-      {/* MOBILE TOGGLE PANEL (only on mobile) */}
+      {/* MOBILE TOGGLE PANEL */}
       {isMobile && (
         <div className="mobile-panel-toggle no-print">
           <button
@@ -659,7 +635,7 @@ function DrugInventoryPage() {
           </div>
         ) : (
           !shouldShowPatientList && (
-            <div className="detail-panel flex items-center justify-center min-h-60">
+            <div className="detail-panel flex items-center justify-center">
               <div className="empty-state">
                 <div className="empty-state-icon">👤</div>
                 <div className="empty-state-title">เลือกผู้ป่วย</div>
