@@ -401,7 +401,7 @@ export default function EditVN() {
 
       setFormData(prev => ({
         ...prev,
-        building: room.room_number,
+        building: room.room_number, 
         roomTypeId: room.id,
         floor: defaultBillingType,
         price: defaultPrice.toString()
