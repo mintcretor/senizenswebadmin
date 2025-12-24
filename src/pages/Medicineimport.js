@@ -37,7 +37,7 @@ const MedicineImport = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('https://api.thesenizens.com/api/medicine/preview', formData, {
+      const response = await axios.post('http://172.16.40.11:3001/api/medicine/preview', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -66,7 +66,7 @@ const MedicineImport = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('https://api.thesenizens.com/api/medicine/import', formData, {
+      const response = await axios.post('http://172.16.40.11:3001/api/medicine/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
