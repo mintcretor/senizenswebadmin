@@ -388,9 +388,12 @@ export default function EditVN() {
   };
 
   const handleRoomChange = (e) => {
+    console.log('🏠 Room changed to:', e.target.value);
+    console.log('Available rooms:', rooms);
     const roomId = e.target.value;
-    const room = rooms.find(r => r.id === parseInt(roomId));
-
+    const room = rooms.find(r =>   r.room_number === roomId);
+    console.log('Selected room object:', room);
+    
     if (room) {
       setSelectedRoom(room);
       const defaultBillingType = 'รายวัน';
