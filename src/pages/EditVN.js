@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronDown, Plus, Edit, Trash2, X, Package, Search, FileText } from 'lucide-react';
+import { Upload, ChevronDown, Plus, Edit, Trash2, X, Package, Search, FileText, LogOut } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../api/baseapi';
 
@@ -17,6 +17,13 @@ export default function EditVN() {
   const vnFromState = location.state?.vnId || vnId;
 
   const [error, setError] = useState(null);
+
+  // Discharge states
+  const [discharged, setDischarged] = useState(false);
+  const [dischargeLoading, setDischargeLoading] = useState(false);
+  const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [dischargeDate, setDischargeDate] = useState('');
+  const [dischargeNotes, setDischargeNotes] = useState('');
 
   const [formData, setFormData] = useState({
     hn: '',
@@ -127,6 +134,7 @@ export default function EditVN() {
       const serviceReg = result.data;
       setService_id(serviceReg.registration_id);
       setPatient_id(serviceReg.patient_id);
+      setDischarged(serviceReg.discharged || false);
 
       console.log('📋 Service Registration Data:', serviceReg);
       setFormData(prev => ({
@@ -220,6 +228,77 @@ export default function EditVN() {
       setError(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ Handle Discharge - Mock Function
+  const handleDischarge = async () => {
+    try {
+      setDischargeLoading(true);
+      setError(null);
+
+      if (!dischargeDate) {
+        setError('กรุณาเลือกวันที่จำหน่าย');
+        return;
+      }
+
+      console.log('📤 Mock: Discharge patient', {
+        service_id,
+        discharge_date: dischargeDate,
+        discharge_notes: dischargeNotes
+      });
+
+      // TODO: แทนที่ด้วย API call เมื่อมี backend
+      // const response = await api.patch(`/service-registrations/${service_id}/discharge`, {
+      //   discharged: true,
+      //   discharge_date: dischargeDate,
+      //   discharge_notes: dischargeNotes
+      // });
+
+      // Mock success
+      setDischarged(true);
+      setFormData(prev => ({
+        ...prev,
+        toDate: dischargeDate
+      }));
+      
+      setShowDischargeModal(false);
+      setDischargeDate('');
+      setDischargeNotes('');
+      
+      alert('✅ จำหน่ายผู้ป่วยสำเร็จ!');
+
+    } catch (err) {
+      console.error('❌ Discharge error:', err);
+      setError('เกิดข้อผิดพลาดในการจำหน่ายผู้ป่วย');
+    } finally {
+      setDischargeLoading(false);
+    }
+  };
+
+  // ✅ Handle Un-discharge - Mock Function
+  const handleUndischarge = async () => {
+    try {
+      setDischargeLoading(true);
+      setError(null);
+
+      console.log('📤 Mock: Un-discharge patient', {
+        service_id
+      });
+
+      // TODO: แทนที่ด้วย API call เมื่อมี backend
+      // const response = await api.patch(`/service-registrations/${service_id}/undischarge`, {});
+
+      // Mock success
+      setDischarged(false);
+      
+      alert('✅ ยกเลิกการจำหน่ายสำเร็จ!');
+
+    } catch (err) {
+      console.error('❌ Un-discharge error:', err);
+      setError('เกิดข้อผิดพลาดในการยกเลิกการจำหน่าย');
+    } finally {
+      setDischargeLoading(false);
     }
   };
 
@@ -667,19 +746,6 @@ export default function EditVN() {
             <h1 className="text-2xl font-bold text-gray-800 mr-auto">
               แก้ไขข้อมูลผู้รับบริการ (VN)
             </h1>
-            <div className="flex items-center space-x-4">
-              <button
-                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-              >
-                <FileText className="w-4 h-4" />
-                <span>สัญญาจ้างทางการแพทย์</span>
-              </button>
-              <button
-                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-              >
-                📄 เอกสาร Admit
-              </button>
-            </div>
           </div>
 
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -726,6 +792,47 @@ export default function EditVN() {
               </button>
             </div>
           )}
+
+          {/* Discharge Status Section */}
+          <div className="mb-6 p-4 border-2 rounded-lg" style={{
+            borderColor: discharged ? '#dc2626' : '#10b981',
+            backgroundColor: discharged ? '#fee2e2' : '#f0fdf4'
+          }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <LogOut className={`w-6 h-6 ${discharged ? 'text-red-600' : 'text-green-600'}`} />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">สถานะผู้ป่วย</p>
+                  <p className={`text-lg font-bold ${discharged ? 'text-red-600' : 'text-green-600'}`}>
+                    {discharged ? '❌ ออกจากโรงพยาบาลแล้ว' : '✅ อยู่ในโรงพยาบาล'}
+                  </p>
+                  {discharged && formData.toDate && (
+                    <p className="text-sm text-gray-600 mt-1">วันจำหน่าย: {formData.toDate}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!discharged) {
+                    setShowDischargeModal(true);
+                  } else {
+                    if (window.confirm('ต้องการยกเลิกการจำหน่ายผู้ป่วยหรือไม่?')) {
+                      handleUndischarge();
+                    }
+                  }
+                }}
+                disabled={dischargeLoading}
+                className={`px-6 py-3 font-semibold rounded-lg text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  discharged
+                    ? 'bg-orange-600 hover:bg-orange-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                <LogOut className="w-4 h-4" />
+                {discharged ? 'ยกเลิกการจำหน่าย' : 'จำหน่ายผู้ป่วย'}
+              </button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg h-full">
@@ -1134,6 +1241,59 @@ export default function EditVN() {
         </div>
       </div>
 
+      {/* Discharge Modal */}
+      {showDischargeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">จำหน่ายผู้ป่วย</h3>
+              <button onClick={() => setShowDischargeModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">วันที่จำหน่าย</label>
+                <input
+                  type="date"
+                  value={dischargeDate}
+                  onChange={(e) => setDischargeDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ (ไม่จำเป็น)</label>
+                <textarea
+                  value={dischargeNotes}
+                  onChange={(e) => setDischargeNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  rows="3"
+                  placeholder="กรอกหมายเหตุเพิ่มเติม..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowDischargeModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleDischarge}
+                disabled={dischargeLoading || !dischargeDate}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {dischargeLoading ? 'กำลังบันทึก...' : 'ยืนยันการจำหน่าย'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search Results Modal */}
       {showSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1262,11 +1422,6 @@ export default function EditVN() {
               <button
                 onClick={() => {
                   if (selectedPackageForPatient) {
-                    console.log('✅ Adding package:', {
-                      id: selectedPackageForPatient.id,
-                      name: selectedPackageForPatient.name,
-                      price: selectedPackageForPatient.price
-                    });
                     const newPackage = {
                       id: Date.now(),
                       name: selectedPackageForPatient.name,

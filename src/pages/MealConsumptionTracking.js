@@ -13,13 +13,15 @@ import {
   Save,
   Eye,
   Utensils,
+  ChevronRight,
 } from 'lucide-react';
 import api from '../api/baseapi';
 
 const MealConsumptionTracking = () => {
   const [activeTab, setActiveTab] = useState('tracking');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [patients, setPatients] = useState([]);
+  const [allPatients, setAllPatients] = useState([]);
+  const [displayedPatients, setDisplayedPatients] = useState([]);
   const [consumptionData, setConsumptionData] = useState([]);
   const [changeRequests, setChangeRequests] = useState([]);
   const [dailySummary, setDailySummary] = useState([]);
@@ -27,6 +29,8 @@ const MealConsumptionTracking = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedTracking, setSelectedTracking] = useState(null);
   const [expandedPatient, setExpandedPatient] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [displayCount, setDisplayCount] = useState(10); // Show 10 patients initially
 
   const [formData, setFormData] = useState({
     mealType: '',
@@ -56,120 +60,200 @@ const MealConsumptionTracking = () => {
     fetchDailySummary();
   }, [selectedDate]);
 
+  // ✅ Update displayed patients when displayCount changes
+  useEffect(() => {
+    setDisplayedPatients(allPatients.slice(0, displayCount));
+  }, [displayCount, allPatients]);
+
+  // ✅ Fetch patients
   const fetchPatients = async () => {
     try {
       const response = await api.get('/patients');
-      if (response.status === 200 || response.status === 201) {
-        const data = await Promise.resolve(response.data);
-        setPatients(data);
+      console.log('📊 Patients response:', response);
+      
+      let patientsData = [];
+      
+      if (Array.isArray(response.data)) {
+        patientsData = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        patientsData = response.data.data;
+      } else if (Array.isArray(response.data?.items)) {
+        patientsData = response.data.items;
       }
+      
+      console.log('✅ Patients loaded:', patientsData.length);
+      setAllPatients(patientsData);
+      setDisplayedPatients(patientsData.slice(0, 10)); // Show first 10
     } catch (error) {
       console.error('Error fetching patients:', error);
-      setPatients([
+      // Mock data fallback
+      const mockPatients = [
         { id: 1, name: 'นายสมชาย จันทร์', hn: 'HN001' },
         { id: 2, name: 'นางสาวรัตน์ สวัสดิ์', hn: 'HN002' },
         { id: 3, name: 'นายประเสริฐ ศรีสุข', hn: 'HN003' },
-      ]);
+        { id: 4, name: 'นางสมหมาย จันดี', hn: 'HN004' },
+        { id: 5, name: 'นายวิทยา ศรีสมบูรณ์', hn: 'HN005' },
+        { id: 6, name: 'นางสาวพัชรี ดวงใจ', hn: 'HN006' },
+        { id: 7, name: 'นายธีรชัย ตั้งใจ', hn: 'HN007' },
+        { id: 8, name: 'นางภัทรา เพชรสมบูรณ์', hn: 'HN008' },
+        { id: 9, name: 'นายสรรพฤษฏ์ ศรีนิล', hn: 'HN009' },
+        { id: 10, name: 'นางสาวศรัญญา วงษ์เวียง', hn: 'HN010' },
+      ];
+      setAllPatients(mockPatients);
+      setDisplayedPatients(mockPatients.slice(0, 10));
     }
   };
 
+  // ✅ Fetch consumption data
   const fetchConsumptionData = async () => {
     try {
-      const response = await api.get('/meal-consumption/tracking', { params: { date: selectedDate } });
-      if (response.status === 200 || response.status === 201) {
-        const data = await Promise.resolve(response.data);
-        setConsumptionData(data);
+      const response = await api.get('/meal-consumption/tracking', { 
+        params: { date: selectedDate } 
+      });
+      console.log('📊 Consumption response:', response);
+      
+      let data = [];
+      
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        data = response.data.data;
+      } else if (Array.isArray(response.data?.items)) {
+        data = response.data.items;
       }
+      
+      console.log('✅ Consumption data loaded:', data.length);
+      setConsumptionData(data);
     } catch (error) {
       console.error('Error fetching consumption data:', error);
       setConsumptionData([]);
     }
   };
 
+  // ✅ Fetch change requests
   const fetchChangeRequests = async () => {
     try {
-      const response = await api.get('/meal-consumption/change-requests', { params: { status: 'pending' } });
-      if (response.status === 200 || response.status === 201) {
-        const data = await Promise.resolve(response.data);
-        setChangeRequests(data);
+      const response = await api.get('/meal-consumption/change-requests', { 
+        params: { status: 'pending' } 
+      });
+      console.log('📊 Change requests response:', response);
+      
+      let data = [];
+      
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        data = response.data.data;
+      } else if (Array.isArray(response.data?.items)) {
+        data = response.data.items;
       }
+      
+      console.log('✅ Change requests loaded:', data.length);
+      setChangeRequests(data);
     } catch (error) {
       console.error('Error fetching change requests:', error);
       setChangeRequests([]);
     }
   };
 
+  // ✅ Fetch daily summary
   const fetchDailySummary = async () => {
     try {
-      const response = await api.get('/meal-consumption/daily-summary', { params: { date: selectedDate } });
-      if (response.status === 200 || response.status === 201) {
-        const data = await Promise.resolve(response.data);
-        setDailySummary(data);
+      const response = await api.get('/meal-consumption/daily-summary', { 
+        params: { date: selectedDate } 
+      });
+      console.log('📊 Daily summary response:', response);
+      
+      let data = [];
+      
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        data = response.data.data;
+      } else if (Array.isArray(response.data?.items)) {
+        data = response.data.items;
       }
+      
+      console.log('✅ Daily summary loaded:', data.length);
+      setDailySummary(data);
     } catch (error) {
       console.error('Error fetching daily summary:', error);
       setDailySummary([]);
     }
   };
 
+  // ✅ Handle status change with api instance
   const handleStatusChange = async (patientId, mealType, newStatus, notes = '', changeReason = '') => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/meal-consumption/tracking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientId,
-          trackingDate: selectedDate,
-          mealType,
-          consumptionStatus: newStatus,
-          notes,
-          changeReason: newStatus !== 'eaten' ? changeReason : '',
-        }),
+      const response = await api.post('/meal-consumption/tracking', {
+        patientId,
+        trackingDate: selectedDate,
+        mealType,
+        consumptionStatus: newStatus,
+        notes,
+        changeReason: newStatus !== 'eaten' ? changeReason : '',
       });
 
+      console.log('✅ Status change response:', response);
+
       if (response.status === 200 || response.status === 201) {
-        fetchConsumptionData();
-        fetchDailySummary();
+        await fetchConsumptionData();
+        await fetchDailySummary();
         setEditingId(null);
         alert('บันทึกสถานะการทานอาหารสำเร็จ');
       }
     } catch (error) {
       console.error('Error updating consumption:', error);
-      alert('เกิดข้อผิดพลาด');
+      alert('เกิดข้อผิดพลาด: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ✅ Handle approve menu change with api instance
   const handleApproveMenuChange = async (requestId) => {
+    setLoading(true);
     try {
-      const response = await fetch(`/api/meal-consumption/change-requests/${requestId}/approve`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approvalNotes: 'อนุมัติ' }),
-      });
+      const response = await api.put(
+        `/meal-consumption/change-requests/${requestId}/approve`,
+        { approvalNotes: 'อนุมัติ' }
+      );
+
+      console.log('✅ Approve response:', response);
 
       if (response.status === 200 || response.status === 201) {
-        fetchChangeRequests();
+        await fetchChangeRequests();
         alert('อนุมัติการเปลี่ยนเมนูสำเร็จ');
       }
     } catch (error) {
       console.error('Error approving change:', error);
+      alert('เกิดข้อผิดพลาด: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ✅ Handle reject menu change with api instance
   const handleRejectMenuChange = async (requestId) => {
+    setLoading(true);
     try {
-      const response = await fetch(`/api/meal-consumption/change-requests/${requestId}/reject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approvalNotes: 'ไม่อนุมัติ' }),
-      });
+      const response = await api.put(
+        `/meal-consumption/change-requests/${requestId}/reject`,
+        { approvalNotes: 'ไม่อนุมัติ' }
+      );
+
+      console.log('✅ Reject response:', response);
 
       if (response.status === 200 || response.status === 201) {
-        fetchChangeRequests();
+        await fetchChangeRequests();
         alert('ปฏิเสธการเปลี่ยนเมนูสำเร็จ');
       }
     } catch (error) {
       console.error('Error rejecting change:', error);
+      alert('เกิดข้อผิดพลาด: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -185,6 +269,25 @@ const MealConsumptionTracking = () => {
     return consumptionData.filter(c => c.patientId === patientId);
   };
 
+  // ✅ Safe date formatter
+  const formatDate = (dateString) => {
+    if (!dateString) return 'ไม่ระบุ';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString;
+      }
+      return date.toLocaleString('th-TH');
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // ✅ Load more patients
+  const handleLoadMore = () => {
+    setDisplayCount(prev => prev + 10);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -196,7 +299,7 @@ const MealConsumptionTracking = () => {
           <p className="text-gray-600">ตรวจสอบและบันทึกการทานอาหารของผู้ป่วย</p>
         </div>
 
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
+        <div className="flex gap-2 mb-6 border-b border-gray-200 flex-wrap">
           <button
             onClick={() => setActiveTab('tracking')}
             className={`px-4 py-2 font-medium transition-colors ${
@@ -230,7 +333,7 @@ const MealConsumptionTracking = () => {
         </div>
 
         {activeTab === 'tracking' && (
-          <div className="mb-6 flex items-center gap-4">
+          <div className="mb-6 flex items-center gap-4 flex-wrap">
             <label className="text-sm font-medium text-gray-700">เลือกวันที่:</label>
             <input
               type="date"
@@ -238,195 +341,224 @@ const MealConsumptionTracking = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
+            {allPatients.length > 0 && (
+              <span className="text-sm text-gray-600 bg-blue-100 px-3 py-1 rounded-full">
+                แสดง {displayedPatients.length} / {allPatients.length} คน
+              </span>
+            )}
           </div>
         )}
 
         {activeTab === 'tracking' && (
           <div className="space-y-4">
-            {patients.length === 0 ? (
+            {allPatients.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
                 <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>ไม่มีข้อมูลผู้ป่วย</p>
               </div>
             ) : (
-              patients.map((patient) => (
-                <div key={patient.id} className="bg-white rounded-lg shadow overflow-hidden">
-                  <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <User className="w-5 h-5" />
-                        <div>
-                          <h3 className="font-bold">{patient.name}</h3>
-                          <p className="text-sm opacity-90">HN: {patient.hn}</p>
+              <>
+                {displayedPatients.map((patient) => (
+                  <div key={patient.id} className="bg-white rounded-lg shadow overflow-hidden">
+                    <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <User className="w-5 h-5" />
+                          <div>
+                            <h3 className="font-bold">{patient.name}</h3>
+                            <p className="text-sm opacity-90">HN: {patient.hn}</p>
+                          </div>
                         </div>
+                        <button
+                          onClick={() =>
+                            setExpandedPatient(expandedPatient === patient.id ? null : patient.id)
+                          }
+                          className="p-1 hover:bg-white hover:bg-opacity-20 rounded"
+                        >
+                          <ChevronDown
+                            size={20}
+                            style={{
+                              transform:
+                                expandedPatient === patient.id ? 'rotate(180deg)' : 'rotate(0deg)',
+                            }}
+                          />
+                        </button>
                       </div>
-                      <button
-                        onClick={() =>
-                          setExpandedPatient(expandedPatient === patient.id ? null : patient.id)
-                        }
-                        className="p-1 hover:bg-white hover:bg-opacity-20 rounded"
-                      >
-                        <ChevronDown
-                          size={20}
-                          style={{
-                            transform:
-                              expandedPatient === patient.id ? 'rotate(180deg)' : 'rotate(0deg)',
-                          }}
-                        />
-                      </button>
                     </div>
-                  </div>
 
-                  {expandedPatient === patient.id && (
-                    <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {mealTypes.map((meal) => {
-                        const patientMeals = patientConsumption(patient.id).filter(
-                          (c) => c.mealType === meal.value
-                        );
-                        const latestMeal = patientMeals[patientMeals.length - 1];
-                        const statusInfo = latestMeal
-                          ? getConsumptionStatus(latestMeal.consumptionStatus)
-                          : null;
+                    {expandedPatient === patient.id && (
+                      <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {mealTypes.map((meal) => {
+                          const patientMeals = patientConsumption(patient.id).filter(
+                            (c) => c.mealType === meal.value
+                          );
+                          const latestMeal = patientMeals[patientMeals.length - 1];
+                          const statusInfo = latestMeal
+                            ? getConsumptionStatus(latestMeal.consumptionStatus)
+                            : null;
 
-                        return (
-                          <div key={meal.value} className="border rounded-lg p-4 hover:shadow-md transition">
-                            <p className="text-sm font-semibold text-gray-700 mb-3">
-                              {meal.icon} {meal.label}
-                            </p>
-                            {latestMeal ? (
-                              <>
-                                <div className={`mb-3 p-2 rounded ${statusInfo?.color}`}>
-                                  <p className="text-sm font-medium">{statusInfo?.label}</p>
-                                </div>
-                                {editingId === latestMeal.id ? (
-                                  <div className="space-y-2">
-                                    <select
-                                      value={formData.consumptionStatus}
-                                      onChange={(e) =>
-                                        setFormData({
-                                          ...formData,
-                                          consumptionStatus: e.target.value,
-                                        })
-                                      }
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                    >
-                                      {consumptionStatusOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                          {option.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    {formData.consumptionStatus !== 'eaten' && (
-                                      <textarea
-                                        value={formData.changeReason}
+                          return (
+                            <div key={meal.value} className="border rounded-lg p-4 hover:shadow-md transition">
+                              <p className="text-sm font-semibold text-gray-700 mb-3">
+                                {meal.icon} {meal.label}
+                              </p>
+                              {latestMeal ? (
+                                <>
+                                  <div className={`mb-3 p-2 rounded ${statusInfo?.color}`}>
+                                    <p className="text-sm font-medium">{statusInfo?.label}</p>
+                                  </div>
+                                  {editingId === latestMeal.id ? (
+                                    <div className="space-y-2">
+                                      <select
+                                        value={formData.consumptionStatus}
                                         onChange={(e) =>
                                           setFormData({
                                             ...formData,
-                                            changeReason: e.target.value,
+                                            consumptionStatus: e.target.value,
                                           })
                                         }
-                                        placeholder="เหตุผล"
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                      >
+                                        {consumptionStatusOptions.map((option) => (
+                                          <option key={option.value} value={option.value}>
+                                            {option.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      {formData.consumptionStatus !== 'eaten' && (
+                                        <textarea
+                                          value={formData.changeReason}
+                                          onChange={(e) =>
+                                            setFormData({
+                                              ...formData,
+                                              changeReason: e.target.value,
+                                            })
+                                          }
+                                          placeholder="เหตุผล"
+                                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                                          rows="2"
+                                        />
+                                      )}
+                                      <textarea
+                                        value={formData.notes}
+                                        onChange={(e) =>
+                                          setFormData({
+                                            ...formData,
+                                            notes: e.target.value,
+                                          })
+                                        }
+                                        placeholder="หมายเหตุ"
                                         className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                                         rows="2"
                                       />
-                                    )}
-                                    <textarea
-                                      value={formData.notes}
-                                      onChange={(e) =>
-                                        setFormData({
-                                          ...formData,
-                                          notes: e.target.value,
-                                        })
-                                      }
-                                      placeholder="หมายเหตุ"
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                                      rows="2"
-                                    />
-                                    <div className="flex gap-1">
-                                      <button
-                                        onClick={() =>
-                                          handleStatusChange(
-                                            patient.id,
-                                            meal.value,
-                                            formData.consumptionStatus,
-                                            formData.notes,
-                                            formData.changeReason
-                                          )
-                                        }
-                                        className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-sm hover:bg-green-700 flex items-center justify-center gap-1"
-                                      >
-                                        <Save size={14} />
-                                        บันทึก
-                                      </button>
-                                      <button
-                                        onClick={() => setEditingId(null)}
-                                        className="flex-1 bg-gray-400 text-white px-2 py-1 rounded text-sm hover:bg-gray-500"
-                                      >
-                                        ยกเลิก
-                                      </button>
+                                      <div className="flex gap-1">
+                                        <button
+                                          onClick={() =>
+                                            handleStatusChange(
+                                              patient.id,
+                                              meal.value,
+                                              formData.consumptionStatus,
+                                              formData.notes,
+                                              formData.changeReason
+                                            )
+                                          }
+                                          disabled={loading}
+                                          className="flex-1 bg-green-600 text-white px-2 py-1 rounded text-sm hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-1"
+                                        >
+                                          <Save size={14} />
+                                          {loading ? 'บันทึก...' : 'บันทึก'}
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingId(null)}
+                                          disabled={loading}
+                                          className="flex-1 bg-gray-400 text-white px-2 py-1 rounded text-sm hover:bg-gray-500 disabled:bg-gray-300"
+                                        >
+                                          ยกเลิก
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {latestMeal.notes && (
-                                      <p className="text-xs text-gray-600">📝: {latestMeal.notes}</p>
-                                    )}
-                                    <div className="flex gap-1">
-                                      <button
-                                        onClick={() => {
-                                          setEditingId(latestMeal.id);
-                                          setFormData({
-                                            consumptionStatus: latestMeal.consumptionStatus,
-                                            notes: latestMeal.notes || '',
-                                            changeReason: latestMeal.changeReason || '',
-                                            mealType: meal.value,
-                                            requestMenuChange: false,
-                                          });
-                                        }}
-                                        className="flex-1 bg-blue-100 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-200 flex items-center justify-center gap-1"
-                                      >
-                                        <Edit2 size={14} />
-                                        แก้ไข
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setSelectedTracking(latestMeal);
-                                          setShowDetailModal(true);
-                                        }}
-                                        className="flex-1 bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-200 flex items-center justify-center gap-1"
-                                      >
-                                        <Eye size={14} />
-                                        ดู
-                                      </button>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {latestMeal.notes && (
+                                        <p className="text-xs text-gray-600">📝: {latestMeal.notes}</p>
+                                      )}
+                                      <div className="flex gap-1">
+                                        <button
+                                          onClick={() => {
+                                            setEditingId(latestMeal.id);
+                                            setFormData({
+                                              consumptionStatus: latestMeal.consumptionStatus,
+                                              notes: latestMeal.notes || '',
+                                              changeReason: latestMeal.changeReason || '',
+                                              mealType: meal.value,
+                                              requestMenuChange: false,
+                                            });
+                                          }}
+                                          className="flex-1 bg-blue-100 text-blue-600 px-2 py-1 rounded text-sm hover:bg-blue-200 flex items-center justify-center gap-1"
+                                        >
+                                          <Edit2 size={14} />
+                                          แก้ไข
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedTracking(latestMeal);
+                                            setShowDetailModal(true);
+                                          }}
+                                          className="flex-1 bg-gray-100 text-gray-600 px-2 py-1 rounded text-sm hover:bg-gray-200 flex items-center justify-center gap-1"
+                                        >
+                                          <Eye size={14} />
+                                          ดู
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setEditingId('new_' + patient.id + '_' + meal.value);
-                                  setFormData({
-                                    mealType: meal.value,
-                                    consumptionStatus: 'not_eaten',
-                                    notes: '',
-                                    changeReason: '',
-                                    requestMenuChange: false,
-                                  });
-                                }}
-                                className="w-full bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 flex items-center justify-center gap-2"
-                              >
-                                <Plus size={16} />
-                                เพิ่มรายการ
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))
+                                  )}
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setEditingId('new_' + patient.id + '_' + meal.value);
+                                    setFormData({
+                                      mealType: meal.value,
+                                      consumptionStatus: 'not_eaten',
+                                      notes: '',
+                                      changeReason: '',
+                                      requestMenuChange: false,
+                                    });
+                                  }}
+                                  className="w-full bg-gray-200 text-gray-700 px-3 py-2 rounded hover:bg-gray-300 flex items-center justify-center gap-2"
+                                >
+                                  <Plus size={16} />
+                                  เพิ่มรายการ
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Load More Button */}
+                {displayCount < allPatients.length && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={handleLoadMore}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 font-medium"
+                    >
+                      <ChevronRight size={20} />
+                      ดูเพิ่มเติม ({allPatients.length - displayCount} คน)
+                    </button>
+                  </div>
+                )}
+
+                {/* Show all loaded message */}
+                {displayCount >= allPatients.length && allPatients.length > 10 && (
+                  <div className="text-center py-4 text-gray-600">
+                    <p>✅ แสดงผู้ป่วยทั้งหมด {allPatients.length} คน</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -474,17 +606,19 @@ const MealConsumptionTracking = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleApproveMenuChange(request.id)}
-                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
+                      disabled={loading}
+                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
                     >
                       <Check size={18} />
-                      อนุมัติ
+                      {loading ? 'กำลังอนุมัติ...' : 'อนุมัติ'}
                     </button>
                     <button
                       onClick={() => handleRejectMenuChange(request.id)}
-                      className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
+                      disabled={loading}
+                      className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg hover:bg-red-700 disabled:bg-gray-400 transition flex items-center justify-center gap-2"
                     >
                       <X size={18} />
-                      ไม่อนุมัติ
+                      {loading ? 'กำลังปฏิเสธ...' : 'ไม่อนุมัติ'}
                     </button>
                   </div>
                 </div>
@@ -608,7 +742,7 @@ const MealConsumptionTracking = () => {
 
               <div className="text-xs text-gray-500 border-t border-gray-200 pt-3">
                 <p>ตรวจสอบโดย: <strong>{selectedTracking.checkedByName || '-'}</strong></p>
-                <p>เวลา: <strong>{new Date(selectedTracking.checkedAt).toLocaleString('th-TH')}</strong></p>
+                <p>เวลา: <strong>{formatDate(selectedTracking.checkedAt)}</strong></p>
               </div>
             </div>
 

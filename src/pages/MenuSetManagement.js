@@ -29,6 +29,45 @@ const MenuSetManagement = () => {
     return menus;
   };
 
+  // ✅ Convert weeklyMenus to simple format for API
+  const convertWeeklyMenusToAPI = (weeklyMenus) => {
+    const converted = {};
+    
+    Object.keys(weeklyMenus).forEach((day) => {
+      converted[day] = {};
+      Object.keys(weeklyMenus[day]).forEach((mealType) => {
+        converted[day][mealType] = weeklyMenus[day][mealType].map(food => ({
+          id: food.id,
+          food_name: food.food_name || food.foodName,
+          portion: food.portion,
+        }));
+      });
+    });
+    
+    console.log('📤 Converted weeklyMenus for API:', converted);
+    return converted;
+  };
+
+  // ✅ Safe date formatter
+  const formatDate = (dateString) => {
+    if (!dateString) return 'ไม่ระบุ';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', dateString);
+        return dateString; // Return raw string if can't parse
+      }
+      return date.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
+
   const [formData, setFormData] = useState({
     setName: '',
     startDate: '',
@@ -38,29 +77,61 @@ const MenuSetManagement = () => {
 
   useEffect(() => {
     fetchFoodItems();
+    fetchMenuSets();
   }, []);
 
+  // ✅ Fetch food items with proper response handling
   const fetchFoodItems = async () => {
     try {
       const response = await api.get('/nutrition/food-items');
-      // ✅ ตรวจสอบว่า response.data เป็น array
+      console.log('📊 Menu fetchFoodItems response:', response);
+      
+      let foodData = [];
+      
       if (Array.isArray(response.data)) {
-        setFoodItems(response.data);
+        foodData = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        foodData = response.data.data;
+      } else if (Array.isArray(response.data?.items)) {
+        foodData = response.data.items;
       } else {
-        console.warn('API response is not an array, setting empty array');
-        setFoodItems([]);
+        console.warn('API response is not an array');
+        foodData = [];
       }
+      
+      console.log('✅ Food items loaded for menu:', foodData.length, 'items');
+      setFoodItems(foodData);
     } catch (error) {
       console.error('Error fetching food items:', error);
-      // ✅ เมื่อ error ก็ให้ใช้ข้อมูล mock แบบเดิม
-      setFoodItems([
-        {
-          id: 1,
-          foodName: 'ข้าวกับไข่เจียว',
-          calories: 350,
-          portion: '1 จาน',
-        },
-      ]);
+      setFoodItems([]);
+    }
+  };
+
+  // ✅ Fetch existing menu sets
+  const fetchMenuSets = async () => {
+    try {
+      const response = await api.get('/nutrition/menu-sets');
+      console.log('📊 Fetched menu sets:', response);
+      
+      let setsData = [];
+      
+      if (Array.isArray(response.data)) {
+        setsData = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        setsData = response.data.data;
+      } else if (Array.isArray(response.data?.items)) {
+        setsData = response.data.items;
+      }
+      
+      console.log('✅ Menu sets loaded:', setsData.length, 'sets');
+      if (setsData.length > 0) {
+        console.log('📊 First menu set:', setsData[0]);
+      }
+      
+      setMenuSets(setsData);
+    } catch (error) {
+      console.error('Error fetching menu sets:', error);
+      setMenuSets([]);
     }
   };
 
@@ -73,31 +144,34 @@ const MenuSetManagement = () => {
 
     setLoading(true);
     try {
+      const weeklyMenusAPI = convertWeeklyMenusToAPI(formData.weeklyMenus);
+
       const url = editingSet ? `/nutrition/menu-sets/${editingSet.id}` : '/nutrition/menu-sets';
       const method = editingSet ? 'put' : 'post';
 
-      const response = await api[method](url, {
+      const dataToSend = {
         setName: formData.setName,
         startDate: formData.startDate,
         endDate: formData.endDate,
-        weeklyMenus: formData.weeklyMenus,
-      });
+        weeklyMenus: weeklyMenusAPI,
+      };
+
+      console.log('📤 Sending to API:', dataToSend);
+
+      const response = await api[method](url, dataToSend);
+
+      console.log('✅ API Response:', response);
 
       if (response.status === 200 || response.status === 201) {
-        if (editingSet) {
-          setMenuSets(menuSets.map(set => 
-            set.id === editingSet.id ? response.data : set
-          ));
-        } else {
-          setMenuSets([...menuSets, response.data]);
-        }
+        await fetchMenuSets();
         resetForm();
         setShowAddForm(false);
         alert(editingSet ? 'แก้ไขเซ็ตสำเร็จ' : 'เพิ่มเซ็ตสำเร็จ');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('เกิดข้อผิดพลาด');
+      console.error('Error response:', error.response?.data);
+      alert('เกิดข้อผิดพลาด: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
@@ -106,9 +180,9 @@ const MenuSetManagement = () => {
   const handleEditSet = (set) => {
     setEditingSet(set);
     setFormData({
-      setName: set.setName,
-      startDate: set.startDate,
-      endDate: set.endDate,
+      setName: set.setName || '',
+      startDate: set.startDate || '',
+      endDate: set.endDate || '',
       weeklyMenus: set.weeklyMenus || initializeWeeklyMenus(),
     });
     setShowAddForm(true);
@@ -178,8 +252,21 @@ const MenuSetManagement = () => {
     setEditingSet(null);
   };
 
-  // ✅ Ensure foodItems is always an array before using
   const safeFoodItems = Array.isArray(foodItems) ? foodItems : [];
+
+  const getFoodName = (food) => {
+    return food.food_name || food.foodName || 'Unknown';
+  };
+
+  // ✅ Get menus safely for a specific day/meal
+  const getMeals = (set, dayNum, mealType) => {
+    try {
+      return set?.weeklyMenus?.[dayNum]?.[mealType] || [];
+    } catch (error) {
+      console.error('Error getting meals:', error);
+      return [];
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -274,7 +361,7 @@ const MenuSetManagement = () => {
                           <option value="">เลือกอาหาร</option>
                           {safeFoodItems.map((food) => (
                             <option key={food.id} value={food.id}>
-                              {food.foodName}
+                              {getFoodName(food)}
                             </option>
                           ))}
                         </select>
@@ -289,7 +376,7 @@ const MenuSetManagement = () => {
                                 className="bg-green-50 border border-green-300 rounded p-2 flex items-center justify-between text-xs"
                               >
                                 <div>
-                                  <p className="font-semibold text-gray-800">{menu.foodName}</p>
+                                  <p className="font-semibold text-gray-800">{getFoodName(menu)}</p>
                                   <p className="text-gray-600">{menu.portion}</p>
                                 </div>
                                 <button
@@ -349,10 +436,10 @@ const MenuSetManagement = () => {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-100">
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">
-                    ระยะเวลา
+                    ชื่อเซ็ต
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-800">
-                    ชื่อเซ็ต
+                    ระยะเวลา
                   </th>
                   <th className="px-6 py-4 text-center text-sm font-semibold text-gray-800">
                     Action
@@ -367,46 +454,10 @@ const MenuSetManagement = () => {
                     {/* Main Row */}
                     <tr className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-800">
-                        <div className="font-semibold">{set.setName}</div>
-                        <div className="text-xs text-gray-600">
-                          {new Date(set.startDate).toLocaleDateString('th-TH')} ถึง{' '}
-                          {new Date(set.endDate).toLocaleDateString('th-TH')}
-                        </div>
+                        <div className="font-semibold">{set.setName || 'No Name'}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        {/* 7 Days Grid */}
-                        <div className="grid grid-cols-7 gap-1">
-                          {dayOrder.map((dayNum) => (
-                            <div key={dayNum} className="text-center">
-                              <p className="text-xs font-semibold text-gray-700 mb-1">
-                                {dayNames[dayNum]}
-                              </p>
-                              <div className="text-xs text-gray-600 space-y-1 min-h-12 bg-gray-50 rounded p-1">
-                                {mealTypes.some(meal => 
-                                  set.weeklyMenus?.[dayNum]?.[meal.value]?.length > 0
-                                ) ? (
-                                  <>
-                                    {mealTypes.map((meal) => {
-                                      const menus = set.weeklyMenus?.[dayNum]?.[meal.value] || [];
-                                      return menus.length > 0 ? (
-                                        <div key={meal.value}>
-                                          <p className="text-xs font-semibold text-gray-700">{meal.label}:</p>
-                                          {menus.map((menu, idx) => (
-                                            <div key={idx} className="text-xs truncate text-gray-600">
-                                              {menu.foodName || menu}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : null;
-                                    })}
-                                  </>
-                                ) : (
-                                  <div className="text-gray-400">-</div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {formatDate(set.startDate)} ถึง {formatDate(set.endDate)}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center gap-3">
@@ -424,6 +475,39 @@ const MenuSetManagement = () => {
                           >
                             <Trash2 size={18} />
                           </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Details Row - 7 Days Grid */}
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <td colSpan="3" className="px-6 py-4">
+                        <div className="grid grid-cols-7 gap-2">
+                          {dayOrder.map((dayNum) => (
+                            <div key={dayNum} className="border rounded-lg p-3 bg-white">
+                              <p className="text-xs font-semibold text-gray-700 mb-2 text-center">
+                                {dayNames[dayNum]}
+                              </p>
+                              <div className="text-xs text-gray-600 space-y-1">
+                                {mealTypes.map((meal) => {
+                                  const menus = getMeals(set, dayNum, meal.value);
+                                  return menus && menus.length > 0 ? (
+                                    <div key={meal.value}>
+                                      <p className="text-xs font-semibold text-gray-700">{meal.label}:</p>
+                                      {menus.map((menu, idx) => (
+                                        <div key={idx} className="text-xs text-gray-600 truncate">
+                                          {getFoodName(menu)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null;
+                                })}
+                                {mealTypes.every(meal => !getMeals(set, dayNum, meal.value)?.length) && (
+                                  <div className="text-gray-400 text-center py-2">-</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </td>
                     </tr>
