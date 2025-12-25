@@ -170,6 +170,33 @@ const extractMedicationName = (lines, fullText) => {
   let genericName = '';
   let tradeName = '';
 
+  // ============================================
+  // 🆕 วิธีที่ 1: ชื่อยา + dosage + (ชื่อสามัญในวงเล็บ) + จำนวน
+  // เช่น "SERGOLINE 30 MG (NIcergolln 180 เม็ด"
+  // ============================================
+  const nameWithDosagePattern = /([A-Z][A-Z]+)\s+(\d+(?:\.\d+)?)\s*(?:MG|mg|G|g)\s*(?:\(([^)]+)\))?/i;
+  const nameMatch = fullText.match(nameWithDosagePattern);
+  if (nameMatch) {
+    tradeName = nameMatch[1].trim()
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    
+    // ถ้ามีชื่อสามัญในวงเล็บ
+    if (nameMatch[3]) {
+      genericName = nameMatch[3].trim()
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+    }
+    
+    console.log('Name with dosage pattern found:', { tradeName, genericName });
+    return { genericName: genericName || tradeName, tradeName: tradeName };
+  }
+
+  // ============================================
+  // วิธีที่ 2: ยาน้ำ เช่น "HEPALAC 10 gm/15 mL syr"
+  // ============================================
   const syrupPattern = /([A-Z][A-Z\s]+?)\s+\d+(?:\.\d+)?\s*(?:gm?|mg)[\s\/]+\d+(?:\.\d+)?\s*m[lL]\s*(?:syr|syrup|sol|solution|susp|suspension)/i;
   const syrupMatch = fullText.match(syrupPattern);
   if (syrupMatch) {
@@ -177,9 +204,14 @@ const extractMedicationName = (lines, fullText) => {
       .split(/\s+/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
+    console.log('Syrup/Solution found:', { genericName });
     return { genericName, tradeName: '' };
   }
 
+  // ============================================
+  // วิธีที่ 3: หาชื่อยาที่อยู่ก่อน dosage
+  // เช่น "HEPALAC 10 gm" หรือ "Amoxicillin 250 mg/5 mL"
+  // ============================================
   const beforeDosagePattern = /([A-Z][A-Z\s]+?)\s+\d+(?:\.\d+)?\s*(?:gm?|mg|g)(?:\/|\s*\/\s*|\s+)\d+/i;
   const beforeDosageMatch = fullText.match(beforeDosagePattern);
   if (beforeDosageMatch) {
@@ -187,9 +219,13 @@ const extractMedicationName = (lines, fullText) => {
       .split(/\s+/)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
+    console.log('Before dosage pattern found:', { genericName });
     return { genericName, tradeName: '' };
   }
 
+  // ============================================
+  // วิธีที่ 4: ยาแบบผสม
+  // ============================================
   const combinationPattern = /([A-Z][A-Z\s]+\+[A-Z\s]+)(?:\s+\d+(?:\.\d+)?\+\d+(?:\.\d+)?\s*(?:mg|g|ml))/i;
   const combMatch = fullText.match(combinationPattern);
   if (combMatch) {
@@ -200,6 +236,9 @@ const extractMedicationName = (lines, fullText) => {
     return { genericName, tradeName: '' };
   }
 
+  // ============================================
+  // วิธีที่ 5: รูปแบบ "TradeName (Dosage) GenericName"
+  // ============================================
   const pattern1 = /([A-Z][a-zA-Z]+)\s*\(([^)]*(?:mg|g|ml|mcg)[^)]*)\)\s*([a-zA-Z]+)/i;
   const match1 = fullText.match(pattern1);
   if (match1) {
@@ -208,6 +247,9 @@ const extractMedicationName = (lines, fullText) => {
     return { genericName, tradeName };
   }
 
+  // ============================================
+  // วิธีที่ 6: รูปแบบ "GenericName (TradeName) Dosage"
+  // ============================================
   for (let line of lines) {
     if (/\d+\s*(mg|g|ml|mcg)/i.test(line)) {
       const pattern2 = /([A-Z][a-zA-Z]+)\s*\(([A-Z][a-zA-Z]+)\)/i;
@@ -220,6 +262,9 @@ const extractMedicationName = (lines, fullText) => {
     }
   }
 
+  // ============================================
+  // วิธีที่ 7: ค้นหาจาก "ชื่อสามัญ"
+  // ============================================
   for (let line of lines) {
     if (line.includes('ชื่อสามัญ') || line.toLowerCase().includes('generic')) {
       const match = line.match(/(?:ชื่อสามัญ|generic)[\s:]*([A-Z][a-zA-Z\s+]+)/i);
@@ -229,6 +274,7 @@ const extractMedicationName = (lines, fullText) => {
     }
   }
 
+  console.log('Final result:', { genericName, tradeName });
   return { genericName, tradeName };
 };
 
