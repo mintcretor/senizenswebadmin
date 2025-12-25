@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search } from 'lucide-react';
+import { X, Search, Loader } from 'lucide-react';
+import { performOCR } from '../../services/ocrService'; // ← ใช้ ocrService ของคุณ
 
 // Mock data for autocomplete
 const mockMedicineList = [
@@ -14,7 +15,7 @@ const mockMedicineList = [
 function AddMedicineModal({ 
   onClose, 
   onSave, 
-  editingMedicine = null  // ← New prop for edit mode
+  editingMedicine = null
 }) {
   const isEditMode = !!editingMedicine;
 
@@ -44,6 +45,8 @@ function AddMedicineModal({
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState('');
   const [imagePreview, setImagePreview] = useState(editingMedicine?.image_url || null);
 
   // Autocomplete states
@@ -72,7 +75,7 @@ function AddMedicineModal({
     return newErrors;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -81,10 +84,14 @@ function AddMedicineModal({
 
     setLoading(true);
 
-    setTimeout(() => {
-      onSave(formData);
+    try {
+      await onSave(formData);
       setLoading(false);
-    }, 500);
+    } catch (error) {
+      console.error('Error saving medicine:', error);
+      setErrors({ submit: 'เกิดข้อผิดพลาดในการบันทึกยา' });
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -135,6 +142,9 @@ function AddMedicineModal({
     setFilteredMedicines([]);
   };
 
+  // ============================================
+  // 🆕 ฟังก์ชัน: จัดการเมื่อเลือกรูป
+  // ============================================
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -142,14 +152,72 @@ function AddMedicineModal({
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
+        // เรียก OCR ให้อัตโนมัติ
+        performOCROnImage(reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // ============================================
+  // 🆕 ฟังก์ชัน: เรียก OCR และ auto-fill form
+  // ============================================
+  const performOCROnImage = async (imageData) => {
+    try {
+      setOcrLoading(true);
+      setOcrStatus('🔍 กำลังอ่านข้อมูลจากรูป...');
+
+      // เปลี่ยน Data URL เป็น Base64
+      const base64String = imageData.split(',')[1];
+      
+      // เรียก performOCR จาก ocrService ของคุณ
+      const result = await performOCR(base64String);
+
+      console.log('OCR Result:', result);
+
+      // ✅ AUTO FILL ข้อมูลจากผลลัพธ์ OCR
+      setFormData(prev => ({
+        ...prev,
+        medication_name: result.medicationName || result.genericName || prev.medication_name,
+        generic_name: result.genericName || prev.generic_name,
+        trade_name: result.tradeName || prev.trade_name,
+        dosage: result.dosage || prev.dosage,
+        dosage_instruction: result.dosageInstruction || prev.dosage_instruction,
+        frequency: result.frequency || prev.frequency,
+        timing: result.timing || prev.timing,
+        quantity: result.quantity || prev.quantity,
+        special_instruction: result.specialInstruction || prev.special_instruction,
+        expiry_date: result.expiryDate || prev.expiry_date,
+        lot_number: result.lotNumber || prev.lot_number,
+      }));
+
+      setOcrStatus('✅ อ่านข้อมูลเสร็จสิ้น! กรุณาตรวจสอบความถูกต้อง');
+      
+      // ลบ status หลัง 3 วินาที
+      setTimeout(() => {
+        setOcrStatus('');
+      }, 3000);
+
+      setOcrLoading(false);
+    } catch (error) {
+      console.error('OCR Error:', error);
+      setOcrStatus('❌ ไม่สามารถอ่านข้อมูล: ' + error.message);
+      setOcrLoading(false);
+      
+      // ลบ status หลัง 4 วินาที
+      setTimeout(() => {
+        setOcrStatus('');
+      }, 4000);
+    }
+  };
+
+  // ============================================
+  // 🆕 ฟังก์ชัน: ลบรูปที่เลือก
+  // ============================================
   const handleRemoveImage = () => {
     setFormData(prev => ({ ...prev, image_url: null }));
     setImagePreview(null);
+    setOcrStatus('');
   };
 
   return (
@@ -175,7 +243,9 @@ function AddMedicineModal({
 
         {/* CONTENT */}
         <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* IMAGE UPLOAD */}
+          {/* ============================================
+              🆕 IMAGE UPLOAD - with OCR
+              ============================================ */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               📷 รูปของยา
@@ -205,96 +275,100 @@ function AddMedicineModal({
                 onChange={handleImageChange}
                 className="hidden"
                 id="image-upload"
+                disabled={ocrLoading}
               />
               {!imagePreview && (
                 <label
                   htmlFor="image-upload"
-                  className="mt-3 inline-block px-4 py-2 bg-blue-500 text-white rounded-lg cursor-pointer hover:bg-blue-600 transition"
+                  className="mt-3 inline-block px-4 py-2 bg-blue-500 text-white rounded-lg cursor-pointer hover:bg-blue-600 transition disabled:opacity-50"
                 >
-                  เลือกรูปภาพ
+                  เลือกรูป
                 </label>
               )}
             </div>
+
+            {/* ============================================
+                🆕 OCR Status Message
+                ============================================ */}
+            {ocrStatus && (
+              <div className={`mt-3 p-3 rounded text-sm font-medium text-center ${
+                ocrStatus.includes('❌') 
+                  ? 'bg-red-100 text-red-700 border border-red-300'
+                  : ocrStatus.includes('✅')
+                  ? 'bg-green-100 text-green-700 border border-green-300'
+                  : 'bg-blue-100 text-blue-700 border border-blue-300'
+              }`}>
+                <div className="flex items-center justify-center gap-2">
+                  {ocrLoading && <Loader size={16} className="animate-spin" />}
+                  {ocrStatus}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* MEDICINE NAME WITH AUTOCOMPLETE */}
+          {/* MEDICATION NAME */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              ชื่อยา(ชื่อทั่วไป) *
+              ชื่อยา *
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                name="medication_name"
-                value={formData.medication_name}
-                onChange={handleMedicineNameChange}
-                onFocus={() => {
-                  if (formData.medication_name.trim()) {
-                    const filtered = mockMedicineList.filter(med =>
-                      med.name.toLowerCase().includes(formData.medication_name.toLowerCase())
-                    );
-                    setFilteredMedicines(filtered);
-                    setShowSuggestions(true);
-                  }
-                }}
-                placeholder="พิมพ์ชื่อยาเพื่อค้นหา หรือ กรอกชื่อยาใหม่"
-                className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.medication_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-              />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            </div>
+            <input
+              type="text"
+              value={formData.medication_name}
+              onChange={handleMedicineNameChange}
+              placeholder="เช่น Paracetamol"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            />
+            {errors.medication_name && <p className="text-xs text-red-600 mt-1">{errors.medication_name}</p>}
 
-            {/* AUTOCOMPLETE DROPDOWN */}
+            {/* AUTOCOMPLETE SUGGESTIONS */}
             {showSuggestions && filteredMedicines.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {filteredMedicines.map((medicine) => (
+              <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg mt-1 shadow-lg z-50">
+                {filteredMedicines.map(med => (
                   <button
-                    key={medicine.id}
+                    key={med.id}
                     type="button"
-                    onClick={() => handleSelectMedicine(medicine)}
-                    className="w-full px-4 py-3 text-left hover:bg-blue-50 transition border-b border-gray-100 last:border-0"
+                    onClick={() => handleSelectMedicine(med)}
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-200 last:border-b-0 transition"
                   >
-                    <div className="font-medium text-gray-900">{medicine.name}</div>
-                    <div className="text-sm text-gray-600">{medicine.dose} • {medicine.unit}</div>
+                    <div className="font-medium text-sm text-gray-900">{med.name}</div>
+                    <div className="text-xs text-gray-600">{med.dose}</div>
                   </button>
                 ))}
               </div>
             )}
-
-            {errors.medication_name && <p className="text-xs text-red-600 mt-1">{errors.medication_name}</p>}
           </div>
 
-          {/* Generic name */}
+          {/* GENERIC NAME */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              ชื่อสามัญ(Generic name)
+              ชื่อเสบียง (Generic Name)
             </label>
             <input
               type="text"
               name="generic_name"
               value={formData.generic_name}
               onChange={handleChange}
-              placeholder="เช่น Chlorpheniramine , Paracetamol "
+              placeholder="เช่น Paracetamol"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
 
-          {/* Trade name */}
+          {/* TRADE NAME */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              ชื่อทางการค้า(Trade name)
+              ชื่อการค้า (Trade Name)
             </label>
             <input
               type="text"
               name="trade_name"
               value={formData.trade_name}
               onChange={handleChange}
-              placeholder="เช่น Histata, Tylenol, Sara"
+              placeholder="เช่น Tylenol"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
 
-          {/* DOSE */}
+          {/* DOSAGE */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               ขนาดยา *
@@ -304,47 +378,16 @@ function AddMedicineModal({
               name="dosage"
               value={formData.dosage}
               onChange={handleChange}
-              placeholder="500 mg"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.dosage ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                }`}
+              placeholder="เช่น 500mg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
             {errors.dosage && <p className="text-xs text-red-600 mt-1">{errors.dosage}</p>}
-          </div>
-
-          {/* EXPIRY AND LOT */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                วันหมดอายุ
-              </label>
-              <input
-                type="text"
-                name="expiry_date"
-                value={formData.expiry_date}
-                onChange={handleChange}
-                placeholder="เช่น 12/2026"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lot No.
-              </label>
-              <input
-                type="text"
-                name="lot_number"
-                value={formData.lot_number}
-                onChange={handleChange}
-                placeholder="เช่น ABC123"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
-            </div>
           </div>
 
           {/* ROUTE */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              💉 เส้นทางการให้ยา
+              เส้นทาง (Route)
             </label>
             <select
               name="route"
@@ -352,33 +395,28 @@ function AddMedicineModal({
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             >
-              <option value="">เลือกวิธีใช้...</option>
-              <option value="po">po - รับประทาน (Per oral)</option>
-              <option value="inj">Inj - ฉีด (Injection)</option>
-              <option value="iv">IV - ฉีดเข้าหลอดเลือดดำ</option>
-              <option value="im">IM - ฉีดเข้ากล้ามเนื้อ</option>
-              <option value="sc">SC - ฉีดใต้ผิวหนัง</option>
-              <option value="sl">sl - อมใต้ลิ้น (Sublingual)</option>
-              <option value="od">OD - ตาขวา (Occulo dextro)</option>
-              <option value="os">OS - ตาซ้าย (Occulo sinistro)</option>
-              <option value="apply-le">Apply LE - ทาตาซ้าย</option>
-              <option value="apply-re">Apply RE - ทาตาขวา</option>
+              <option value="">เลือก...</option>
+              <option value="po">PO - ป้อนทางปาก (Oral)</option>
+              <option value="im">IM - ฉีดในกล้าม (Intramuscular)</option>
+              <option value="iv">IV - ฉีดเข้าหลอดเลือด (Intravenous)</option>
+              <option value="sc">SC - ฉีดใต้ผิวหนัง (Subcutaneous)</option>
+              <option value="topical">Topical - ทา (Topical)</option>
+              <option value="sublingual">SL - ใต้ลิ้น (Sublingual)</option>
             </select>
           </div>
 
-          {/* DOSAGE INSTRUCTION (วิธีใช้) */}
+          {/* DOSAGE INSTRUCTION */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              💊 วิธีใช้ยา *
+              วิธีใช้ยา *
             </label>
-            <input
-              type="text"
+            <textarea
               name="dosage_instruction"
               value={formData.dosage_instruction}
               onChange={handleChange}
-              placeholder="เช่น รับประทานหลังอาหาร 1 เม็ด"
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.dosage_instruction ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                }`}
+              placeholder="เช่น ใช้ลดไข้ ปวด"
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
             />
             {errors.dosage_instruction && <p className="text-xs text-red-600 mt-1">{errors.dosage_instruction}</p>}
           </div>
@@ -386,37 +424,28 @@ function AddMedicineModal({
           {/* FREQUENCY */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              📋 ความถี่ *
+              ความถี่ *
             </label>
             <select
               name="frequency"
               value={formData.frequency}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition ${errors.frequency ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                }`}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             >
-              <option value="">เลือกความถี่...</option>
-              <option value="od">OD - วันละครั้ง (omni die)</option>
-              <option value="qd">QD - วันละครั้ง (quaque die)</option>
-              <option value="bid">bid - วันละ 2 ครั้ง (Bis in die)</option>
-              <option value="tid">tid - วันละ 3 ครั้ง (Ter in die)</option>
-              <option value="qid">qid - วันละ 4 ครั้ง (Quater in die)</option>
-              <option value="q2h">q2h - ทุก 2 ชั่วโมง (quaque 2 hora)</option>
-              <option value="q3h">q3h - ทุก 3 ชั่วโมง (quaque 3 hora)</option>
-              <option value="q4h">q4h - ทุก 4 ชั่วโมง (quaque 4 hora)</option>
-              <option value="q6h">q6h - ทุก 6 ชั่วโมง (quaque 6 hora)</option>
-              <option value="q8h">q8h - ทุก 8 ชั่วโมง (quaque 8 hora)</option>
-              <option value="q12h">q12h - ทุก 12 ชั่วโมง (quaque 12 hora)</option>
-              <option value="q24h">q24h - วันละครั้ง (quaque 24 hora)</option>
-              <option value="q48h">q48h - ทุก 48 ชั่วโมง (quaque 48 hora)</option>
-              <option value="q72h">q72h - ทุก 72 ชั่วโมง (quaque 72 hora)</option>
-              <option value="prn">prn - เมื่อจำเป็น (Pro re nata)</option>
-              <option value="stat">stat - ทันที (Statim)</option>
+              <option value="">เลือก...</option>
+              <option value="OD">1x/วัน</option>
+              <option value="bid">2x/วัน</option>
+              <option value="tid">3x/วัน</option>
+              <option value="qid">4x/วัน</option>
+              <option value="q6h">ทุก 6 ชั่วโมง</option>
+              <option value="q8h">ทุก 8 ชั่วโมง</option>
+              <option value="q12h">ทุก 12 ชั่วโมง</option>
+              <option value="prn">ตามความจำเป็น</option>
             </select>
             {errors.frequency && <p className="text-xs text-red-600 mt-1">{errors.frequency}</p>}
           </div>
 
-          {/* TIMING (เวลา) */}
+          {/* TIMING */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               🗒️ เวลา
@@ -448,6 +477,35 @@ function AddMedicineModal({
               value={formData.quantity}
               onChange={handleChange}
               placeholder="จำนวน"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            />
+          </div>
+
+          {/* EXPIRY DATE */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📅 วันหมดอายุ
+            </label>
+            <input
+              type="date"
+              name="expiry_date"
+              value={formData.expiry_date}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            />
+          </div>
+
+          {/* LOT NUMBER */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              🏷️ เลขชุด (Lot Number)
+            </label>
+            <input
+              type="text"
+              name="lot_number"
+              value={formData.lot_number}
+              onChange={handleChange}
+              placeholder="เช่น A12345"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
@@ -600,6 +658,13 @@ function AddMedicineModal({
                 />
               </div>
             </>
+          )}
+
+          {/* ERROR MESSAGE */}
+          {errors.submit && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded">
+              <p className="text-sm text-red-700">{errors.submit}</p>
+            </div>
           )}
 
           {/* BUTTONS */}

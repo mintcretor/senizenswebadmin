@@ -13,6 +13,9 @@ import {
   ClipboardMinus,
   Calendar,
   Pill,
+  Package,
+  Utensils,
+  CheckCircle,
 } from 'lucide-react';
 
 const Sidebar = ({ isSidebarOpen }) => {
@@ -95,9 +98,21 @@ const Sidebar = ({ isSidebarOpen }) => {
             <Sparkles size={20} className="flex-shrink-0" />
             {isOpen && <span>สุขภาพและความงาม</span>}
           </a>
-          <a href="/drug-inventory" className={getLinkClass('/drug-inventory')}>
+          <a href="/nutrition" className={getLinkClass('/nutrition')} title={!isOpen ? 'โภชนาการ' : ''}>
+            <Utensils size={20} className="flex-shrink-0" />
+            {isOpen && <span>โภชนาการ</span>}
+          </a>
+          <a href="/meal-consumption" className={getLinkClass('/meal-consumption')} title={!isOpen ? 'เช็คการทานอาหาร' : ''}>
+            <CheckCircle size={20} className="flex-shrink-0" />
+            {isOpen && <span>เช็คการทานอาหาร</span>}
+          </a>
+          <a href="/drug-inventory" className={getLinkClass('/drug-inventory')} title={!isOpen ? 'คลังยา' : ''}>
             <Pill size={20} className="flex-shrink-0" />
             {isOpen && <span>คลังยา</span>}
+          </a>
+          <a href="/medical-supplies" className={getLinkClass('/medical-supplies')} title={!isOpen ? 'ระบบจัดการเวชภัณฑ์' : ''}>
+            <Package size={20} className="flex-shrink-0" />
+            {isOpen && <span>ระบบจัดการเวชภัณฑ์</span>}
           </a>
           <a href="/ProcedureRecordList" className={getLinkClass('/ProcedureRecordList')} title={!isOpen ? 'จัดการข้อมูลบันทึกหัตถการ' : ''}>
             <ClipboardMinus size={20} className="flex-shrink-0" />

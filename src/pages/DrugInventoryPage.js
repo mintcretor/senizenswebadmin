@@ -18,7 +18,7 @@ function DrugInventoryPage() {
   });
   const [showModal, setShowModal] = useState(null);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
-  const [editingMedicine, setEditingMedicine] = useState(null);  // ← NEW
+  const [editingMedicine, setEditingMedicine] = useState(null);
   const [patients, setPatients] = useState([]);
   const [medications, setMedications] = useState([]);
   const [patientMeds, setPatientMeds] = useState([]);
@@ -28,6 +28,17 @@ function DrugInventoryPage() {
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const [uniqueWards, setUniqueWards] = useState([]);
   const [uniqueRooms, setUniqueRooms] = useState([]);
+  const [saveError, setSaveError] = useState('');
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -46,7 +57,6 @@ function DrugInventoryPage() {
     try {
       console.log('Loading medications for patient:', patientId);
       
-      // หา service_registration_id ของผู้ป่วยที่เลือก
       const patient = patients.find(p => p.id === patientId);
       if (!patient || !patient.service_registration_id) {
         console.log('No service_registration_id found for patient:', patientId);
@@ -57,7 +67,6 @@ function DrugInventoryPage() {
       const serviceRegId = patient.service_registration_id;
       console.log('Loading medications for service_registration_id:', serviceRegId);
       
-      // ดึงข้อมูล Medication Reconciliation ล่าสุด
       const response = await api.get(`/medication-reconciliation/${serviceRegId}`);
       
       console.log('Medications response:', response.data);
@@ -66,7 +75,6 @@ function DrugInventoryPage() {
         const reconData = response.data.data;
         const medications = reconData.medications || [];
         
-        // Transform medications data สำหรับ Drug Inventory UI
         const transformedMeds = medications.map((med, index) => ({
           id: med.id || `med-${index}`,
           patientId: patientId,
@@ -77,7 +85,7 @@ function DrugInventoryPage() {
           trade_name: med.trade_name,
           dosage: med.dosage,
           dose: med.dosage,
-          unit: 'เม็ด', // ปรับตามความเหมาะสม
+          unit: 'เม็ด',
           route: med.route,
           frequency: med.frequency,
           timing: med.timing,
@@ -96,7 +104,7 @@ function DrugInventoryPage() {
           scheduleTime: med.schedule_time,
           scheduleTimeDisplay: med.schedule_time_display,
           initialStock: med.quantity || 0,
-          currentStock: med.quantity || 0, // จะคำนวณจาก transaction จริงๆ
+          currentStock: med.quantity || 0,
           imageUrl: med.image_url,
           notes: med.dosage_instruction || '',
           prescribedDate: reconData.reconciliation_date,
@@ -105,8 +113,6 @@ function DrugInventoryPage() {
         
         console.log('Transformed medications:', transformedMeds);
         setPatientMeds(transformedMeds);
-        
-        // ล้าง transactions เพราะ Medication Reconciliation ไม่มีระบบ transaction แบบ inventory
         setTransactions([]);
       } else {
         console.log('No medications found');
@@ -137,7 +143,7 @@ function DrugInventoryPage() {
     }
   };
 
-  // Load patients with filters (limit to 10)
+  // Load patients with filters
   const loadPatients = async () => {
     try {
       setLoading(true);
@@ -146,7 +152,6 @@ function DrugInventoryPage() {
         page: 1
       };
 
-      // ส่งเฉพาะ search ไป API, ward และ room จะ filter ฝั่ง frontend
       if (filters.search) params.search = filters.search;
 
       const response = await api.get('/service-registrations/patients-on-hold', { params });
@@ -159,22 +164,19 @@ function DrugInventoryPage() {
         console.log('Raw patients:', patientsData.length, patientsData.slice(0, 3));
         console.log('Raw patient FULL DATA:', JSON.stringify(patientsData[0], null, 2));
         
-        // Transform data to match component structure
         const transformedPatients = patientsData.map((p, index) => {
-          // Ensure unique ID - prioritize patient_id, then id, then generate unique one
           const patientId = p.patient_id || p.id || `patient-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           
-          // แยกชื่อจาก patient_name (เช่น "นางสมจิตต์ สรนันต์ศรี")
           let firstName = '';
           let lastName = '';
           
           if (p.patient_name) {
             const nameParts = p.patient_name.trim().split(' ');
             if (nameParts.length >= 2) {
-              firstName = nameParts[0]; // คำนำหน้า + ชื่อ เช่น "นางสมจิตต์"
-              lastName = nameParts.slice(1).join(' '); // นามสกุล เช่น "สรนันต์ศรี"
+              firstName = nameParts[0];
+              lastName = nameParts.slice(1).join(' ');
             } else {
-              firstName = p.patient_name; // ถ้ามีแค่คำเดียว
+              firstName = p.patient_name;
             }
           } else {
             firstName = p.first_name || p.firstName || '';
@@ -193,7 +195,6 @@ function DrugInventoryPage() {
             service_number: p.service_number || '',
             patient_name: p.patient_name || '',
             ...p,
-            // Override important fields to make sure they're not overwritten
             id: patientId,
             firstName: firstName,
             lastName: lastName
@@ -202,19 +203,14 @@ function DrugInventoryPage() {
         
         console.log('Transformed patients:', transformedPatients.slice(0, 3));
         
-        // Remove duplicates based on ID (more strict checking)
         let uniquePatients = transformedPatients.filter((patient, index, self) => {
-          // Check if patient has valid ID
           if (!patient.id) return false;
           
-          // Find first occurrence with same ID
           return index === self.findIndex((p) => {
-            // Compare IDs strictly
             return p.id === patient.id;
           });
         });
         
-        // Filter by ward and room in frontend
         if (filters.ward) {
           uniquePatients = uniquePatients.filter(p => p.ward === filters.ward);
         }
@@ -222,230 +218,295 @@ function DrugInventoryPage() {
           uniquePatients = uniquePatients.filter(p => p.room === filters.room);
         }
         
-        // จำกัดแค่ 10 คนแรก
-        uniquePatients = uniquePatients.slice(0, 10);
-        
-        console.log('Unique patients (10):', uniquePatients);
-        console.log('Patient IDs:', uniquePatients.map(p => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, room: p.room })));
-        
         setPatients(uniquePatients);
+        setLoading(false);
         
-        // Extract unique wards and rooms from ALL patient data (before filtering)
-        const allTransformed = transformedPatients.filter((patient, index, self) =>
-          index === self.findIndex((p) => p.id === patient.id)
-        );
+        const wards = [...new Set(uniquePatients.map(p => p.ward).filter(Boolean))];
+        const rooms = [...new Set(uniquePatients.map(p => p.room).filter(Boolean))];
         
-        const wards = [...new Set(allTransformed.map(p => p.ward).filter(Boolean))];
-        setUniqueWards(wards.sort());
+        setUniqueWards(wards);
+        setUniqueRooms(rooms);
         
-        if (filters.ward) {
-          const rooms = [...new Set(
-            allTransformed
-              .filter(p => p.ward === filters.ward)
-              .map(p => p.room)
-              .filter(Boolean)
-          )];
-          setUniqueRooms(rooms.sort());
-        } else {
-          const rooms = [...new Set(allTransformed.map(p => p.room).filter(Boolean))];
-          setUniqueRooms(rooms.sort());
-        }
-        
-        // Auto-select first patient
-        if (uniquePatients.length > 0 && !selectedPatient) {
-          setSelectedPatient(uniquePatients[0].id);
-        }
+      } else {
+        setPatients([]);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Load patients error:', error);
       setPatients([]);
-    } finally {
       setLoading(false);
     }
   };
 
-  // Clear room when ward changes
-  useEffect(() => {
-    if (filters.ward) {
-      // ล้าง room เมื่อเปลี่ยน ward
-      setFilters(prev => ({ ...prev, room: '' }));
+  // Handler functions
+  const handleEditMedicine = (medicineId) => {
+    console.log('Edit medicine:', medicineId);
+    const medicine = patientMeds.find(m => m.id === medicineId);
+    if (medicine) {
+      setEditingMedicine(medicine);
+      setShowModal('add');
     }
-  }, [filters.ward]);
+  };
 
-  // Reload patients when filters change
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadPatients();
-    }, 300); // debounce
+  const filteredPatients = patients.filter(p => {
+    if (filters.ward && p.ward !== filters.ward) return false;
+    if (filters.room && p.room !== filters.room) return false;
     
-    return () => clearTimeout(timer);
-  }, [filters.ward, filters.room, filters.search]);
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      const fullName = `${p.firstName} ${p.lastName}`.toLowerCase();
+      const patientName = (p.patient_name || '').toLowerCase();
+      const room = (p.room || '').toString();
+      
+      return fullName.includes(searchLower) || 
+             patientName.includes(searchLower) || 
+             room.includes(filters.search);
+    }
+    
+    return true;
+  });
 
-  // Track window size for responsive behavior
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
+  const calculateStock = (medicineId) => {
+    const medicine = patientMeds.find(m => m.id === medicineId);
+    if (!medicine) return 0;
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    let currentStock = medicine.initialStock || 0;
+    
+    const relevantTransactions = transactions.filter(
+      t => t.medicineId === medicineId
+    );
 
-  // Filter patients (already limited from API)
-  const filteredPatients = patients;
-
-  // Get patient medications
-  const getPatientMedications = (patientId) => {
-    return patientMeds.filter(pm => pm.patientId === patientId);
-  };
-
-  // Get transaction history
-  const getTransactionHistory = (patientMedicationId) => {
-    return transactions.filter(t => t.patientMedicationId === patientMedicationId);
-  };
-
-  // Calculate stock
-  const calculateStock = (patientMedicationId) => {
-    const pm = patientMeds.find(m => m.id === patientMedicationId);
-    if (!pm) return 0;
-
-    const trans = transactions.filter(t => t.patientMedicationId === patientMedicationId);
-    let stock = pm.initialStock;
-
-    trans.forEach(t => {
-      if (t.transactionType === 'DISPENSE') {
-        stock -= t.quantity;
-      } else if (t.transactionType === 'RETURN') {
-        stock += t.quantity;
+    relevantTransactions.forEach(t => {
+      if (t.type === 'dispense') {
+        currentStock -= parseInt(t.quantity || 0);
+      } else if (t.type === 'return') {
+        currentStock += parseInt(t.quantity || 0);
       }
     });
 
-    return Math.max(0, stock);
+    return Math.max(0, currentStock);
   };
 
-  // Determine stock status
-  const getStockStatus = (current, initial) => {
-    const percentage = (current / initial) * 100;
-    if (percentage >= 75) return 'OK';
-    if (percentage >= 50) return 'LOW';
-    if (percentage >= 25) return 'CRITICAL';
-    return 'OUT_OF_STOCK';
+  const getTransactionHistory = (medicineId) => {
+    return transactions.filter(t => t.medicineId === medicineId) || [];
   };
 
-  // Handle edit medicine ← NEW
-  const handleEditMedicine = (medicineId) => {
-    const med = patientMeds.find(m => m.id === medicineId);
-    console.log('Editing medicine:', med);
-    setEditingMedicine(med);
-    setShowModal('add');
+  const getStockStatus = (currentStock, initialStock) => {
+    const percentage = (currentStock / initialStock) * 100;
+    if (percentage === 0) return 'empty';
+    if (percentage < 25) return 'critical';
+    if (percentage < 50) return 'low';
+    if (percentage < 75) return 'medium';
+    return 'high';
   };
 
-  // Handle dispense
+  const getPatientMedications = (patientId) => {
+    return patientMeds.filter(m => m.patientId === patientId);
+  };
+
   const handleDispense = (quantity, notes) => {
-    if (!selectedPatient || !selectedMedicine) return;
-
-    const newTransaction = {
-      id: `trans-${Date.now()}`,
-      patientMedicationId: selectedMedicine,
-      patientId: selectedPatient,
-      medicationId: patientMeds.find(m => m.id === selectedMedicine)?.medicationId,
-      transactionType: 'DISPENSE',
-      quantity: parseInt(quantity),
-      transactionTime: new Date().toISOString(),
-      performedByName: 'Current User',
-      reason: null,
+    console.log('Dispense:', quantity, notes);
+    const transaction = {
+      id: `tx-${Date.now()}`,
+      medicineId: selectedMedicine,
+      type: 'dispense',
+      quantity,
       notes,
-      stockBefore: calculateStock(selectedMedicine),
-      stockAfter: calculateStock(selectedMedicine) - parseInt(quantity),
-      createdAt: new Date().toISOString()
+      timestamp: new Date().toISOString()
     };
-
-    setTransactions([...transactions, newTransaction]);
+    setTransactions([...transactions, transaction]);
     setShowModal(null);
   };
 
-  // Handle return
   const handleReturn = (quantity, reason, notes) => {
-    if (!selectedPatient || !selectedMedicine) return;
-
-    const newTransaction = {
-      id: `trans-${Date.now()}`,
-      patientMedicationId: selectedMedicine,
-      patientId: selectedPatient,
-      medicationId: patientMeds.find(m => m.id === selectedMedicine)?.medicationId,
-      transactionType: 'RETURN',
-      quantity: parseInt(quantity),
-      transactionTime: new Date().toISOString(),
-      performedByName: 'Current User',
+    console.log('Return:', quantity, reason, notes);
+    const transaction = {
+      id: `tx-${Date.now()}`,
+      medicineId: selectedMedicine,
+      type: 'return',
+      quantity,
       reason,
       notes,
-      stockBefore: calculateStock(selectedMedicine),
-      stockAfter: calculateStock(selectedMedicine) + parseInt(quantity),
-      createdAt: new Date().toISOString()
+      timestamp: new Date().toISOString()
     };
-
-    setTransactions([...transactions, newTransaction]);
+    setTransactions([...transactions, transaction]);
     setShowModal(null);
   };
 
-  // Handle add/edit medicine ← UPDATED
-  const handleAddMedicine = (medicineData) => {
-    if (!selectedPatient) return;
-
+  // Handle Add/Edit Medicine with API
+  const handleAddMedicine = async (medicineData) => {
+    setSaveError('');
+    
     if (editingMedicine) {
-      // UPDATE existing medicine
-      console.log('Updating medicine:', editingMedicine.id, medicineData);
-      const updatedMeds = patientMeds.map(med => {
-        if (med.id === editingMedicine.id) {
-          return {
-            ...med,
-            medication_name: medicineData.medication_name,
-            generic_name: medicineData.generic_name,
-            trade_name: medicineData.trade_name,
+      try {
+        console.log('Updating medicine:', editingMedicine.id, medicineData);
+        
+        const payload = {
+          medication_name: medicineData.medication_name,
+          generic_name: medicineData.generic_name,
+          trade_name: medicineData.trade_name,
+          dosage: medicineData.dosage,
+          route: medicineData.route,
+          dosage_instruction: medicineData.dosage_instruction,
+          frequency: medicineData.frequency,
+          timing: medicineData.timing,
+          quantity: medicineData.quantity,
+          expiry_date: medicineData.expiry_date,
+          lot_number: medicineData.lot_number,
+          status: medicineData.status,
+          special_instruction: medicineData.special_instruction,
+          has_changes: medicineData.has_changes,
+          adjusted_dosage: medicineData.adjusted_dosage,
+          change_reason: medicineData.change_reason,
+          is_external: medicineData.is_external,
+          external_hospital: medicineData.external_hospital,
+        };
+
+        const response = await api.put(
+          `/medication-reconciliation/${editingMedicine.id}`,
+          payload
+        );
+
+        if (response.data.success) {
+          const updatedMeds = patientMeds.map(med => {
+            if (med.id === editingMedicine.id) {
+              return {
+                ...med,
+                ...medicineData,
+                updatedAt: new Date().toISOString()
+              };
+            }
+            return med;
+          });
+          setPatientMeds(updatedMeds);
+          setEditingMedicine(null);
+          setShowModal(null);
+        }
+      } catch (error) {
+        console.error('Update medicine error:', error);
+        setSaveError('เกิดข้อผิดพลาดในการบันทึกยา: ' + (error.response?.data?.message || error.message));
+        
+        const updatedMeds = patientMeds.map(med => {
+          if (med.id === editingMedicine.id) {
+            return {
+              ...med,
+              medication_name: medicineData.medication_name,
+              generic_name: medicineData.generic_name,
+              trade_name: medicineData.trade_name,
+              dosage: medicineData.dosage,
+              route: medicineData.route,
+              dosage_instruction: medicineData.dosage_instruction,
+              frequency: medicineData.frequency,
+              timing: medicineData.timing,
+              quantity: medicineData.quantity,
+              expiry_date: medicineData.expiry_date,
+              lot_number: medicineData.lot_number,
+              status: medicineData.status,
+              special_instruction: medicineData.special_instruction,
+              has_changes: medicineData.has_changes,
+              adjusted_dosage: medicineData.adjusted_dosage,
+              change_reason: medicineData.change_reason,
+              is_external: medicineData.is_external,
+              external_hospital: medicineData.external_hospital,
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return med;
+        });
+        setPatientMeds(updatedMeds);
+        setEditingMedicine(null);
+        setShowModal(null);
+      }
+    } else {
+      try {
+        console.log('Adding new medicine:', medicineData);
+        
+        const currentPatient = patients.find(p => p.id === selectedPatient);
+        if (!currentPatient?.service_registration_id) {
+          setSaveError('ไม่พบข้อมูลผู้ป่วย');
+          return;
+        }
+
+        const fullPayload = {
+          service_registration_id: currentPatient.service_registration_id || currentPatient.id,
+          patient_id: currentPatient.patient_id,
+          patient_name: currentPatient.patient_name,
+          ward_name: currentPatient.ward_name || currentPatient.ward,
+          room_number: currentPatient.room_number || currentPatient.room,
+          reconciled_by: 1,
+          notes: '',
+          medications: [{
+            medicine_id: medicineData.id || null,
+            medicationName: medicineData.medication_name,
+            genericName: medicineData.generic_name,
+            tradeName: medicineData.trade_name,
             dosage: medicineData.dosage,
             route: medicineData.route,
-            dosage_instruction: medicineData.dosage_instruction,
+            dosageInstruction: medicineData.dosage_instruction,
             frequency: medicineData.frequency,
             timing: medicineData.timing,
+            scheduleTime: '',
+            scheduleTimeDisplay: '',
             quantity: medicineData.quantity,
-            expiry_date: medicineData.expiry_date,
-            lot_number: medicineData.lot_number,
-            status: medicineData.status,
-            special_instruction: medicineData.special_instruction,
-            has_changes: medicineData.has_changes,
-            adjusted_dosage: medicineData.adjusted_dosage,
-            change_reason: medicineData.change_reason,
-            is_external: medicineData.is_external,
-            external_hospital: medicineData.external_hospital,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return med;
-      });
-      setPatientMeds(updatedMeds);
-      setEditingMedicine(null);
-    } else {
-      // CREATE new medicine
-      console.log('Adding new medicine:', medicineData);
-      const newPatientMed = {
-        id: `pm-${Date.now()}`,
-        patientId: selectedPatient,
-        medicationId: `med-${Date.now()}`,
-        doctorOrder: medicineData.doctorOrder,
-        prescribedDate: medicineData.prescribedDate,
-        initialStock: parseInt(medicineData.quantity || 0),
-        currentStock: parseInt(medicineData.quantity || 0),
-        status: medicineData.status,
-        createdAt: new Date().toISOString(),
-        ...medicineData
-      };
+            lastDose: medicineData.last_dose || '',
+            expiryDate: medicineData.expiry_date,
+            lotNumber: medicineData.lot_number,
+            isExternal: medicineData.is_external,
+            externalHospital: medicineData.external_hospital,
+            status: medicineData.status || 'continue_same',
+            adjustedDosage: medicineData.adjusted_dosage,
+            hasChanges: medicineData.has_changes,
+            changeReason: medicineData.change_reason,
+            specialInstruction: medicineData.special_instruction,
+            imageUrl: medicineData.image_url,
+          }]
+        };
 
-      setPatientMeds([...patientMeds, newPatientMed]);
+        console.log('Sending payload to API:', fullPayload);
+
+        const response = await api.post('/medication-reconciliation', fullPayload);
+
+        if (response.data.success) {
+          const newMed = {
+            id: response.data.data?.id || `pm-${Date.now()}`,
+            patientId: selectedPatient,
+            medicationId: response.data.data?.medicine_id || `med-${Date.now()}`,
+            doctorOrder: medicineData.doctorOrder,
+            prescribedDate: new Date().toISOString(),
+            initialStock: parseInt(medicineData.quantity || 0),
+            currentStock: parseInt(medicineData.quantity || 0),
+            status: medicineData.status,
+            createdAt: new Date().toISOString(),
+            ...medicineData
+          };
+          
+          setPatientMeds([...patientMeds, newMed]);
+          setShowModal(null);
+        }
+      } catch (error) {
+        console.error('Add medicine error:', error);
+        setSaveError('เกิดข้อผิดพลาดในการบันทึกยา: ' + (error.response?.data?.message || error.message));
+        
+        const newPatientMed = {
+          id: `pm-${Date.now()}`,
+          patientId: selectedPatient,
+          medicationId: `med-${Date.now()}`,
+          doctorOrder: medicineData.doctorOrder,
+          prescribedDate: medicineData.prescribedDate,
+          initialStock: parseInt(medicineData.quantity || 0),
+          currentStock: parseInt(medicineData.quantity || 0),
+          status: medicineData.status,
+          createdAt: new Date().toISOString(),
+          ...medicineData
+        };
+
+        setPatientMeds([...patientMeds, newPatientMed]);
+        setShowModal(null);
+      }
     }
-    setShowModal(null);
   };
 
-  // Handle delete medicine ← NEW (optional)
+  // Handle delete medicine
   const handleDeleteMedicine = (medicineId) => {
     console.log('Deleting medicine:', medicineId);
     const filtered = patientMeds.filter(med => med.id !== medicineId);
@@ -455,32 +516,40 @@ function DrugInventoryPage() {
   // Handle export
   const handleExport = (format) => {
     console.log(`Export as ${format}`);
-    // Implement export logic
   };
 
   const currentPatient = patients.find(p => p.id === selectedPatient);
   const currentPatientMeds = selectedPatient ? getPatientMedications(selectedPatient) : [];
 
-  // Handle patient selection on mobile - hide list, show detail
+  // Handle patient selection on mobile
   const handleSelectPatientMobile = (patientId) => {
     setSelectedPatient(patientId);
-    // On mobile: hide list and show detail
     if (windowWidth < 1024) {
       setShowPatientList(false);
     }
   };
 
-  // On desktop: always show both panels
+  // Responsive logic - Mobile แสดงแบบ stacked ทั้งหมด
   const isMobile = windowWidth < 1024;
   const shouldShowPatientList = isMobile ? showPatientList : true;
-  const shouldShowDetail = isMobile ? !showPatientList && selectedPatient : true;
+  const shouldShowDetail = isMobile ? !showPatientList && selectedPatient : selectedPatient || !isMobile;
 
   return (
-    <div className="drug-inventory-container min-h-screen bg-gray-50">
+    <div className="drug-inventory-container">
+      {/* ERROR NOTIFICATION */}
+      {saveError && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={18} />
+            <span>{saveError}</span>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
-      <div className="drug-inventory-header sticky top-0 z-20">
+      <div className="drug-inventory-header">
         <div className="header-content">
-          <div className="header-title flex-1">
+          <div className="header-title">
             <h1>💊 คลังยา</h1>
             <p>จัดการยาและติดตามผู้ป่วย</p>
           </div>
@@ -513,7 +582,7 @@ function DrugInventoryPage() {
         />
       </div>
 
-      {/* MOBILE TOGGLE PANEL (only on mobile) */}
+      {/* MOBILE TOGGLE PANEL */}
       {isMobile && (
         <div className="mobile-panel-toggle no-print">
           <button
@@ -556,8 +625,8 @@ function DrugInventoryPage() {
               onReturn={() => setShowModal('return')}
               onAddMedicine={() => setShowModal('add')}
               onSelectMedicine={setSelectedMedicine}
-              onEditMedicine={handleEditMedicine}  // ← PASS HERE
-              onDeleteMedicine={handleDeleteMedicine}  // ← PASS HERE
+              onEditMedicine={handleEditMedicine}
+              onDeleteMedicine={handleDeleteMedicine}
               selectedMedicine={selectedMedicine}
               calculateStock={calculateStock}
               getTransactionHistory={getTransactionHistory}
@@ -566,7 +635,7 @@ function DrugInventoryPage() {
           </div>
         ) : (
           !shouldShowPatientList && (
-            <div className="detail-panel flex items-center justify-center min-h-60">
+            <div className="detail-panel flex items-center justify-center">
               <div className="empty-state">
                 <div className="empty-state-icon">👤</div>
                 <div className="empty-state-title">เลือกผู้ป่วย</div>
@@ -580,10 +649,11 @@ function DrugInventoryPage() {
       {/* MODALS */}
       {showModal === 'add' && (
         <AddMedicineModal
-          editingMedicine={editingMedicine}  // ← PASS HERE
+          editingMedicine={editingMedicine}
           onClose={() => {
             setShowModal(null);
             setEditingMedicine(null);
+            setSaveError('');
           }}
           onSave={handleAddMedicine}
         />
