@@ -44,9 +44,11 @@ const NutritionManagement = () => {
   const fetchFoodItems = async () => {
     try {
       const response = await api.get('/nutrition/food-items');
+      console.log('Fetched food items:', response.data);
       // ✅ ตรวจสอบว่า response.data เป็น array
-      if (Array.isArray(response.data)) {
-        setFoodItems(response.data);
+      if (Array.isArray(response.data.data)) {
+        
+        setFoodItems(response.data.data);
       } else {
         console.warn('API response is not an array, setting empty array');
         setFoodItems([]);
@@ -207,7 +209,8 @@ const NutritionManagement = () => {
   // ✅ Ensure foodItems is always an array before calling filter
   const filteredFoodItems = Array.isArray(foodItems)
     ? foodItems.filter((food) =>
-        food.foodName.toLowerCase().includes(searchTerm.toLowerCase())
+      //console.log('Filtering food item:', food) ||
+        food.food_name.toLowerCase().includes(searchTerm.toLowerCase())
       )
     : [];
 
