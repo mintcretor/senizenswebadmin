@@ -30,8 +30,12 @@ import DrugInventoryPage from './pages/DrugInventoryPage';
 import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
 import MedicalSupplyManagement from './pages/MedicalSupplyManagement';
 import EditVN from './pages/EditVN';
+import EditVNS from './pages/EditVNS';
+
 import NutritionManagement from './pages/NutritionManagement';
 import MealConsumptionTracking from './pages/MealConsumptionTracking';
+import Physicaltherapy from './pages/Physicaltherapy';
+import Dialysiscenter from './pages/Dialysiscenter';
 
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
@@ -94,13 +98,17 @@ function App() {
           <Route path="/Patient" element={<Patient />} />
           <Route path="/stroke-center" element={<VNPatientList />} />
           <Route path="/stroke-center/edit/:vnId" element={<EditVN />} />
+          <Route path="/PatientVN/edit/:vnId" element={<EditVNS />} />
+
+          <Route path="/physical-therapy" element={<Physicaltherapy />} />
+          <Route path="/dialysis-center" element={<Dialysiscenter />} />
           <Route path="/Settings" element={<ServiceManagementSystem />} />
           <Route path="/Patient/:id" element={<PatientDetails />} />
           <Route path="/AddPatient" element={<AddPatient />} />
           <Route path="/EditPatient/:id" element={<EditPatient />} />
           <Route path="/an-vn/add/:id?" element={<ThaiServiceForm />} />
           <Route path="/multidisciplinary" element={<MultidisciplinaryReport />} />
-          <Route path="/drug-inventory" element= { <DrugInventoryPage /> }/>
+          <Route path="/drug-inventory" element={<DrugInventoryPage />} />
           <Route path="/nutrition" element={<NutritionManagement />} />
           <Route path="/meal-consumption" element={<MealConsumptionTracking />} /> {/* ← เพิ่มเส้นทางเช็คการทาน */}
           <Route path="/rehab" element={<RehabReport />} />
