@@ -41,9 +41,36 @@ const NutritionManagement = () => {
     fetchFoodItems();
   }, []);
 
+  // ✅ Convert Buffer to base64 image
+  const convertBufferToImage = (imageData) => {
+    if (!imageData) return null;
+    
+    // If it's already a data URL
+    if (typeof imageData === 'string' && imageData.startsWith('data:')) {
+      return imageData;
+    }
+    
+    // If it's a Buffer object {type: 'Buffer', data: [...]}
+    if (imageData.type === 'Buffer' && Array.isArray(imageData.data)) {
+      const uint8Array = new Uint8Array(imageData.data);
+      const binaryString = String.fromCharCode.apply(null, uint8Array);
+      return 'data:image/jpeg;base64,' + btoa(binaryString);
+    }
+    
+    // If it's already a Uint8Array or similar
+    if (imageData instanceof Uint8Array || ArrayBuffer.isView(imageData)) {
+      const binaryString = String.fromCharCode.apply(null, imageData);
+      return 'data:image/jpeg;base64,' + btoa(binaryString);
+    }
+    
+    return null;
+  };
+
+  // ✅ ดึงข้อมูลอาหารจาก API
   const fetchFoodItems = async () => {
     try {
       const response = await api.get('/nutrition/food-items');
+<<<<<<< HEAD
       console.log('Fetched food items:', response.data);
       // ✅ ตรวจสอบว่า response.data เป็น array
       if (Array.isArray(response.data.data)) {
@@ -52,10 +79,39 @@ const NutritionManagement = () => {
       } else {
         console.warn('API response is not an array, setting empty array');
         setFoodItems([]);
+=======
+      console.log('📊 Fetched food items response:', response);
+      
+      // ✅ ตรวจสอบว่า response.data เป็น array
+      let foodData = [];
+      
+      if (response.data) {
+        // ถ้า response.data เป็น array ตรงๆ
+        if (Array.isArray(response.data)) {
+          foodData = response.data;
+        }
+        // ถ้า response.data มี property data ข้างใน
+        else if (Array.isArray(response.data.data)) {
+          foodData = response.data.data;
+        }
+        // ถ้า response.data มี property items
+        else if (Array.isArray(response.data.items)) {
+          foodData = response.data.items;
+        }
+>>>>>>> b431bfdcc9b2f11cbeb6450ef805fe6a6274c2f7
       }
+      
+      // ✅ Convert Buffer images to base64
+      foodData = foodData.map(food => ({
+        ...food,
+        image: convertBufferToImage(food.image) || food.image
+      }));
+      
+      setFoodItems(foodData);
+      console.log('✅ Food items loaded:', foodData.length, 'items');
     } catch (error) {
-      console.error('Error fetching food items:', error);
-      // ✅ เมื่อ error ก็ให้ใช้ข้อมูล mock แบบเดิม
+      console.error('❌ Error fetching food items:', error);
+      // ✅ เมื่อ error ก็ใช้ข้อมูล mock แบบเดิม
       setFoodItems([
         {
           id: 1,
@@ -70,10 +126,24 @@ const NutritionManagement = () => {
           allergies: 'ไข่',
           image: null,
         },
+        {
+          id: 2,
+          foodName: 'แกงส้มปลาทู',
+          calories: 420,
+          protein: 25,
+          carbs: 30,
+          fat: 15,
+          fiber: 3,
+          portion: '1 ชาม',
+          description: 'แกงส้มรสชาติสม่ำเสมอ',
+          allergies: 'กุ้ง, ปลา',
+          image: null,
+        },
       ]);
     }
   };
 
+  // ✅ จัดการเปลี่ยนแปลงรูปภาพ
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -100,6 +170,7 @@ const NutritionManagement = () => {
     }
   };
 
+  // ✅ ลบรูปภาพ
   const removeImage = () => {
     setImagePreview(null);
     setFormData({
@@ -109,6 +180,7 @@ const NutritionManagement = () => {
     });
   };
 
+  // ✅ ส่งแบบฟอร์มอาหาร
   const handleSubmitFood = async (e) => {
     e.preventDefault();
     if (!formData.foodName) {
@@ -118,76 +190,89 @@ const NutritionManagement = () => {
 
     setLoading(true);
     try {
-      const url = editingFood ? `/nutrition/food-items/${editingFood.id}` : '/nutrition/food-items';
-      const method = editingFood ? 'put' : 'post';
-
+      // สร้าง FormData สำหรับส่ง multipart/form-data (รับได้ทั้งรูปภาพและข้อมูล)
       const formDataToSend = new FormData();
       formDataToSend.append('foodName', formData.foodName);
-      formDataToSend.append('calories', formData.calories);
-      formDataToSend.append('protein', formData.protein);
-      formDataToSend.append('carbs', formData.carbs);
-      formDataToSend.append('fat', formData.fat);
-      formDataToSend.append('fiber', formData.fiber);
-      formDataToSend.append('portion', formData.portion);
-      formDataToSend.append('description', formData.description);
-      formDataToSend.append('allergies', formData.allergies);
+      formDataToSend.append('calories', formData.calories || 0);
+      formDataToSend.append('protein', formData.protein || 0);
+      formDataToSend.append('carbs', formData.carbs || 0);
+      formDataToSend.append('fat', formData.fat || 0);
+      formDataToSend.append('fiber', formData.fiber || 0);
+      formDataToSend.append('portion', formData.portion || '');
+      formDataToSend.append('description', formData.description || '');
+      formDataToSend.append('allergies', formData.allergies || '');
 
+      // ✅ ถ้ามีไฟล์รูปภาพให้เพิ่มไปด้วย
       if (formData.imageFile) {
         formDataToSend.append('image', formData.imageFile);
       }
 
+      // ตัดสินใจ URL และ method (POST = สร้าง, PUT = แก้ไข)
+      const url = editingFood 
+        ? `/nutrition/food-items/${editingFood.id}` 
+        : '/nutrition/food-items';
+      const method = editingFood ? 'put' : 'post';
+
+      // ✅ ส่งไปยัง API
       const response = await api[method](url, formDataToSend, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
+      console.log('✅ API Response:', response);
+
       if (response.status === 200 || response.status === 201) {
-        fetchFoodItems();
+        await fetchFoodItems();
         resetForm();
         setShowFoodForm(false);
         alert(editingFood ? 'แก้ไขอาหารสำเร็จ' : 'เพิ่มอาหารสำเร็จ');
       }
     } catch (error) {
-      console.error('Error submitting food:', error);
-      alert('เกิดข้อผิดพลาด');
+      console.error('❌ Error submitting food:', error);
+      alert('เกิดข้อผิดพลาด: ' + (error.response?.data?.error || error.message));
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ แก้ไขอาหาร
   const handleEditFood = (food) => {
     setEditingFood(food);
     setFormData({
-      foodName: food.foodName,
-      calories: food.calories,
-      protein: food.protein,
-      carbs: food.carbs,
-      fat: food.fat,
-      fiber: food.fiber,
-      portion: food.portion,
-      description: food.description,
-      allergies: food.allergies,
-      image: food.image,
+      foodName: food.food_name || food.foodName || '',
+      calories: food.calories || '',
+      protein: food.protein || '',
+      carbs: food.carbs || '',
+      fat: food.fat || '',
+      fiber: food.fiber || '',
+      portion: food.portion || '',
+      description: food.description || '',
+      allergies: food.allergies || '',
+      image: food.image || null,
       imageFile: null,
     });
-    setImagePreview(food.image);
+    setImagePreview(food.image || null);
     setShowFoodForm(true);
   };
 
+  // ✅ ลบอาหาร
   const handleDeleteFood = async (id) => {
     if (window.confirm('ต้องการลบอาหารนี้หรือไม่?')) {
       try {
         const response = await api.delete(`/nutrition/food-items/${id}`);
+        console.log('✅ Delete response:', response);
+        
         if (response.status === 200) {
-          fetchFoodItems();
+          await fetchFoodItems();
           alert('ลบอาหารสำเร็จ');
         }
       } catch (error) {
-        console.error('Error deleting food:', error);
-        alert('เกิดข้อผิดพลาด');
+        console.error('❌ Error deleting food:', error);
+        alert('เกิดข้อผิดพลาด: ' + (error.response?.data?.error || error.message));
       }
     }
   };
 
+  // ✅ รีเซ็ตแบบฟอร์ม
   const resetForm = () => {
     setFormData({
       foodName: '',
@@ -206,12 +291,12 @@ const NutritionManagement = () => {
     setEditingFood(null);
   };
 
-  // ✅ Ensure foodItems is always an array before calling filter
+  // ✅ ตรวจสอบให้แน่ใจว่า foodItems เป็น array เสมอก่อนเรียก filter
   const filteredFoodItems = Array.isArray(foodItems)
-    ? foodItems.filter((food) =>
-      //console.log('Filtering food item:', food) ||
-        food.food_name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+    ? foodItems.filter((food) => {
+        const foodName = food.food_name || food.foodName || '';
+        return foodName.toLowerCase().includes(searchTerm.toLowerCase());
+      })
     : [];
 
   return (
@@ -439,13 +524,13 @@ const NutritionManagement = () => {
                   {/* Allergies */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      สารอาหารที่แพ้
+                      สารก่อภูมิแพ้
                     </label>
                     <input
                       type="text"
                       value={formData.allergies}
                       onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-                      placeholder="เช่น ไข่, นม, ถั่ว"
+                      placeholder="เช่น ไข่, กุ้ง, นม"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
                     />
                   </div>
@@ -480,11 +565,15 @@ const NutritionManagement = () => {
                 <div key={food.id} className="bg-white rounded-lg shadow hover:shadow-lg transition overflow-hidden">
                   {/* Image */}
                   <div className="h-40 bg-gray-200 flex items-center justify-center overflow-hidden">
-                    {food.image && typeof food.image === 'string' && food.image.startsWith('data:') ? (
+                    {food.image ? (
                       <img
                         src={food.image}
-                        alt={food.foodName}
+                        alt={food.food_name || food.foodName}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('Image failed to load:', food.image);
+                          e.target.style.display = 'none';
+                        }}
                       />
                     ) : (
                       <div className="text-center">
@@ -496,18 +585,18 @@ const NutritionManagement = () => {
 
                   {/* Content */}
                   <div className="p-4">
-                    <h4 className="font-bold text-gray-800 mb-2">{food.foodName}</h4>
+                    <h4 className="font-bold text-gray-800 mb-2">{food.food_name || food.foodName}</h4>
                     <p className="text-sm text-gray-600 mb-3">{food.portion}</p>
 
                     {/* Quick Nutrition */}
                     <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
                       <div className="bg-blue-50 p-2 rounded">
                         <p className="text-gray-600">แคลอรี่</p>
-                        <p className="font-semibold text-blue-600">{food.calories}</p>
+                        <p className="font-semibold text-blue-600">{food.calories || 0}</p>
                       </div>
                       <div className="bg-green-50 p-2 rounded">
                         <p className="text-gray-600">โปรตีน</p>
-                        <p className="font-semibold text-green-600">{food.protein}g</p>
+                        <p className="font-semibold text-green-600">{food.protein || 0}g</p>
                       </div>
                     </div>
 
@@ -552,15 +641,15 @@ const NutritionManagement = () => {
                       <div className="mt-2 pt-2 border-t space-y-1 text-xs">
                         <div className="flex justify-between">
                           <span className="text-gray-600">คาร์บ:</span>
-                          <span className="font-semibold">{food.carbs}g</span>
+                          <span className="font-semibold">{food.carbs || 0}g</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">ไขมัน:</span>
-                          <span className="font-semibold">{food.fat}g</span>
+                          <span className="font-semibold">{food.fat || 0}g</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">ไฟเบอร์:</span>
-                          <span className="font-semibold">{food.fiber}g</span>
+                          <span className="font-semibold">{food.fiber || 0}g</span>
                         </div>
                         {food.allergies && (
                           <div className="bg-red-50 p-2 rounded mt-2">
