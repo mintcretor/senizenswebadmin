@@ -70,16 +70,6 @@ const NutritionManagement = () => {
   const fetchFoodItems = async () => {
     try {
       const response = await api.get('/nutrition/food-items');
-<<<<<<< HEAD
-      console.log('Fetched food items:', response.data);
-      // ✅ ตรวจสอบว่า response.data เป็น array
-      if (Array.isArray(response.data.data)) {
-        
-        setFoodItems(response.data.data);
-      } else {
-        console.warn('API response is not an array, setting empty array');
-        setFoodItems([]);
-=======
       console.log('📊 Fetched food items response:', response);
       
       // ✅ ตรวจสอบว่า response.data เป็น array
@@ -98,7 +88,6 @@ const NutritionManagement = () => {
         else if (Array.isArray(response.data.items)) {
           foodData = response.data.items;
         }
->>>>>>> b431bfdcc9b2f11cbeb6450ef805fe6a6274c2f7
       }
       
       // ✅ Convert Buffer images to base64
