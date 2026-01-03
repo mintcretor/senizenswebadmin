@@ -31,11 +31,11 @@ import MultidisciplinaryReportList from './pages/MultidisciplinaryReportList';
 import MedicalSupplyManagement from './pages/MedicalSupplyManagement';
 import EditVN from './pages/EditVN';
 import EditVNS from './pages/EditVNS';
-
 import NutritionManagement from './pages/NutritionManagement';
 import MealConsumptionTracking from './pages/MealConsumptionTracking';
 import Physicaltherapy from './pages/Physicaltherapy';
 import Dialysiscenter from './pages/Dialysiscenter';
+import Wellness from './pages/Wellness';
 
 // Import auth utilities
 import { checkAuthStatus } from './utils/auth';
@@ -101,6 +101,8 @@ function App() {
           <Route path="/PatientVN/edit/:vnId" element={<EditVNS />} />
 
           <Route path="/physical-therapy" element={<Physicaltherapy />} />
+          <Route path="/Wellness" element={<Wellness />} />
+
           <Route path="/dialysis-center" element={<Dialysiscenter />} />
           <Route path="/Settings" element={<ServiceManagementSystem />} />
           <Route path="/Patient/:id" element={<PatientDetails />} />

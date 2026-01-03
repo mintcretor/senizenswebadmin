@@ -232,7 +232,7 @@ export default function VNPatientList() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/stroke-center/edit/${patient.registration_id}`);
+                    navigate(`/PatientVN/edit/${patient.registration_id}`);
                   }}
                   className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
                   title="แก้ไขข้อมูล VN"
@@ -330,16 +330,10 @@ export default function VNPatientList() {
       <div className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => navigate('/stroke-center/new')}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 sm:px-6 sm:py-3 flex items-center justify-center space-x-2 transition-colors font-medium"
-            >
-              <Plus size={20} />
-              <span className="hidden sm:inline">แก้ไข</span>
-            </button>
+           
             <div className="flex items-center space-x-3">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                รายชื่อผู้ใช้บริการ (ศูนย์ฟื้นฟูผู้หลอดเลือดและสมอง)
+                รายชื่อผู้ใช้บริการ (กายภาพบำบัด)
               </h1>
               {error && (
                 <div className="flex items-center text-yellow-600 text-sm">

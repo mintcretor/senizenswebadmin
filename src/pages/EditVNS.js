@@ -664,7 +664,9 @@ export default function EditVN() {
       const serviceReg = result.data;
       setService_id(serviceReg.registration_id);
       setPatient_id(serviceReg.patient_id);
-      setDischarged(serviceReg.discharged || false);
+      const isDischargedStatus = serviceReg.status === 'discharged';
+      setDischarged(isDischargedStatus);
+
 
       console.log('📋 Service Registration Data:', serviceReg);
       setFormData(prev => ({
@@ -766,27 +768,50 @@ export default function EditVN() {
         return;
       }
 
-      console.log('📤 Mock: Discharge patient', {
+      console.log('📤 Discharging patient:', {
         service_id,
         discharge_date: dischargeDate,
         discharge_notes: dischargeNotes
       });
 
+      // ✅ เรียก API
+      const response = await api.patch(
+        `/service-registrations/${service_id}/discharge`,
+        {
+          discharge_date: dischargeDate,
+          discharge_notes: dischargeNotes || null
+        }
+      );
+
+      const result = response.data;
+
+      if (!result.success) {
+        throw new Error(result.error || 'ไม่สามารถจำหน่ายผู้ป่วยได้');
+      }
+
+      console.log('✅ Discharge success:', result);
+
+      // Update UI
       setDischarged(true);
       setFormData(prev => ({
         ...prev,
         toDate: dischargeDate
       }));
 
+      // Close modal
       setShowDischargeModal(false);
       setDischargeDate('');
       setDischargeNotes('');
 
       alert('✅ จำหน่ายผู้ป่วยสำเร็จ!');
 
+      // (Optional) Refresh ข้อมูล
+      await fetchServiceRegistration(vnFromState);
+
     } catch (err) {
       console.error('❌ Discharge error:', err);
-      setError('เกิดข้อผิดพลาดในการจำหน่ายผู้ป่วย');
+      const errorMsg = err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการจำหน่ายผู้ป่วย';
+      setError(errorMsg);
     } finally {
       setDischargeLoading(false);
     }
@@ -797,17 +822,37 @@ export default function EditVN() {
       setDischargeLoading(true);
       setError(null);
 
-      console.log('📤 Mock: Un-discharge patient', {
-        service_id
-      });
+      console.log('📤 Un-discharging patient:', { service_id });
 
+      // ✅ เรียก API
+      const response = await api.patch(
+        `/service-registrations/${service_id}/undischarge`
+      );
+
+      const result = response.data;
+
+      if (!result.success) {
+        throw new Error(result.error || 'ไม่สามารถยกเลิกการจำหน่ายได้');
+      }
+
+      console.log('✅ Un-discharge success:', result);
+
+      // Update UI
       setDischarged(false);
+      setFormData(prev => ({
+        ...prev,
+        toDate: '' // Clear discharge date
+      }));
 
       alert('✅ ยกเลิกการจำหน่ายสำเร็จ!');
 
+      // (Optional) Refresh ข้อมูล
+      await fetchServiceRegistration(vnFromState);
+
     } catch (err) {
       console.error('❌ Un-discharge error:', err);
-      setError('เกิดข้อผิดพลาดในการยกเลิกการจำหน่าย');
+      const errorMsg = err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการยกเลิกการจำหน่าย';
+      setError(errorMsg);
     } finally {
       setDischargeLoading(false);
     }
@@ -1321,10 +1366,12 @@ export default function EditVN() {
                 <div>
                   <p className="text-sm font-medium text-gray-700">สถานะผู้ป่วย</p>
                   <p className={`text-lg font-bold ${discharged ? 'text-red-600' : 'text-green-600'}`}>
-                    {discharged ? '❌ ออกจากโรงพยาบาลแล้ว' : '✅ อยู่ในโรงพยาบาล'}
+                    {discharged ? '❌ จำหน่ายแล้ว (Discharged)' : '✅ กำลังรักษา (Active)'}
                   </p>
                   {discharged && formData.toDate && (
-                    <p className="text-sm text-gray-600 mt-1">วันจำหน่าย: {formatDateToThai(formData.toDate)}</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      วันจำหน่าย: {formatDateToThai(formData.toDate)}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1333,7 +1380,7 @@ export default function EditVN() {
                   if (!discharged) {
                     setShowDischargeModal(true);
                   } else {
-                    if (window.confirm('ต้องการยกเลิกการจำหน่ายผู้ป่วยหรือไม่?')) {
+                    if (window.confirm('⚠️ ต้องการยกเลิกการจำหน่ายผู้ป่วยหรือไม่?\n\nผู้ป่วยจะกลับมามีสถานะ Active อีกครั้ง')) {
                       handleUndischarge();
                     }
                   }
@@ -1344,8 +1391,17 @@ export default function EditVN() {
                     : 'bg-green-600 hover:bg-green-700'
                   }`}
               >
-                <LogOut className="w-4 h-4" />
-                {discharged ? 'ยกเลิกการจำหน่าย' : 'จำหน่ายผู้ป่วย'}
+                {dischargeLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>กำลังดำเนินการ...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4" />
+                    {discharged ? 'ยกเลิกการจำหน่าย' : 'จำหน่ายผู้ป่วย'}
+                  </>
+                )}
               </button>
             </div>
           </div>

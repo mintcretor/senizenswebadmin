@@ -39,7 +39,7 @@ export default function VNPatientList() {
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
 
       const response = await fetch(
-        `${API_BASE_URL}/service-registrations?patientType=VN&departmentId=DIALYSIS&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`,
+        `${API_BASE_URL}/service-registrations?patientType=VN&departmentId=WELLNESS&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`,
         {
           method: 'GET',
           headers: {
@@ -330,10 +330,10 @@ export default function VNPatientList() {
       <div className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex items-center justify-between mb-4">
-            
+         
             <div className="flex items-center space-x-3">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                รายชื่อผู้ใช้บริการ (ศูนย์ไตเทียม)
+                รายชื่อผู้ใช้บริการ (สุขภาพและความงาม)
               </h1>
               {error && (
                 <div className="flex items-center text-yellow-600 text-sm">

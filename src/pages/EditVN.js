@@ -134,7 +134,8 @@ export default function EditVN() {
       const serviceReg = result.data;
       setService_id(serviceReg.registration_id);
       setPatient_id(serviceReg.patient_id);
-      setDischarged(serviceReg.discharged || false);
+      const isDischargedStatus = serviceReg.status === 'discharged';
+      setDischarged(isDischargedStatus);
 
       console.log('📋 Service Registration Data:', serviceReg);
       setFormData(prev => ({
@@ -242,61 +243,91 @@ export default function EditVN() {
         return;
       }
 
-      console.log('📤 Mock: Discharge patient', {
+      console.log('📤 Discharging patient:', {
         service_id,
         discharge_date: dischargeDate,
         discharge_notes: dischargeNotes
       });
 
-      // TODO: แทนที่ด้วย API call เมื่อมี backend
-      // const response = await api.patch(`/service-registrations/${service_id}/discharge`, {
-      //   discharged: true,
-      //   discharge_date: dischargeDate,
-      //   discharge_notes: dischargeNotes
-      // });
+      // ✅ เรียก API
+      const response = await api.patch(
+        `/service-registrations/${service_id}/discharge`,
+        {
+          discharge_date: dischargeDate,
+          discharge_notes: dischargeNotes || null
+        }
+      );
 
-      // Mock success
+      const result = response.data;
+
+      if (!result.success) {
+        throw new Error(result.error || 'ไม่สามารถจำหน่ายผู้ป่วยได้');
+      }
+
+      console.log('✅ Discharge success:', result);
+
+      // Update UI
       setDischarged(true);
       setFormData(prev => ({
         ...prev,
         toDate: dischargeDate
       }));
-      
+
+      // Close modal
       setShowDischargeModal(false);
       setDischargeDate('');
       setDischargeNotes('');
-      
+
       alert('✅ จำหน่ายผู้ป่วยสำเร็จ!');
+
+      // (Optional) Refresh ข้อมูล
+      await fetchServiceRegistration(vnFromState);
 
     } catch (err) {
       console.error('❌ Discharge error:', err);
-      setError('เกิดข้อผิดพลาดในการจำหน่ายผู้ป่วย');
+      const errorMsg = err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการจำหน่ายผู้ป่วย';
+      setError(errorMsg);
     } finally {
       setDischargeLoading(false);
     }
   };
 
-  // ✅ Handle Un-discharge - Mock Function
   const handleUndischarge = async () => {
     try {
       setDischargeLoading(true);
       setError(null);
 
-      console.log('📤 Mock: Un-discharge patient', {
-        service_id
-      });
+      console.log('📤 Un-discharging patient:', { service_id });
 
-      // TODO: แทนที่ด้วย API call เมื่อมี backend
-      // const response = await api.patch(`/service-registrations/${service_id}/undischarge`, {});
+      // ✅ เรียก API
+      const response = await api.patch(
+        `/service-registrations/${service_id}/undischarge`
+      );
 
-      // Mock success
+      const result = response.data;
+
+      if (!result.success) {
+        throw new Error(result.error || 'ไม่สามารถยกเลิกการจำหน่ายได้');
+      }
+
+      console.log('✅ Un-discharge success:', result);
+
+      // Update UI
       setDischarged(false);
-      
+      setFormData(prev => ({
+        ...prev,
+        toDate: '' // Clear discharge date
+      }));
+
       alert('✅ ยกเลิกการจำหน่ายสำเร็จ!');
+
+      // (Optional) Refresh ข้อมูล
+      await fetchServiceRegistration(vnFromState);
 
     } catch (err) {
       console.error('❌ Un-discharge error:', err);
-      setError('เกิดข้อผิดพลาดในการยกเลิกการจำหน่าย');
+      const errorMsg = err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการยกเลิกการจำหน่าย';
+      setError(errorMsg);
     } finally {
       setDischargeLoading(false);
     }
@@ -804,7 +835,7 @@ export default function EditVN() {
                 <div>
                   <p className="text-sm font-medium text-gray-700">สถานะผู้ป่วย</p>
                   <p className={`text-lg font-bold ${discharged ? 'text-red-600' : 'text-green-600'}`}>
-                    {discharged ? '❌ ออกจากโรงพยาบาลแล้ว' : '✅ อยู่ในโรงพยาบาล'}
+                    {discharged ? '❌ ออกจากศูนย์แล้ว' : '✅ อยู่ในศูนย์'}
                   </p>
                   {discharged && formData.toDate && (
                     <p className="text-sm text-gray-600 mt-1">วันจำหน่าย: {formData.toDate}</p>
