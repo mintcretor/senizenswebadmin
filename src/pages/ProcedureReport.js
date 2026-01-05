@@ -33,7 +33,7 @@ const ProcedureReport = () => {
         }
       );
       const result = await response.json();
-      
+     // console.log('Fetch result:', result);
       if (result.success) {
         // ดึงรายละเอียดของแต่ละ record
         const detailedRecords = await Promise.all(
@@ -50,6 +50,7 @@ const ProcedureReport = () => {
             return detailResult.success ? detailResult.data : record;
           })
         );
+        console.log('Detailed Records:', detailedRecords);
         setRecords(detailedRecords);
       }
     } catch (error) {
@@ -99,10 +100,17 @@ const ProcedureReport = () => {
       'เวลา',
       'เวร',
       'HN',
+      'ห้อง',
       'ชื่อ-นามสกุล',
       'Service Number',
       'หัตถการพยาบาล',
       'หัตถการไม่คิดเงิน',
+      'รูปแบบสัญญา',
+      'เวชภัณฑ์',
+      'ราคาเวชภัณฑ์',
+      'รายการเหมา',
+      'ราคารายการเหมา',
+      'ราคารวมสัญญา',
       'ผู้บันทึก',
       'หมายเหตุ'
     ]);
@@ -117,15 +125,47 @@ const ProcedureReport = () => {
         p.procedure_name
       ).join(', ') || '-';
 
+      // ✅ ข้อมูล contract
+      const billingType = record.contract?.billing_type || '-';
+      const totalPrice = record.contract?.total_price 
+        ? `${parseFloat(record.contract.total_price).toLocaleString()} บาท`
+        : '-';
+    
+
+      // ✅ Medical Supplies
+      const medicalSupplies = record.contract?.medical_supplies?.map(m => 
+        m.item_name
+      ).join(', ') || '-';
+      
+      const medicalPrices = record.contract?.medical_supplies?.map(m => 
+        `${parseFloat(m.final_price).toLocaleString()} บาท`
+      ).join(', ') || '-';
+
+      // ✅ Contract Items
+      const contractItems = record.contract?.contract_items?.map(item => 
+        item.item_name
+      ).join(', ') || '-';
+      
+      const contractPrices = record.contract?.contract_items?.map(item => 
+        `${parseFloat(item.final_price).toLocaleString()} บาท`
+      ).join(', ') || '-';
+
       excelData.push([
         record.record_date,
         record.record_time,
         record.shift,
         record.hn,
+        record.room_number || '-',
         `${record.first_name} ${record.last_name}`,
         record.service_number,
         procedures,
         nonChargeable,
+        billingType,
+        medicalSupplies,
+        medicalPrices,
+        contractItems,
+        contractPrices,
+        totalPrice,
         record.created_by_name || '-',
         record.note || '-'
       ]);
@@ -150,6 +190,7 @@ const ProcedureReport = () => {
     link.click();
     document.body.removeChild(link);
   };
+
 
   const getPerformerLabel = (performer) => {
     return performer === 'nurse' ? 'พยาบาล' : 'ผู้ช่วย';

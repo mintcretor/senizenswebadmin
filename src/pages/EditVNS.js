@@ -42,6 +42,9 @@ export default function EditVN() {
     lastName: '',
     idNumber: '',
     clinicType: 'STROKE',
+    department_name: '',
+    department_code: '',
+    description: '',
     date: '',
     toDate: '',
     building: '',
@@ -152,7 +155,6 @@ export default function EditVN() {
     }
   };
 
-  // ✅ Generate HTML for printing - แบบฟอร์ม VN จริง
   const generatePrintHTML = () => {
     const today = new Date();
     const thaiDate = formatThaiDate(today);
@@ -186,8 +188,8 @@ export default function EditVN() {
           max-width: 210mm;
           margin: 0 auto;
           background: white;
-          font-size: 14px;
-          line-height: 1.4;
+          font-size: 16px;  /* เพิ่มจาก 14px */
+          line-height: 1.5;  /* เพิ่มจาก 1.4 */
         }
         
         .header {
@@ -206,12 +208,12 @@ export default function EditVN() {
         }
         
         .logo {
-          width: 60px;
-          height: 60px;
+          width: 70px;  /* เพิ่มจาก 60px */
+          height: 70px;
         }
         
         .hospital-name {
-          font-size: 20px;
+          font-size: 24px;  /* เพิ่มจาก 20px */
           font-weight: bold;
         }
         
@@ -220,7 +222,7 @@ export default function EditVN() {
         }
         
         .vn-label {
-          font-size: 12px;
+          font-size: 14px;  /* เพิ่มจาก 12px */
           margin-bottom: 5px;
         }
         
@@ -228,7 +230,7 @@ export default function EditVN() {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 16px;
+          font-size: 18px;  /* เพิ่มจาก 16px */
           font-weight: bold;
         }
         
@@ -237,15 +239,16 @@ export default function EditVN() {
           padding: 5px 15px;
           min-width: 100px;
           text-align: center;
+          font-size: 18px;  /* เพิ่ม */
         }
         
         .print-date {
-          font-size: 11px;
+          font-size: 13px;  /* เพิ่มจาก 11px */
           margin-top: 5px;
         }
         
         .contract-label {
-          font-size: 12px;
+          font-size: 14px;  /* เพิ่มจาก 12px */
           margin-bottom: 3px;
         }
         
@@ -256,7 +259,7 @@ export default function EditVN() {
         .info-row {
           display: flex;
           margin-bottom: 8px;
-          font-size: 13px;
+          font-size: 15px;  /* เพิ่มจาก 13px */
         }
         
         .info-row strong {
@@ -274,6 +277,7 @@ export default function EditVN() {
           display: flex;
           gap: 30px;
           margin-bottom: 8px;
+          font-size: 15px;  /* เพิ่ม */
         }
         
         .flex-item {
@@ -282,11 +286,11 @@ export default function EditVN() {
         
         .section-header {
           background: #f0f0f0;
-          padding: 5px 10px;
+          padding: 6px 10px;  /* เพิ่ม padding */
           font-weight: bold;
           margin: 15px 0 10px 0;
           border-left: 4px solid #333;
-          font-size: 14px;
+          font-size: 16px;  /* เพิ่มจาก 14px */
         }
         
         .doctor-section {
@@ -302,15 +306,16 @@ export default function EditVN() {
         .doctor-table th {
           background: #f5f5f5;
           border: 1px solid #ccc;
-          padding: 5px;
-          font-size: 12px;
+          padding: 8px;  /* เพิ่มจาก 5px */
+          font-size: 14px;  /* เพิ่มจาก 12px */
           text-align: center;
         }
         
         .doctor-table td {
           border: 1px solid #ccc;
-          padding: 5px;
-          height: 25px;
+          padding: 8px;  /* เพิ่มจาก 5px */
+          height: 30px;  /* เพิ่มจาก 25px */
+          font-size: 14px;  /* เพิ่ม */
         }
         
         .checkbox-section {
@@ -320,7 +325,7 @@ export default function EditVN() {
         .checkbox-title {
           font-weight: bold;
           margin-bottom: 8px;
-          font-size: 13px;
+          font-size: 15px;  /* เพิ่มจาก 13px */
         }
         
         .checkbox-grid {
@@ -334,12 +339,12 @@ export default function EditVN() {
           display: flex;
           align-items: center;
           gap: 5px;
-          font-size: 12px;
+          font-size: 14px;  /* เพิ่มจาก 12px */
         }
         
         .checkbox {
-          width: 15px;
-          height: 15px;
+          width: 16px;  /* เพิ่มจาก 15px */
+          height: 16px;
           border: 1px solid #333;
           display: inline-block;
         }
@@ -349,27 +354,27 @@ export default function EditVN() {
           font-weight: bold;
           display: block;
           text-align: center;
-          line-height: 15px;
+          line-height: 16px;  /* เพิ่มจาก 15px */
         }
         
         table {
           width: 100%;
           border-collapse: collapse;
           margin: 10px 0;
-          font-size: 12px;
+          font-size: 14px;  /* เพิ่มจาก 12px */
         }
         
         table th {
           background: #e8e8e8;
           border: 1px solid #999;
-          padding: 6px;
+          padding: 8px;  /* เพิ่มจาก 6px */
           text-align: left;
           font-weight: bold;
         }
         
         table td {
           border: 1px solid #ccc;
-          padding: 5px;
+          padding: 6px;  /* เพิ่มจาก 5px */
         }
         
         .text-right {
@@ -391,27 +396,28 @@ export default function EditVN() {
           display: flex;
           justify-content: space-between;
           padding: 3px 0;
-          font-size: 13px;
+          font-size: 15px;  /* เพิ่มจาก 13px */
         }
         
         .total-row.grand-total {
           border-top: 2px solid #333;
           margin-top: 8px;
           padding-top: 8px;
-          font-size: 16px;
+          font-size: 18px;  /* เพิ่มจาก 16px */
           font-weight: bold;
         }
         
         .contact-section {
           margin: 15px 0;
           border: 1px solid #ccc;
-          padding: 10px;
+          padding: 12px;  /* เพิ่มจาก 10px */
+          font-size: 15px;  /* เพิ่ม */
         }
         
         .contact-title {
           font-weight: bold;
           margin-bottom: 8px;
-          font-size: 13px;
+          font-size: 15px;  /* เพิ่มจาก 13px */
         }
         
         .signature-section {
@@ -429,7 +435,7 @@ export default function EditVN() {
           border-top: 1px solid #333;
           margin: 50px 20px 8px 20px;
           padding-top: 5px;
-          font-size: 12px;
+          font-size: 14px;  /* เพิ่มจาก 12px */
         }
         
         .barcode-section {
@@ -437,7 +443,7 @@ export default function EditVN() {
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          font-size: 11px;
+          font-size: 13px;  /* เพิ่มจาก 11px */
         }
         
         .barcode {
@@ -450,16 +456,16 @@ export default function EditVN() {
         
         .footer-note {
           margin-top: 15px;
-          font-size: 11px;
+          font-size: 13px;  /* เพิ่มจาก 11px */
           color: #666;
           text-align: center;
         }
         
         .status-badge {
           display: inline-block;
-          padding: 3px 10px;
+          padding: 4px 12px;  /* เพิ่ม */
           border-radius: 3px;
-          font-size: 12px;
+          font-size: 14px;  /* เพิ่มจาก 12px */
           font-weight: bold;
           margin-left: 10px;
         }
@@ -543,58 +549,58 @@ export default function EditVN() {
       </div>
 
       <!-- Doctor Section -->
-      <div class="doctor-section">
-        <div class="section-header">แพทย์ผู้รักษา</div>
-        <table class="doctor-table">
-          <thead>
-            <tr>
-              <th style="width: 40%;">Doctor Name</th>
-              <th style="width: 30%;">Doctor Code</th>
-              <th style="width: 30%;">Clinic</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>-</td>
-              <td class="text-center">-</td>
-              <td class="text-center">-</td>
-            </tr>
-            <tr>
-              <td>-</td>
-              <td class="text-center">-</td>
-              <td class="text-center">-</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+<div class="doctor-section">
+  <div class="section-header">แพทย์ผู้รักษา</div>
+  <table class="doctor-table">
+    <thead>
+      <tr>
+        <th style="width: 40%;">Doctor Name</th>
+        <th style="width: 30%;">Department Code</th>
+        <th style="width: 30%;">Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>${formData.department_name || '-'}</td>
+        <td class="text-center">${formData.department_code || '-'}</td>
+        <td class="text-center">${formData.description || '-'}</td>
+      </tr>
+      <tr>
+        <td>-</td>
+        <td class="text-center">-</td>
+        <td class="text-center">-</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-      <!-- Checkbox Sections -->
-      <div class="checkbox-section">
-        <div class="checkbox-title">สำหรับ</div>
-        <div class="checkbox-grid">
-          <div class="checkbox-item">
-            <span class="checkbox"></span> LAB
-          </div>
-          <div class="checkbox-item">
-            <span class="checkbox"></span> X-ray
-          </div>
-          <div class="checkbox-item">
-            <span class="checkbox"></span> กายภาพ
-          </div>
-          <div class="checkbox-item">
-            <span class="checkbox"></span> Hemodialysis
-          </div>
-          <div class="checkbox-item">
-            <span class="checkbox"></span> Injection
-          </div>
-          <div class="checkbox-item">
-            <span class="checkbox"></span> Dressing
-          </div>
-           <div class="checkbox-item">
-            <span class="checkbox"></span> Wellness
-          </div>
-        </div>
-      </div>
+<!-- Checkbox Sections -->
+<div class="checkbox-section">
+  <div class="checkbox-title">สำหรับ</div>
+  <div class="checkbox-grid">
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'LAB' ? 'checked' : ''}"></span> LAB
+    </div>
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'XRAY' ? 'checked' : ''}"></span> X-ray
+    </div>
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'PHYSIO' ? 'checked' : ''}"></span> กายภาพ
+    </div>
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'DIALYSIS' ? 'checked' : ''}"></span> Hemodialysis
+    </div>
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'INJECTION' ? 'checked' : ''}"></span> Injection
+    </div>
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'DRESSING' ? 'checked' : ''}"></span> Dressing
+    </div>
+    <div class="checkbox-item">
+      <span class="checkbox ${formData.department_code === 'WELLNESS' ? 'checked' : ''}"></span> Wellness
+    </div>
+  </div>
+</div>
 
       
       <!-- Contact Section -->
@@ -645,7 +651,7 @@ export default function EditVN() {
     </html>
   `;
   };
-  // ... (rest of the existing code remains the same until the return statement)
+
 
   const fetchServiceRegistration = async (vnId) => {
     try {
@@ -678,10 +684,14 @@ export default function EditVN() {
         idNumber: serviceReg.id_card || '',
         an: serviceReg.service_number || '',
         gender: serviceReg.gender || '',
+        birth_date: serviceReg.birth_date ? serviceReg.birth_date.split('T')[0] : '',
+        age: serviceReg.age?.toString() || '',
         date: serviceReg.contract_start_date ? serviceReg.contract_start_date.split('T')[0] : '',
         toDate: serviceReg.contract_end_date ? serviceReg.contract_end_date.split('T')[0] : '',
         building: serviceReg.room_number || '',
+        department_name: serviceReg.department_name || '',
         type: serviceReg.room_type || '',
+        department_code: serviceReg.department_code || '',
         description: serviceReg.description || '',
         floor: serviceReg.billing_type || 'รายสัปดาห์',
         price: serviceReg.base_price?.toString() || '',
