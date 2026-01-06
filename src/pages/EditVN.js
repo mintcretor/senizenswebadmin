@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronDown, Plus, Edit, Trash2, X, Package, Search, FileText } from 'lucide-react';
+import { Upload, ChevronDown, Plus, Edit, Trash2, X, Package, Search, FileText, LogOut } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../api/baseapi';
+import { generateBarcode } from '../utils/barcodeGenerator.js';
+import { calculateMonthsAndDays } from '../utils/dateCalculator.js';
+import PizZip from 'pizzip';
+import Docxtemplater from 'docxtemplater';
+import { processPatientName } from '../utils/prenameUtils.js';
+import { saveAs } from 'file-saver';
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -17,6 +23,13 @@ export default function EditVN() {
   const vnFromState = location.state?.vnId || vnId;
 
   const [error, setError] = useState(null);
+
+  // Discharge states
+  const [discharged, setDischarged] = useState(false);
+  const [dischargeLoading, setDischargeLoading] = useState(false);
+  const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [dischargeDate, setDischargeDate] = useState('');
+  const [dischargeNotes, setDischargeNotes] = useState('');
 
   const [formData, setFormData] = useState({
     hn: '',
@@ -127,6 +140,8 @@ export default function EditVN() {
       const serviceReg = result.data;
       setService_id(serviceReg.registration_id);
       setPatient_id(serviceReg.patient_id);
+      const isDischargedStatus = serviceReg.status === 'discharged';
+      setDischarged(isDischargedStatus);
 
       console.log('📋 Service Registration Data:', serviceReg);
       setFormData(prev => ({
@@ -155,7 +170,7 @@ export default function EditVN() {
       // ============================================
       if (serviceReg.contract) {
         console.log('📦 Processing contract data...');
-        
+
         // ✅ Set packages
         if (serviceReg.contract.packages && Array.isArray(serviceReg.contract.packages)) {
           const formattedPackages = serviceReg.contract.packages.map(pkg => ({
@@ -220,6 +235,107 @@ export default function EditVN() {
       setError(errorMsg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ✅ Handle Discharge - Mock Function
+  const handleDischarge = async () => {
+    try {
+      setDischargeLoading(true);
+      setError(null);
+
+      if (!dischargeDate) {
+        setError('กรุณาเลือกวันที่จำหน่าย');
+        return;
+      }
+
+      console.log('📤 Discharging patient:', {
+        service_id,
+        discharge_date: dischargeDate,
+        discharge_notes: dischargeNotes
+      });
+
+      // ✅ เรียก API
+      const response = await api.patch(
+        `/service-registrations/${service_id}/discharge`,
+        {
+          discharge_date: dischargeDate,
+          discharge_notes: dischargeNotes || null
+        }
+      );
+
+      const result = response.data;
+
+      if (!result.success) {
+        throw new Error(result.error || 'ไม่สามารถจำหน่ายผู้ป่วยได้');
+      }
+
+      console.log('✅ Discharge success:', result);
+
+      // Update UI
+      setDischarged(true);
+      setFormData(prev => ({
+        ...prev,
+        toDate: dischargeDate
+      }));
+
+      // Close modal
+      setShowDischargeModal(false);
+      setDischargeDate('');
+      setDischargeNotes('');
+
+      alert('✅ จำหน่ายผู้ป่วยสำเร็จ!');
+
+      // (Optional) Refresh ข้อมูล
+      await fetchServiceRegistration(vnFromState);
+
+    } catch (err) {
+      console.error('❌ Discharge error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการจำหน่ายผู้ป่วย';
+      setError(errorMsg);
+    } finally {
+      setDischargeLoading(false);
+    }
+  };
+
+  const handleUndischarge = async () => {
+    try {
+      setDischargeLoading(true);
+      setError(null);
+
+      console.log('📤 Un-discharging patient:', { service_id });
+
+      // ✅ เรียก API
+      const response = await api.patch(
+        `/service-registrations/${service_id}/undischarge`
+      );
+
+      const result = response.data;
+
+      if (!result.success) {
+        throw new Error(result.error || 'ไม่สามารถยกเลิกการจำหน่ายได้');
+      }
+
+      console.log('✅ Un-discharge success:', result);
+
+      // Update UI
+      setDischarged(false);
+      setFormData(prev => ({
+        ...prev,
+        toDate: '' // Clear discharge date
+      }));
+
+      alert('✅ ยกเลิกการจำหน่ายสำเร็จ!');
+
+      // (Optional) Refresh ข้อมูล
+      await fetchServiceRegistration(vnFromState);
+
+    } catch (err) {
+      console.error('❌ Un-discharge error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'เกิดข้อผิดพลาดในการยกเลิกการจำหน่าย';
+      setError(errorMsg);
+    } finally {
+      setDischargeLoading(false);
     }
   };
 
@@ -391,9 +507,9 @@ export default function EditVN() {
     console.log('🏠 Room changed to:', e.target.value);
     console.log('Available rooms:', rooms);
     const roomId = e.target.value;
-    const room = rooms.find(r =>   r.room_number === roomId);
+    const room = rooms.find(r => r.room_number === roomId);
     console.log('Selected room object:', room);
-    
+
     if (room) {
       setSelectedRoom(room);
       const defaultBillingType = 'รายวัน';
@@ -401,7 +517,7 @@ export default function EditVN() {
 
       setFormData(prev => ({
         ...prev,
-        building: room.room_number, 
+        building: room.room_number,
         roomTypeId: room.id,
         floor: defaultBillingType,
         price: defaultPrice.toString()
@@ -504,6 +620,164 @@ export default function EditVN() {
     closeModal();
   };
 
+  const exportToWord = async (formData, templatePath, setError) => {
+    try {
+      console.log('Starting Word export...');
+      console.log('Form data:', formData);
+
+      // 👇 เพิ่มตรงนี้
+      const now = new Date();
+      const dateNow = formatThaiDate(now);        // "05/12/2568"
+      const timeNow = formatThaiTime(now);        // "15:30:45"
+      const effectiveDate = formatWesternDate(now); // "5 Dec 2024"
+
+      console.log('Effective Date:', effectiveDate);
+      // 👆 จบ
+
+      // 🔹 เพิ่มตรงนี้ - สร้าง barcode จาก HN (บรรทัด 8-20)
+      let barcodeData = null;
+      if (formData.hn) {
+        const base64 = await generateBarcode(formData.hn);
+        if (base64) {
+          barcodeData = {
+            data: base64,
+            opts: {
+              width: 100,
+              height: 50
+            }
+          };
+        }
+        console.log('Barcode generated');
+      }
+
+      // 🆕 คำนวณเดือนและวัน (ใช้ฟังก์ชันที่ import มา)
+      let totalMonths = '';
+      let totalDays = '';
+      if (formData.date && formData.toDate) {
+        const result = calculateMonthsAndDays(formData.date, formData.toDate);
+        // ❌ FIX: ผลลัพธ์มีแค่ months, days (ไม่มี year)
+        totalMonths = result.months.toString();
+        totalDays = result.days.toString();
+        console.log('Calculated months:', result.months, 'days:', result.days);
+      }
+      // Fetch the template
+      const response = await fetch(templatePath);
+
+      if (!response.ok) {
+        throw new Error(`Failed to load template: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('Template loaded, size:', arrayBuffer.byteLength);
+
+      // Create PizZip instance
+      const zip = new PizZip(arrayBuffer);
+      console.log('PizZip created');
+
+      // Create Docxtemplater instance
+      const doc = new Docxtemplater(zip, {
+        linebreaks: true,
+        delimiters: {
+          start: '{{',
+          end: '}}'
+        }
+      });
+      console.log('Docxtemplater initialized');
+
+      const patientInfo = processPatientName({
+        prename: formData.prename,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        gender: formData.gender
+      });
+
+      // Prepare data for template
+      const data = {
+        hn: formData.hn || '',
+        prename: formData.prename || '',
+        firstName: formData.firstName || '',
+        lastName: formData.lastName || '',
+        birthDate: formData.birth_date || '..........................................',
+        age: formData.age || '................................................',
+        idCard: formData.idNumber || '.............',
+        address: formData.address || '...................',
+        village: formData.village || '....................',
+        subDistrict: formData.subDistrict || '....................',
+        district: formData.district || '....................',
+        province: formData.province || '....................',
+        phone: formData.phone || '....................',
+        email: formData.email || '....................',
+        lineId: formData.lineId || '....................',
+        relationship: formData.relationship || '....................',
+        patientName: formData.patientName || '....................',
+        patientAge: formData.patientAge || '....................',
+        patientIdCard: formData.patientIdCard || '...............................................................',
+        startDate: formData.date || '',
+        endDate: formData.toDate || '',
+        totalMonths: totalMonths || '',
+        totalDays: totalDays || '',
+        roomType: formData.floor || '',
+        roomNumber: formData.building || '',
+        serviceRate: formData.serviceRate || '....................',
+        nursingRate: formData.nursingRate || '....................',
+        medicalSupplies: formData.medicalSupplies || '...........................................................................................................................................................',
+        doctorVisitRate: formData.doctorVisitRate || '........................',
+        initialExamFee: formData.initialExamFee || '........................',
+        totalServiceFee: formData.totalServiceFee || '........................',
+        extraDoctorVisitFee: formData.extraDoctorVisitFee || '........................',
+        finalGender: patientInfo.finalGender,
+        // ✅ แล้วเพิ่มต่อด้วย:
+        dateNow: dateNow,                          // "05/12/2568"
+        timeNow: timeNow,                          // "15:30:45"
+        dateTimeNow: `${dateNow} ${timeNow}`,      // "05/12/2568 15:30:45"
+        effectiveDate: effectiveDate,               // "5 Dec 2024"
+
+      };
+
+      console.log('Data prepared:', data);
+
+      // Set data in template
+      doc.setData(data);
+      console.log('Data set in template');
+
+      // Render the template
+      doc.render();
+      console.log('Template rendered');
+
+      // Generate the document
+      const blob = doc.getZip().generate({ type: 'blob' });
+      console.log('Blob generated, size:', blob.size);
+
+      // Save the file
+      const fileName = `สัญญา_${formData.firstName || 'contract'}_${formData.lastName || 'document'}.docx`;
+      saveAs(blob, fileName);
+      console.log('File saved:', fileName);
+
+      setError(null);
+      alert('Export Word สำเร็จ!');
+    } catch (error) {
+      console.error('Error exporting to Word:', error);
+      console.error('Error stack:', error.stack);
+      console.error('Error properties:', error.properties);
+      setError(`เกิดข้อผิดพลาดในการ export Word: ${error.message}`);
+      alert(`Error: ${error.message}`);
+    }
+  };
+
+const formatWesternDate = (date) => {
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+  const formatThaiTime = (date) => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  };
   const handleEdit = (type, index) => {
     let item;
     if (type === 'package') item = packageData[index];
@@ -667,14 +941,17 @@ export default function EditVN() {
             <h1 className="text-2xl font-bold text-gray-800 mr-auto">
               แก้ไขข้อมูลผู้รับบริการ (VN)
             </h1>
+
             <div className="flex items-center space-x-4">
               <button
+                onClick={() => exportToWord(formData, '/templates/CODE1.docx', setError)}
                 className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
               >
                 <FileText className="w-4 h-4" />
                 <span>สัญญาจ้างทางการแพทย์</span>
               </button>
               <button
+                onClick={() => exportToWord(formData, '/templates/เอกสารAdmit.docx', setError)}
                 className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
               >
                 📄 เอกสาร Admit
@@ -726,6 +1003,46 @@ export default function EditVN() {
               </button>
             </div>
           )}
+
+          {/* Discharge Status Section */}
+          <div className="mb-6 p-4 border-2 rounded-lg" style={{
+            borderColor: discharged ? '#dc2626' : '#10b981',
+            backgroundColor: discharged ? '#fee2e2' : '#f0fdf4'
+          }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <LogOut className={`w-6 h-6 ${discharged ? 'text-red-600' : 'text-green-600'}`} />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">สถานะผู้ป่วย</p>
+                  <p className={`text-lg font-bold ${discharged ? 'text-red-600' : 'text-green-600'}`}>
+                    {discharged ? '❌ ออกจากศูนย์แล้ว' : '✅ อยู่ในศูนย์'}
+                  </p>
+                  {discharged && formData.toDate && (
+                    <p className="text-sm text-gray-600 mt-1">วันจำหน่าย: {formData.toDate}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!discharged) {
+                    setShowDischargeModal(true);
+                  } else {
+                    if (window.confirm('ต้องการยกเลิกการจำหน่ายผู้ป่วยหรือไม่?')) {
+                      handleUndischarge();
+                    }
+                  }
+                }}
+                disabled={dischargeLoading}
+                className={`px-6 py-3 font-semibold rounded-lg text-white transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${discharged
+                  ? 'bg-orange-600 hover:bg-orange-700'
+                  : 'bg-green-600 hover:bg-green-700'
+                  }`}
+              >
+                <LogOut className="w-4 h-4" />
+                {discharged ? 'ยกเลิกการจำหน่าย' : 'จำหน่ายผู้ป่วย'}
+              </button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg h-full">
@@ -1134,6 +1451,59 @@ export default function EditVN() {
         </div>
       </div>
 
+      {/* Discharge Modal */}
+      {showDischargeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">จำหน่ายผู้ป่วย</h3>
+              <button onClick={() => setShowDischargeModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">วันที่จำหน่าย</label>
+                <input
+                  type="date"
+                  value={dischargeDate}
+                  onChange={(e) => setDischargeDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ (ไม่จำเป็น)</label>
+                <textarea
+                  value={dischargeNotes}
+                  onChange={(e) => setDischargeNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  rows="3"
+                  placeholder="กรอกหมายเหตุเพิ่มเติม..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowDischargeModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleDischarge}
+                disabled={dischargeLoading || !dischargeDate}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {dischargeLoading ? 'กำลังบันทึก...' : 'ยืนยันการจำหน่าย'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search Results Modal */}
       {showSearchModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1241,8 +1611,8 @@ export default function EditVN() {
                     key={pkg.id}
                     onClick={() => setSelectedPackageForPatient(pkg)}
                     className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedPackageForPatient?.id === pkg.id
-                        ? 'border-purple-600 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300'
+                      ? 'border-purple-600 bg-purple-50'
+                      : 'border-gray-200 hover:border-purple-300'
                       }`}
                   >
                     <h3 className="font-semibold text-gray-900">{pkg.name}</h3>
@@ -1262,11 +1632,6 @@ export default function EditVN() {
               <button
                 onClick={() => {
                   if (selectedPackageForPatient) {
-                    console.log('✅ Adding package:', {
-                      id: selectedPackageForPatient.id,
-                      name: selectedPackageForPatient.name,
-                      price: selectedPackageForPatient.price
-                    });
                     const newPackage = {
                       id: Date.now(),
                       name: selectedPackageForPatient.name,
@@ -1308,8 +1673,8 @@ export default function EditVN() {
                     key={item.id}
                     onClick={() => setSelectedMedical(item)}
                     className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedMedical?.id === item.id
-                        ? 'border-green-600 bg-green-50'
-                        : 'border-gray-200 hover:border-green-300'
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 hover:border-green-300'
                       }`}
                   >
                     <h3 className="font-semibold text-gray-900">{item.name}</h3>
@@ -1369,8 +1734,8 @@ export default function EditVN() {
                     key={item.id}
                     onClick={() => setSelectedContract(item)}
                     className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${selectedContract?.id === item.id
-                        ? 'border-purple-600 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300'
+                      ? 'border-purple-600 bg-purple-50'
+                      : 'border-gray-200 hover:border-purple-300'
                       }`}
                   >
                     <h3 className="font-semibold text-gray-900">{item.name}</h3>
