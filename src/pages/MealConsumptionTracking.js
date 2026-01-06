@@ -288,6 +288,12 @@ const MealConsumptionTracking = () => {
     setDisplayCount(prev => prev + 10);
   };
 
+  // ✅ Get patient name by HN from allPatients
+  const getPatientNameByHN = (hn) => {
+    const patient = allPatients.find(p => p.hn === hn);
+    return patient ? patient.name : 'ไม่พบชื่อผู้ป่วย';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -638,8 +644,15 @@ const MealConsumptionTracking = () => {
               dailySummary.map((summary) => (
                 <div key={summary.id} className="bg-white rounded-lg shadow overflow-hidden">
                   <div className="p-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                    <h3 className="font-bold text-lg">{summary.patientName}</h3>
-                    <p className="text-sm opacity-90">HN: {summary.patientHN}</p>
+                    <div className="flex items-center gap-3">
+                      <User className="w-6 h-6" />
+                      <div>
+                        <h3 className="font-bold text-lg">
+                          {summary.patientName || getPatientNameByHN(summary.patientHN)}
+                        </h3>
+                        <p className="text-sm opacity-90">HN: {summary.patientHN}</p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
