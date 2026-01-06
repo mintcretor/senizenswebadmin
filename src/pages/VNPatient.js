@@ -193,6 +193,9 @@ export default function ThaiServiceForm() {
       firstName: patient.first_name || patient.firstName || '',
       lastName: patient.last_name || patient.lastName || '',
       idNumber: patient.id_card || patient.idNumber || '',
+      birth_date: patient.birth_date ? patient.birth_date.split('T')[0] : '',
+      age: patient.age ? patient.age.toString() : '',
+      gender: patient.gender || '',
     }));
     setPatient_id(patient.id);
     if (patient.profile_image) {
@@ -366,7 +369,7 @@ export default function ThaiServiceForm() {
         firstName: formData.firstName || '',
         lastName: formData.lastName || '',
         birthDate: formData.birth_date || '..........................................',
-        age: formData.age || '................................................',
+        age: formData.age ? formData.age.toString() : '................................................',
         idCard: formData.idNumber || '.............',
         address: formData.address || '...................',
         village: formData.village || '....................',
@@ -466,6 +469,9 @@ export default function ThaiServiceForm() {
         firstName: patientData.first_name,
         lastName: patientData.last_name,
         idNumber: patientData.id_card,
+        birth_date: patientData.birth_date ? patientData.birth_date.split('T')[0] : '',
+        age: patientData.age ? patientData.age.toString() : '',
+        gender: patientData.gender || '',
       }));
 
 
@@ -879,7 +885,7 @@ export default function ThaiServiceForm() {
                   <span>สัญญาจ้างทางการแพทย์</span>
                 </button>
                 <button
-                  onClick={() => exportToWord(formData, '/templates/เอกสารAdmit.docx', setError)}
+                  onClick={() => exportToWord(formData, '/templates/เอกสารAdmitnoan.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                 >
                   📄 เอกสาร Admit
