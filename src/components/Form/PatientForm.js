@@ -442,10 +442,22 @@ const PatientForm = ({ mode = "add" }) => {
   }, [mode, id]);
 
   useEffect(() => {
-    if (mode === "edit" && initialDataLoaded && patientData.province) {
-      loadProvincesForEdit(patientData.province, patientData.district);
-    }
-  }, [initialDataLoaded, patientData.province, patientData.district]);
+  if (mode === "edit" && initialDataLoaded && patientData.province) {
+    // โหลดอำเภอและตำบลตามลำดับ
+    const loadLocationData = async () => {
+      // โหลดอำเภอ
+      if (patientData.province) {
+        await loadDistricts(patientData.province);
+      }
+      // โหลดตำบล (ต้องรอให้อำเภอโหลดเสร็จก่อน)
+      if (patientData.district) {
+        await loadSubDistricts(patientData.district);
+      }
+    };
+    
+    loadLocationData();
+  }
+}, [initialDataLoaded, patientData.province, patientData.district]);
 
   const savePatientData = async (patientData, allergies, emergencyContacts, imageUrl = null) => {
     const payload = {
@@ -515,39 +527,43 @@ const PatientForm = ({ mode = "add" }) => {
       showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
     }
   };
-  const loadPatientDataForEdit = async () => {
-    try {
-      setIsLoading(true);
-      if (patientFromState) {
-        // ใช้ข้อมูลที่ส่งมาจาก location.state
-        populateFormData(patientFromState);
-      } else {
-        // Fetch ข้อมูลจาก API ด้วย patient ID
-        const result = await apiRequest(`/patients/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        if (result.success && result.data) {
-          populateFormData(result.data.data || result.data);
-        } else {
-          showToast('ไม่สามารถโหลดข้อมูลผู้รับบริการได้', 'error');
-          navigate('/Patient');
+const loadPatientDataForEdit = async () => {
+  try {
+    setIsLoading(true);
+    
+    // โหลดจังหวัดก่อนเสมอ
+    await loadProvinces();
+    
+    if (patientFromState) {
+      // ใช้ข้อมูลที่ส่งมาจาก location.state
+      populateFormData(patientFromState);
+    } else {
+      // Fetch ข้อมูลจาก API ด้วย patient ID
+      const result = await apiRequest(`/patients/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
+      });
+      console.log('Patient data fetched for edit:', result);
+      if (result.success && result.data) {
+        populateFormData(result.data.data || result.data);
+      } else {
+        showToast('ไม่สามารถโหลดข้อมูลผู้รับบริการได้', 'error');
+        navigate('/Patient');
       }
-
-      // โหลด provinces และ dependent data
-      await loadProvinces();
-      setInitialDataLoaded(true);
-
-    } catch (error) {
-      console.error('Load patient data error:', error);
-      showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
-      navigate('/Patient');
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+    setInitialDataLoaded(true);
+
+  } catch (error) {
+    console.error('Load patient data error:', error);
+    showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+    navigate('/Patient');
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const getSaveButtonText = () => {
     if (isSaving) {
@@ -555,42 +571,58 @@ const PatientForm = ({ mode = "add" }) => {
     }
     return mode === "edit" ? 'แก้ไขข้อมูล' : 'บันทึกข้อมูล';
   };
-  const populateFormData = (data) => {
-    setPatientData({
-      hn: data.hn || '',
-      idCard: data.id_card || data.idCard || '',
-      prename: data.prename || data.prename || '', // เพิ่มบรรทัดนี้
-      firstName: data.first_name || data.firstName || '',
-      lastName: data.last_name || data.lastName || '',
-      birthDate: data.birth_date || data.birthDate || '',
-      age: data.age || '',
-      gender: data.gender || '',
-      religion: data.religion || '',
-      nationality: data.nationality || 'ไทย',
-      race: data.ethnicity || data.race || 'ไทย',
-      bloodGroup: data.blood_type || data.bloodGroup || '',
-      houseNumber: data.house_number || data.houseNumber || '',
-      village: data.village || '',
-      subDistrict: data.subdistrict || data.subDistrict || '',
-      district: data.district || '',
-      province: data.province || '',
-      chronicDisease: data.chronic_disease || data.chronicDisease || '',
-      contactPhone: data.mobile || data.phone || data.contactPhone || ''
-    });
+const populateFormData = (data) => {
+  // แปลงวันเกิดจาก ISO string เป็น YYYY-MM-DD
+  let formattedBirthDate = '';
+  if (data.birth_date || data.birthDate) {
+    const birthDateStr = data.birth_date || data.birthDate;
+    const dateObj = new Date(birthDateStr);
+    if (!isNaN(dateObj.getTime())) {
+      formattedBirthDate = dateObj.toISOString().split('T')[0];
+    }
+  }
 
-    // ใส่ข้อมูล allergies และ emergency contacts ถ้ามี
-    if (data.allergies) {
-      setAllergies(data.allergies);
-    }
-    if (data.emergencyContacts) {
-      setEmergencyContacts(data.emergencyContacts);
-    }
-    // ใส่รูปภาพถ้ามี
-    if (data.imageUrl || data.profile_image) {
-      const imageUrl = data.imageUrl || data.profile_image;
-      setImageUrl(imageUrl);
-    }
-  };
+  // แปลงเพศจากรูปแบบย่อเป็นรูปแบบเต็ม
+  let genderValue = data.gender || '';
+  if (genderValue === 'ช') genderValue = 'ชาย';
+  else if (genderValue === 'ญ' || genderValue === 'หญ') genderValue = 'หญิง';
+
+  setPatientData({
+    hn: data.hn || '',
+    idCard: data.id_card || data.idCard || '',
+    prename: data.prename || '',
+    firstName: data.first_name || data.firstName || '',
+    lastName: data.last_name || data.lastName || '',
+    birthDate: formattedBirthDate,
+    age: data.age || '',
+    gender: genderValue,
+    religion: data.religion || '',
+    nationality: data.nationality || 'ไทย',
+    race: data.ethnicity || data.race || 'ไทย',
+    bloodGroup: data.blood_type || data.bloodGroup || '',
+    houseNumber: data.house_number || data.houseNumber || '',
+    village: data.village || '',
+    subDistrict: data.sub_district || data.subdistrict || data.subDistrict || '',
+    district: data.district || '',
+    province: data.province || '',
+    chronicDisease: data.chronic_disease || data.chronicDisease || '',
+    contactPhone: data.mobile || data.phone || data.contactPhone || ''
+  });
+
+  // ใส่ข้อมูล allergies และ emergency contacts ถ้ามี
+  if (data.allergies) {
+    setAllergies(data.allergies);
+  }
+  if (data.emergencyContacts) {
+    setEmergencyContacts(data.emergencyContacts);
+  }
+  // ใส่รูปภาพถ้ามี
+  if (data.imageUrl || data.profile_image) {
+    const imageUrl = data.imageUrl || data.profile_image;
+    setImageUrl(imageUrl);
+  }
+};
+
   // เพิ่มฟังก์ชันสำหรับโหลดอำเภอ
   const loadDistricts = async (provinceId) => {
     if (!provinceId) {
