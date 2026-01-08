@@ -156,7 +156,7 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
     // สร้าง HTML ตามต้นฉบับ
     container.innerHTML = `
-      <div style="padding: 15mm; font-size: 14px; line-height: 1.4; width: 210mm; min-height: 297mm; box-sizing: border-box; font-family: 'THSarabunNew', 'Sarabun', sans-serif;">
+      <div style="padding: 10mm; font-size: 14px; line-height: 1.4; width: 210mm; min-height: 297mm; box-sizing: border-box; font-family: 'THSarabunNew', 'Sarabun', sans-serif;">
         
         <!-- Header Section -->
         <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 0px;">
@@ -179,13 +179,13 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
                 <div>Tel : 02-412099 Mobile : 064-2496818</div>
               </div>
             </td>
-            <td style="width: 220px; vertical-align: top; text-align: right; padding-right: 0;  border: none;">
+            <td style="width: 230px; vertical-align: top; text-align: right; padding-right: 0;  border: none;">
               <div style="font-size: 13px;  margin-bottom: 5px;">ใบลงทะเบียนผู้ป่วย</div>
               <div style="font-size: 11px; ">Patient Registration Form</div>
               <div style="margin-top: 10px; ">
                 <table style="float: right; text-align: left; font-size: 11px; border: none;">                                                
                   <tr >
-                  <td  style="width: 55px; text-align: left; border: none;">Status</td>
+                  <td  style="width: 60px; text-align: left; border: none;">Status</td>
                     <td style=" width: 15px; text-align: left; border: none;">
                       <div style="width: 12px; height: 12px; border: 1px solid #000; display: inline-block; vertical-align: middle;"></div>
                     </td>
@@ -225,27 +225,25 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
           </table>
         </div>
 
-        <!-- Form Fields -->
+<div style="margin: 10px 0;">
+  ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)
+  <span style="display: inline-block; width: 400px; padding-left: 5px; padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline;">
+    ${fullNameTh}
+  </span>
+</div>
+
         <div style="margin: 10px 0;">
-          <div>ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)
-            <span style="display: inline-block; min-width: 400px; padding-left: 5px;">
-              ${fullNameTh}
+          Name(Mr./Mrs./Miss/Mast./Girl)
+  <span style="display: inline-block; width: 400px; padding-left: 5px; padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+              ${fullNameEn || '&nbsp;'}
             </span>
-          </div>
+          
         </div>
 
         <div style="margin: 10px 0;">
-          <div>Name(Mr./Mrs./Miss/Mast./Girl)
-            <span style="display: inline-block; min-width: 430px; padding-left: 5px;">
-              ${fullNameEn}
-            </span>
-          </div>
-        </div>
-
-        <div style="margin: 10px 0;">
-          <span>เพศ/SEX : </span>
-          <span style=" display: inline-block; min-width: 100px; padding-left: 5px;">
-            ${patientData.gender || ''}
+          เพศ/SEX : 
+  <span style="display: inline-block; width: 100px; padding-left: 5px; padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.gender || '&nbsp;'}
           </span>
         </div>
 
@@ -253,76 +251,76 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
           <div style="font-weight: bold;  margin-bottom: 5px; text-align: center;">ที่อยู่ปัจจุบันที่สามารถติดต่อได้(Present address)</div>
           <div style="margin: 5px 0;">
             ที่อยู่/ADDRESS : 
-            <span style=" display: inline-block; min-width: 60px; padding-left: 5px;">
-              ${patientData.house_number || ''}
+            <span style=" display: inline-block; min-width: 60px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+              ${patientData.house_number || '&nbsp;'}
             </span>
             หมู่/MOO : 
-            <span style=" display: inline-block; min-width: 60px; padding-left: 5px;">
-              ${patientData.village || ''}
+            <span style=" display: inline-block; min-width: 60px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+              ${patientData.village || '&nbsp;'}
             </span>
             ตำบล/Sub-district : 
-            <span style=" display: inline-block; min-width: 120px; padding-left: 5px;">
-              ${patientData.sub_district_name || ''}
+            <span style=" display: inline-block; min-width: 120px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+              ${patientData.sub_district_name || '&nbsp;'}
             </span>
           </div>
           <div style="margin: 5px 0;">
             อำเภอ/Region : 
-            <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-              ${patientData.district_name || ''}
+            <span style="display: inline-block; min-width: 120px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+              ${patientData.district_name || '&nbsp;'}
             </span>
             จังหวัด/Area : 
-            <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-              ${patientData.province_name || ''}
+            <span style="display: inline-block; min-width: 120px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+              ${patientData.province_name || '&nbsp;'}
             </span>
           </div>
         </div>
 
         <div style="margin: 10px 0;">
           <span>โทรศัพท์/TEL : </span>
-          <span style="display: inline-block; min-width: 150px; padding-left: 5px;">
-            ${patientData.phone || ''}
+          <span style="display: inline-block; min-width: 150px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.phone || '&nbsp;'}
           </span>
           <span style="margin-left: 20px;">ต่อ/Ext : </span>
-          <span style="display: inline-block; min-width: 60px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 60px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
           <span style="margin-left: 20px;">มือถือ/Mobile : </span>
-          <span style="display: inline-block; min-width: 150px; padding-left: 5px;">
-            ${patientData.phone || ''}
+          <span style="display: inline-block; min-width: 150px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.phone || '&nbsp;'}
           </span>
         </div>
 
         <div style="margin: 10px 0;">
-          <span>วันเดือนปีเกิด/Date of Birth : </span>
-          <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-            ${birthDateDisplay}
+          วันเดือนปีเกิด/Date of Birth : 
+          <span style="display: inline-block; min-width: 120px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${birthDateDisplay || '&nbsp;'}
           </span>
-          <span style="margin-left: 20px;">อายุ/AGE : </span>
-          <span style="display: inline-block; min-width: 50px; padding-left: 5px;">
-            ${ageDisplay}
+         อายุ/AGE :
+          <span style="display: inline-block; min-width: 50px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${ageDisplay || '&nbsp;'}
           </span>
           <span style="margin-left: 5px;">ปี/Yrs.</span>
-          <span style="margin-left: 20px;">สถานภาพ/STATUS : </span>
-          <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+         สถานภาพ/STATUS : 
+          <span style="display: inline-block; min-width: 100px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 10px 0;">
           <span>ศาสนา/Religion : </span>
-          <span style="display: inline-block; min-width: 150px; padding-left: 5px;">
-            ${patientData.religion || ''}
+          <span style="display: inline-block; min-width: 150px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.religion || '&nbsp;'}
           </span>
           <span style="margin-left: 40px;">สัญชาติ/NATIONALITY : </span>
-          <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-            ${patientData.nationality || ''}
+          <span style="display: inline-block; min-width: 120px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.nationality || '&nbsp;'}
           </span>
         </div>
 
         <div style="margin: 10px 0;">
           <span>อาชีพ/OCC. : </span>
-          <span style="display: inline-block; min-width: 180px; padding-left: 5px;">
-            ${patientData.ethnicity || ''}
+          <span style="display: inline-block; min-width: 180px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.ethnicity || '&nbsp;'}
           </span>
           <span style="margin-left: 40px;">E-mail : </span>
-          <span style="display: inline-block; min-width: 250px; padding-left: 5px;">
-            ${patientData.email || ''}
+          <span style="display: inline-block; min-width: 250px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.email || '&nbsp;'}
           </span>
         </div>
 
@@ -344,13 +342,13 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
         <div style="margin: 10px 0;">
           <span>ID Card/Passport </span>
-          <span style=" display: inline-block; min-width: 200px; padding-left: 5px;">
-            ${patientData.id_card || ''}
+          <span style=" display: inline-block; min-width: 150px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">
+            ${patientData.id_card || '&nbsp;'}
           </span>
           <span style="margin-left: 20px;">From Photocopy</span>
-          <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 100px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
           <span style="margin-left: 10px;">Date of expiry</span>
-          <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 100px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 10px 0;">
@@ -376,29 +374,29 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
         <div style="margin: 10px 0;">
           <span>ระบุชื่อยา/สารที่แพ้ Sensitive to </span>
-          <span style="display: inline-block; min-width: 350px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 350px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 10px 0;">
           <span>กรณีฉุกเฉินติดต่อญาติ  ชื่อ/สกุล </span>
-          <span style="display: inline-block; min-width: 250px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 250px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
           <span style="margin-left: 20px;">Blood Group / หมู่เลือด</span>
-          <span style="display: inline-block; min-width: 80px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 80px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 10px 0;">
           <span>In Case of emergency please notify Mr./Mrs./Miss </span>
-          <span style=" display: inline-block; min-width: 300px; padding-left: 5px;"></span>
+          <span style=" display: inline-block; min-width: 300px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 10px 0;">
           <span>ที่อยู่/Home Address </span>
-          <span style="display: inline-block; min-width: 500px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 500px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 10px 0;">
           <span>โทรศัพท์/Telephone Number </span>
-          <span style="display: inline-block; min-width: 450px; padding-left: 5px;"></span>
+          <span style="display: inline-block; min-width: 450px; padding-left: 5px;padding-bottom: 5px; border-bottom: 1px dotted #000; vertical-align: baseline; line-height: 1.4;">&nbsp;</span>
         </div>
 
         <div style="margin: 15px 0; font-weight: bold;">
