@@ -264,6 +264,7 @@ const MedicineLabelPrinter = () => {
       'q72h': 'ทุก 72 ชั่วโมง',
       'prn': 'เมื่อต้องการ',
       'stat': 'ทันที',
+      'sos':'ทานเมื่อมีอาการ'
     };
 
     if (!frequency) return '';
