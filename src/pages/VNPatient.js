@@ -13,6 +13,7 @@ import { calculateMonthsAndDays } from '../utils/dateCalculator.js';
 import { generateBarcode } from '../utils/barcodeGenerator.js';
 import ImageModule from 'docxtemplater-image-module-free';
 import { processPatientName } from '../utils/prenameUtils.js';
+import { exportPatientRegistrationPDF } from '../utils/exportPatientRegistration.js';
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -108,6 +109,8 @@ export default function ThaiServiceForm() {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
+
+  const [patientData, setPatientData] = useState(null);
 
   // Table data
   const [packageData, setPackageData] = useState([]);
@@ -461,6 +464,9 @@ export default function ThaiServiceForm() {
       const patientData = result.data;
 
       console.log('Patient data to set in form:', patientData);
+
+      // ✅ เพิ่มบรรทัดนี้
+      setPatientData(result.data);
 
       setFormData(prev => ({
         ...prev,
@@ -874,9 +880,18 @@ export default function ThaiServiceForm() {
             <h1 className="text-2xl font-bold text-gray-800 mr-auto">
               ผู้รับบริการวันที่ {currentDate}
             </h1>
+            {/* ✅ ปุ่มลงทะเบียน - กดได้เสมอ */}
+            <button
+              onClick={() => exportPatientRegistrationPDF(patientData || {}, setError)}
+              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <FileText className="w-4 h-4" />
+              <span>ใบลงทะเบียนผู้ป่วย</span>
+            </button>
 
             {isStrokeCenter() && (
               <div className="flex items-center space-x-4">
+                
                 <button
                   onClick={() => exportToWord(formData, '/templates/CODE1.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
