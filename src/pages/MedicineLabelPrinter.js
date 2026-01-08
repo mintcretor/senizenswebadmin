@@ -249,8 +249,8 @@ const MedicineLabelPrinter = () => {
   const getFrequencyLabel = (frequency) => {
 
     const frequencyMap = {
-      'od': 'วันละครั้ง',
-      'qd': 'วันละครั้ง',
+      'od': 'วันละ 1 ครั้ง',
+      'qd': 'วันละ 1 ครั้ง',
       'bid': 'วันละ 2 ครั้ง',
       'tid': 'วันละ 3 ครั้ง',
       'qid': 'วันละ 4 ครั้ง',
@@ -310,8 +310,8 @@ const MedicineLabelPrinter = () => {
         usageDetail += ` ${freqLabel}`;
       }
       if (schedule.schedule_time_display) {
-        usageDetail += `<div>${schedule.schedule_time_display}</div>`;
-      }
+  usageDetail += `<div>${formatMealTiming(schedule.schedule_time_display)}</div>`;
+}
       if (schedule.special_instruction) {
         special_instruction += `<div class="usage-detail2">
             ${schedule.special_instruction || '-'}
@@ -333,7 +333,6 @@ const MedicineLabelPrinter = () => {
         <div class="content">
           <div class="patient"><strong>${selectedResident.patient_name}</strong></div>
           <div class="medicine"><strong>${fullMedicineName}</strong></div>
-          ${schedule.trade_name ? `<div class="trade-name">ชื่อการค้า: ${schedule.trade_name}</div>` : ''}
           <div class="usage-detail">${usageDetail}</div>
           ${special_instruction}
         </div>
@@ -467,7 +466,7 @@ const MedicineLabelPrinter = () => {
         }
 
         .usage-detail {
-          font-size: 11px;
+          font-size: 14px;
           margin-bottom: 1mm;
           line-height: 1.5;
           color: #000;
@@ -597,6 +596,36 @@ const MedicineLabelPrinter = () => {
     return colors[slot] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
+  // ฟังก์ชันจัดการแสดงเวลารับประทานยา
+  const formatMealTiming = (scheduleTimeDisplay) => {
+    if (!scheduleTimeDisplay) return '-';
+
+    // แยกเวลาออกมา
+    const times = scheduleTimeDisplay.split(',').map(t => t.trim());
+
+    // หาว่ามีคำว่า "ก่อน" หรือ "หลัง" หรือไม่
+    let prefix = '';
+    const cleanTimes = [];
+
+    times.forEach(time => {
+      if (time.includes('ก่อนอาหาร')) {
+        prefix = 'ก่อนอาหาร';
+        cleanTimes.push(time.replace('ก่อนอาหาร', '').trim());
+      } else if (time.includes('หลังอาหาร')) {
+        prefix = 'หลังอาหาร';
+        cleanTimes.push(time.replace('หลังอาหาร', '').trim());
+      } else {
+        cleanTimes.push(time);
+      }
+    });
+
+    if (prefix && cleanTimes.length > 0) {
+      return `${prefix} ${cleanTimes.join(' ')}`;
+    }
+
+    return scheduleTimeDisplay;
+  };
+
   // Current step tracker
   const getCurrentStep = () => {
     if (!selectedWard) return 1;
@@ -624,7 +653,7 @@ const MedicineLabelPrinter = () => {
       }
 
       if (schedule.schedule_time_display) {
-        detail += ` ${schedule.schedule_time_display}`;
+    detail += ` ${formatMealTiming(schedule.schedule_time_display)}`;
       }
 
       return detail || '-';
