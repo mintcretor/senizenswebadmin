@@ -13,6 +13,7 @@ import { calculateMonthsAndDays } from '../utils/dateCalculator.js';
 import { generateBarcode } from '../utils/barcodeGenerator.js';
 import ImageModule from 'docxtemplater-image-module-free';
 import { processPatientName } from '../utils/prenameUtils.js';
+import { exportPatientRegistrationPDF } from '../utils/exportPatientRegistration.js';
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -109,6 +110,8 @@ export default function ThaiServiceForm() {
   const [modalType, setModalType] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
 
+  const [patientData, setPatientData] = useState(null);
+
   // Table data
   const [packageData, setPackageData] = useState([]);
   const [medicalData, setMedicalData] = useState([]);
@@ -193,6 +196,9 @@ export default function ThaiServiceForm() {
       firstName: patient.first_name || patient.firstName || '',
       lastName: patient.last_name || patient.lastName || '',
       idNumber: patient.id_card || patient.idNumber || '',
+      birth_date: patient.birth_date ? patient.birth_date.split('T')[0] : '',
+      age: patient.age ? patient.age.toString() : '',
+      gender: patient.gender || '',
     }));
     setPatient_id(patient.id);
     if (patient.profile_image) {
@@ -366,7 +372,7 @@ export default function ThaiServiceForm() {
         firstName: formData.firstName || '',
         lastName: formData.lastName || '',
         birthDate: formData.birth_date || '..........................................',
-        age: formData.age || '................................................',
+        age: formData.age ? formData.age.toString() : '................................................',
         idCard: formData.idNumber || '.............',
         address: formData.address || '...................',
         village: formData.village || '....................',
@@ -459,6 +465,9 @@ export default function ThaiServiceForm() {
 
       console.log('Patient data to set in form:', patientData);
 
+      // ✅ เพิ่มบรรทัดนี้
+      setPatientData(result.data);
+
       setFormData(prev => ({
         ...prev,
         hn: patientData.hn,
@@ -466,6 +475,9 @@ export default function ThaiServiceForm() {
         firstName: patientData.first_name,
         lastName: patientData.last_name,
         idNumber: patientData.id_card,
+        birth_date: patientData.birth_date ? patientData.birth_date.split('T')[0] : '',
+        age: patientData.age ? patientData.age.toString() : '',
+        gender: patientData.gender || '',
       }));
 
 
@@ -868,9 +880,18 @@ export default function ThaiServiceForm() {
             <h1 className="text-2xl font-bold text-gray-800 mr-auto">
               ผู้รับบริการวันที่ {currentDate}
             </h1>
+            {/* ✅ ปุ่มลงทะเบียน - กดได้เสมอ */}
+            <button
+              onClick={() => exportPatientRegistrationPDF(patientData || {}, setError)}
+              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <FileText className="w-4 h-4" />
+              <span>ใบลงทะเบียนผู้ป่วย</span>
+            </button>
 
             {isStrokeCenter() && (
               <div className="flex items-center space-x-4">
+                
                 <button
                   onClick={() => exportToWord(formData, '/templates/CODE1.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
@@ -879,7 +900,7 @@ export default function ThaiServiceForm() {
                   <span>สัญญาจ้างทางการแพทย์</span>
                 </button>
                 <button
-                  onClick={() => exportToWord(formData, '/templates/เอกสารAdmit.docx', setError)}
+                  onClick={() => exportToWord(formData, '/templates/เอกสารAdmitnoan.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                 >
                   📄 เอกสาร Admit

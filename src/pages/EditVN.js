@@ -144,6 +144,27 @@ export default function EditVN() {
       setDischarged(isDischargedStatus);
 
       console.log('📋 Service Registration Data:', serviceReg);
+      console.log('🔍 DEBUG serviceReg.age:', serviceReg.age, 'serviceReg.birth_date:', serviceReg.birth_date);
+
+      // 🆕 ดึง patient data เพื่อได้ age
+      let patientAge = '';
+      let patientBirthDate = '';
+      if (serviceReg.patient_id) {
+        try {
+          const patientResult = await api.get(`/patients/${serviceReg.patient_id}`);
+          if (patientResult.data.success && patientResult.data.data) {
+            patientAge = patientResult.data.data.age ? patientResult.data.data.age.toString() : '';
+            patientBirthDate = patientResult.data.data.birth_date ? patientResult.data.data.birth_date.split('T')[0] : '';
+            console.log('✅ Got patient data - age:', patientAge, 'birth_date:', patientBirthDate);
+          }
+        } catch (err) {
+          console.error('Error fetching patient for age:', err);
+        }
+      }
+console.log('🔍 DEBUG before setFormData:');
+console.log('  serviceReg.service_number:', serviceReg.service_number);
+console.log('  typeof serviceReg.service_number:', typeof serviceReg.service_number);
+     
       setFormData(prev => ({
         ...prev,
         hn: serviceReg.hn || '',
@@ -153,6 +174,8 @@ export default function EditVN() {
         idNumber: serviceReg.id_card || '',
         an: serviceReg.service_number || '',
         gender: serviceReg.gender || '',
+        birth_date: patientBirthDate || serviceReg.birth_date ? serviceReg.birth_date.split('T')[0] : '',
+        age: patientAge || (serviceReg.age ? serviceReg.age.toString() : ''),
         date: serviceReg.contract_start_date ? serviceReg.contract_start_date.split('T')[0] : '',
         toDate: serviceReg.contract_end_date ? serviceReg.contract_end_date.split('T')[0] : '',
         building: serviceReg.room_number || '',
@@ -160,6 +183,7 @@ export default function EditVN() {
         floor: serviceReg.billing_type || 'รายสัปดาห์',
         price: serviceReg.base_price?.toString() || '',
       }));
+
       setSelectedRoom({
         room_number: serviceReg.room_number || '',
         room_type: serviceReg.room_type || '',
@@ -379,6 +403,9 @@ export default function EditVN() {
       firstName: patient.first_name || patient.firstName || '',
       lastName: patient.last_name || patient.lastName || '',
       idNumber: patient.id_card || patient.idNumber || '',
+      birth_date: patient.birth_date ? patient.birth_date.split('T')[0] : '',
+      age: patient.age ? patient.age.toString() : '',
+      gender: patient.gender || '',
     }));
     setPatient_id(patient.id);
     if (patient.profile_image) {
@@ -691,14 +718,17 @@ export default function EditVN() {
         gender: formData.gender
       });
 
+      console.log('🔍 DEBUG - formData.age:', formData.age, 'type:', typeof formData.age);
+
       // Prepare data for template
       const data = {
         hn: formData.hn || '',
+        an: formData.an || '', 
         prename: formData.prename || '',
         firstName: formData.firstName || '',
         lastName: formData.lastName || '',
         birthDate: formData.birth_date || '..........................................',
-        age: formData.age || '................................................',
+        age: formData.age ? formData.age.toString() : '................................................',
         idCard: formData.idNumber || '.............',
         address: formData.address || '...................',
         village: formData.village || '....................',
@@ -735,6 +765,7 @@ export default function EditVN() {
       };
 
       console.log('Data prepared:', data);
+      console.log('🔍 DEBUG - data.age:', data.age, 'type:', typeof data.age);
 
       // Set data in template
       doc.setData(data);
@@ -764,14 +795,14 @@ export default function EditVN() {
     }
   };
 
-const formatWesternDate = (date) => {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const day = date.getDate();
-  const month = months[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-};
+  const formatWesternDate = (date) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  };
   const formatThaiTime = (date) => {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -797,6 +828,8 @@ const formatWesternDate = (date) => {
   };
 
   const handleMainSaveClick = () => {
+    console.log('🔍 Current formData before export:', formData);
+    console.log('🔍 formData.age:', formData.age);
     setShowConfirmationModal(true);
   };
 
@@ -937,6 +970,7 @@ const formatWesternDate = (date) => {
     <div className="flex min-h-screen bg-slate-100">
       <div className="flex-1 p-8">
         <div className="bg-white p-8 rounded-lg shadow-md">
+          {/* Header + Export Buttons */}
           <div className="flex justify-between items-center gap-4 mb-6">
             <h1 className="text-2xl font-bold text-gray-800 mr-auto">
               แก้ไขข้อมูลผู้รับบริการ (VN)
@@ -959,6 +993,7 @@ const formatWesternDate = (date) => {
             </div>
           </div>
 
+          {/* Search Section */}
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               ค้นหาผู้ป่วย (HN หรือ ชื่อ-นามสกุล)
@@ -995,6 +1030,7 @@ const formatWesternDate = (date) => {
             </p>
           </div>
 
+          {/* Error Alert */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600">เกิดข้อผิดพลาด: {error}</p>
@@ -1044,6 +1080,7 @@ const formatWesternDate = (date) => {
             </div>
           </div>
 
+          {/* Patient Info Section */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 rounded-lg h-full">
               <input type="file" id="imageUpload" accept="image/*" onChange={handleFileSelect} className="hidden" />
@@ -1114,6 +1151,28 @@ const formatWesternDate = (date) => {
                   type="text"
                   name="idNumber"
                   value={formData.idNumber}
+                  onChange={handleInputChange}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-2">วันเกิด</label>
+                <input
+                  type="date"
+                  name="birth_date"
+                  value={formData.birth_date}
+                  onChange={handleInputChange}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-sm font-medium text-gray-700 mb-2">อายุ</label>
+                <input
+                  type="number"
+                  name="age"
+                  value={formData.age}
                   onChange={handleInputChange}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1249,6 +1308,7 @@ const formatWesternDate = (date) => {
             )}
           </div>
 
+          {/* Tables Section (Packages, Medical, Contracts) */}
           <div className="mt-8 space-y-8">
             <div>
               <div className="flex justify-between items-center mb-4">
@@ -1433,6 +1493,7 @@ const formatWesternDate = (date) => {
             </div>
           </div>
 
+          {/* Save/Cancel Buttons */}
           <div className="flex justify-end space-x-4 mt-8">
             <button
               onClick={handleMainSaveClick}
@@ -1451,6 +1512,7 @@ const formatWesternDate = (date) => {
         </div>
       </div>
 
+      {/* All Modals... */}
       {/* Discharge Modal */}
       {showDischargeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1784,9 +1846,9 @@ const formatWesternDate = (date) => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800">
                 {editingIndex !== null ? 'แก้ไข' : 'เพิ่ม'}
-                {modalType === 'package' && 'คอร์สแพ็คเกจกายภาพ'}
-                {modalType === 'medical' && 'รายการเหมาเวชภัณฑ์'}
-                {modalType === 'contract' && 'รายการเหมา'}
+                {modalType === 'package' && ' คอร์สแพ็คเกจกายภาพ'}
+                {modalType === 'medical' && ' รายการเหมาเวชภัณฑ์'}
+                {modalType === 'contract' && ' รายการเหมา'}
               </h3>
               <button onClick={closeModal} className="text-gray-500 hover:text-gray-700">
                 <X className="w-5 h-5" />
@@ -1870,6 +1932,8 @@ const formatWesternDate = (date) => {
               <p><strong>HN:</strong> {formData.hn}</p>
               <p><strong>AN:</strong> {formData.an}</p>
               <p><strong>ชื่อ-นามสกุล:</strong> {formData.firstName} {formData.lastName}</p>
+              <p><strong>วันเกิด:</strong> {formData.birth_date}</p>
+              <p><strong>อายุ:</strong> {formData.age} ปี</p>
               <p><strong>คลินิก:</strong> ศูนย์ฟื้นฟูผู้ป่วยโรคหลอดเลือดสมองและระบบประสาท</p>
 
               <h4 className="font-semibold text-lg text-blue-700 mt-4 pt-4 border-t">ข้อมูลสัญญา</h4>
