@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { canEditreport, canDeleteReport } from '../utils/permissionUtils';
 
 // API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
+const API_BASE_URL = 'http://172.16.40.11:3001/api';
 
 const createApiClient = () => {
     const getToken = () => localStorage.getItem('authToken');
