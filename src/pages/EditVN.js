@@ -1011,10 +1011,6 @@ export default function EditVN() {
               >
                 📄 เอกสารผู้ป่วยโรคหลอดเลือดสมอง
               </button>
-
-              
-
-
             </div>
           </div>
 
