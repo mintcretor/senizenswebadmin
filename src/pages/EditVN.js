@@ -95,6 +95,7 @@ export default function EditVN() {
   const [medicalData, setMedicalData] = useState([]);
   const [contractData, setContractData] = useState([]);
 
+
   const [modalForm, setModalForm] = useState({
     name: '',
     category: '',
@@ -161,10 +162,10 @@ export default function EditVN() {
           console.error('Error fetching patient for age:', err);
         }
       }
-console.log('🔍 DEBUG before setFormData:');
-console.log('  serviceReg.service_number:', serviceReg.service_number);
-console.log('  typeof serviceReg.service_number:', typeof serviceReg.service_number);
-     
+      console.log('🔍 DEBUG before setFormData:');
+      console.log('  serviceReg.service_number:', serviceReg.service_number);
+      console.log('  typeof serviceReg.service_number:', typeof serviceReg.service_number);
+
       setFormData(prev => ({
         ...prev,
         hn: serviceReg.hn || '',
@@ -723,7 +724,7 @@ console.log('  typeof serviceReg.service_number:', typeof serviceReg.service_num
       // Prepare data for template
       const data = {
         hn: formData.hn || '',
-        an: formData.an || '', 
+        an: formData.an || '',
         prename: formData.prename || '',
         firstName: formData.firstName || '',
         lastName: formData.lastName || '',
@@ -977,6 +978,7 @@ console.log('  typeof serviceReg.service_number:', typeof serviceReg.service_num
             </h1>
 
             <div className="flex items-center space-x-4">
+
               <button
                 onClick={() => exportToWord(formData, '/templates/CODE1.docx', setError)}
                 className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
@@ -985,11 +987,34 @@ console.log('  typeof serviceReg.service_number:', typeof serviceReg.service_num
                 <span>สัญญาจ้างทางการแพทย์</span>
               </button>
               <button
-                onClick={() => exportToWord(formData, '/templates/เอกสารAdmit.docx', setError)}
+                onClick={() => exportToWord(formData, '/templates/สัญญาเงื่อนไขและข้อตกลงการซื้อคอร์ส.docx', setError)}
+                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+              >
+                <FileText className="w-4 h-4" />
+                <span>สัญญาเงื่อนไขและข้อตกลงการซื้อคอร์ส</span>
+              </button>
+              <button
+                onClick={() => exportToWord(formData, '/templates/เอกสารAdmitnoan.docx', setError)}
                 className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
               >
                 📄 เอกสาร Admit
               </button>
+              <button
+                onClick={() => exportToWord(formData, '/templates/เอกสารแนบสัญญา.docx', setError)}
+                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+              >
+                📄 เอกสารแนบสัญญา
+              </button>
+              <button
+                onClick={() => exportToWord(formData, '/templates/เอกสารผู้ป่วยโรคหลอดเลือดสมอง.docx', setError)}
+                className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+              >
+                📄 เอกสารผู้ป่วยโรคหลอดเลือดสมอง
+              </button>
+
+              
+
+
             </div>
           </div>
 
