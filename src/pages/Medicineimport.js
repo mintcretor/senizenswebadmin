@@ -1,6 +1,6 @@
 // components/MedicineImport.jsx
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api/baseapi';
 import './MedicineImport.css'; // หรือใช้ Tailwind/Material-UI
 
 const MedicineImport = () => {
@@ -37,7 +37,7 @@ const MedicineImport = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('https://api.thesenizens.com/api/medicine/preview', formData, {
+      const response = await api.post('/medicine/preview', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -66,7 +66,7 @@ const MedicineImport = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('https://api.thesenizens.com/api/medicine/import', formData, {
+      const response = await api.post('/medicine/import', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

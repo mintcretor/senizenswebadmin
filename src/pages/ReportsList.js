@@ -8,7 +8,7 @@ const API_BASE_URL = 'https://api.thesenizens.com/api';
 const createApiClient = () => {
   const getToken = () => {
     try {
-      return localStorage.getItem('authToken');
+      return localStorage.getItem('userToken');
     } catch {
       return null;
     }

@@ -5,7 +5,7 @@
  */
 export const logout = () => {
   // ลบข้อมูลทั้งหมดที่เกี่ยวข้องกับ authentication
-  localStorage.removeItem('authToken');
+  localStorage.removeItem('userToken');
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   
@@ -47,7 +47,7 @@ export const isTokenExpired = (token) => {
  * @returns {boolean} - true ถ้ายังล็อกอินอยู่
  */
 export const checkAuthStatus = () => {
-  const token = localStorage.getItem('authToken');
+  const token = localStorage.getItem('userToken');
   const user = localStorage.getItem('user');
   
   if (!token || !user) {
@@ -100,7 +100,7 @@ export const createAxiosInstance = () => {
   // Request interceptor - เพิ่ม token ใน header
   instance.interceptors.request.use(
     (config) => {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('userToken');
       if (token) {
         // ตรวจสอบว่า token หมดอายุก่อนส่ง request
         if (isTokenExpired(token)) {
@@ -148,7 +148,7 @@ export const getCurrentUser = () => {
  * @param {Object} user - User object
  */
 export const saveAuthData = (token, user) => {
-  localStorage.setItem('authToken', token);
+  localStorage.setItem('userToken', token);
   localStorage.setItem('token', token); // สำหรับ backward compatibility
   localStorage.setItem('user', JSON.stringify(user));
 };

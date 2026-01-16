@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock, ArrowRight } from 'lucide-react';
-import axios from 'axios';
+import api from '../api/baseapi'; // เปลี่ยนจาก axios เป็น api
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -30,14 +30,14 @@ const SenizensLogin = () => {
         setError('');
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+            const response = await api.post(`/auth/login`, {
                 username: formData.username,
                 password: formData.password
             });
 
             const { token, user } = response.data;
 
-            localStorage.setItem('authToken', token);
+            localStorage.setItem('userToken', token);
             localStorage.setItem('user', JSON.stringify(user));
 
             navigate('/dashboard');

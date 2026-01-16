@@ -6,7 +6,7 @@ import { useParams } from 'react-router-dom';
 const API_BASE_URL = 'https://api.thesenizens.com/api';
 
 const createApiClient = () => {
-  const getToken = () => localStorage.getItem('authToken');
+  const getToken = () => localStorage.getItem('userToken');
   
   const fetchWithAuth = async (endpoint, options = {}) => {
     const token = getToken();
