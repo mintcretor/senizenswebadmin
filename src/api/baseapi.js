@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // สร้าง axios instance
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: process.env.REACT_APP_API_BASE_URL,
   timeout: parseInt(process.env.REACT_APP_API_TIMEOUT) || 30000,
   headers: {
     'Content-Type': 'application/json',
