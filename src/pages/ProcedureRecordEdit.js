@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, X, ChevronDown } from 'lucide-react';
 import { procedureService } from '../services/procedureService';
 import { formatDateForInput, formatTime } from '../utils/dateUtils';
+import api from '../api/baseapi';
 
 const ProcedureRecordEdit = () => {
     const { id } = useParams();
@@ -119,20 +120,11 @@ const ProcedureRecordEdit = () => {
     const loadRecordData = async () => {
         setLoading(true);
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/procedure-records/${id}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
-            const result = await response.json();
+            const response = await api.get(`/procedure-records/${id}`);
+            const result = response.data;
             console.log('Update result:', result);
             if (result.success) {
                 const record = result.data;
-
-                // Set form data
                 setDate(formatDateForInput(record.record_date));
                 setTime(record.record_time);
                 setShift(record.shift);
@@ -275,19 +267,8 @@ const ProcedureRecordEdit = () => {
                 updatedBy: user.user_id || 1
             };
 
-            const response = await fetch(
-                `${API_BASE_URL}/procedure-records/${id}`,
-                {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(payload)
-                }
-            );
-
-            const result = await response.json();
+            const response = await api.put(`/procedure-records/${id}`, payload);
+            const result = response.data;
 
             if (result.success) {
                 alert('อัพเดทข้อมูลสำเร็จ');

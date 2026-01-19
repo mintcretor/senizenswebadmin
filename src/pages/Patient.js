@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Download, Upload, X, FileText, AlertCircle, CheckCircle, Menu, Plus, RefreshCw, Trash2, ClipboardPlus, Edit, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Download, Upload, X, FileText, AlertCircle, CheckCircle, Menu, Plus, RefreshCw, Trash2, ClipboardPlus, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
+
+// TODO: ตรวจสอบ path ให้ตรงกับไฟล์ api ของคุณ
+import api from '../api/baseapi';
 
 const Patient = () => {
   // State declarations
@@ -34,9 +37,6 @@ const Patient = () => {
 
   const navigate = useNavigate();
 
-  // API Configuration
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
   // API Functions
   const fetchPatients = async (page = 1, search = '') => {
     try {
@@ -47,32 +47,23 @@ const Patient = () => {
       }
       setError(null);
 
-      // Use page parameter instead of calculating offset in frontend
-      const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
-
-      const response = await fetch(`${API_BASE_URL}/patients?page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      // UPDATE: ใช้ api.get พร้อม params object
+      const response = await api.get('/patients', {
+        params: {
+          page: page,
+          limit: PATIENTS_PER_PAGE,
+          search: search
         }
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // รองรับกรณี Axios response.data หรือ response โดยตรง
+      const data = response.data ? response.data : response;
+      console.log('API Response:', data);
 
-      const data = await response.json();
-      console.log('API Response:', data); // Debug log
-
-      // Handle your backend response structure
       if (data.success && data.data && data.pagination) {
-        const patients = data.data;
-        const { total, totalPages } = data.pagination;
-
-        setPatientData(patients);
-        setTotalPatients(total);
-        setTotalPages(totalPages);
+        setPatientData(data.data);
+        setTotalPatients(data.pagination.total);
+        setTotalPages(data.pagination.totalPages);
         setCurrentPage(page);
       } else {
         throw new Error('Invalid response format from server');
@@ -80,62 +71,17 @@ const Patient = () => {
 
     } catch (error) {
       console.error('Error fetching patients:', error);
-      setError('ไม่สามารถโหลดข้อมูลผู้รับบริการได้: ' + error.message);
-
-      // Fallback to mock data for development
+      setError('ไม่สามารถโหลดข้อมูลผู้รับบริการได้: ' + (error.message || 'Unknown error'));
+      
+      // Fallback logic for dev (Optional: removed for clean code, or keep if needed)
       if (process.env.NODE_ENV === 'development') {
-        console.log('Using fallback data for development');
-        //const mockData = generateMockPatients(page, search);
-        setPatientData();
-        setTotalPatients();
-        setTotalPages();
-        setCurrentPage();
+         // ... existing fallback logic
+         setPatientData([]); 
       }
     } finally {
       setLoading(false);
       setPaginationLoading(false);
     }
-  };
-
-  // Mock data generator for development/testing
-  const generateMockPatients = (page, search) => {
-    const totalMockPatients = 350; // Simulate 350 patients
-    const mockPatients = [];
-
-    for (let i = 1; i <= totalMockPatients; i++) {
-      const patient = {
-        id: i,
-        hn: `HN${String(i).padStart(6, '0')}`,
-        prename: i % 2 === 0 ? 'นาย' : 'นางสาว',
-        first_name: `ชื่อ${i}`,
-        last_name: `นามสกุล${i}`,
-        age: Math.floor(Math.random() * 60) + 20,
-        gender: i % 2 === 0 ? 'ชาย' : 'หญิง',
-        phone: `08${String(Math.floor(Math.random() * 100000000)).padStart(8, '0')}`,
-        created_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
-      };
-      mockPatients.push(patient);
-    }
-
-    // Filter by search if provided
-    let filteredPatients = mockPatients;
-    if (search) {
-      filteredPatients = mockPatients.filter(patient => {
-        const fullName = `${patient.first_name} ${patient.last_name}`;
-        return fullName.toLowerCase().includes(search.toLowerCase()) ||
-          patient.hn.toLowerCase().includes(search.toLowerCase());
-      });
-    }
-
-    // Paginate
-    const start = (page - 1) * PATIENTS_PER_PAGE;
-    const end = start + PATIENTS_PER_PAGE;
-    const paginatedData = filteredPatients.slice(start, end);
-
-    return {
-      data: paginatedData,
-      total: filteredPatients.length
-    };
   };
 
   const refreshPatients = async () => {
@@ -147,6 +93,7 @@ const Patient = () => {
     }
   };
 
+  // ... (ส่วน Handle Search และ Pagination คงเดิม) ...
   // Handle search with pagination reset
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -165,7 +112,6 @@ const Patient = () => {
     setSearchTerm(value);
   };
 
-  // Pagination handlers
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages && !paginationLoading) {
       fetchPatients(newPage, searchTerm);
@@ -184,7 +130,6 @@ const Patient = () => {
     }
   };
 
-  // Generate page numbers for pagination
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
@@ -214,21 +159,12 @@ const Patient = () => {
 
     return pages;
   };
-  const handleDeletePatient = async (patientId, patientName) => {
 
+  const handleDeletePatient = async (patientId, patientName) => {
     if (window.confirm(`คุณต้องการลบข้อมูลของ "${patientName}" ใช่หรือไม่?`)) {
       try {
-        const response = await fetch(`${API_BASE_URL}/patients/${patientId}`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete patient');
-        }
+        // UPDATE: ใช้ api.delete
+        await api.delete(`/patients/${patientId}`);
 
         // Refresh current page after deletion
         await fetchPatients(currentPage, searchTerm);
@@ -236,30 +172,20 @@ const Patient = () => {
 
       } catch (error) {
         console.error('Error deleting patient:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
+        alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + (error.message || 'Unknown error'));
       }
     }
   };
 
   const importPatientsToAPI = async (importedData) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/patients/import`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          patients: importedData,
-          columnMapping: columnMapping
-        })
+      // UPDATE: ใช้ api.post
+      const response = await api.post('/patients/import', {
+        patients: importedData,
+        columnMapping: columnMapping
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to import patients');
-      }
-
-      const result = await response.json();
+      const result = response.data ? response.data : response;
       return result;
 
     } catch (error) {
@@ -272,10 +198,10 @@ const Patient = () => {
     fetchPatients(1, '');
   }, []);
 
-  // Debug component to show pagination state
+  // ... (DebugInfo, databaseFields, handleExportClick) ...
+
   const DebugInfo = () => {
     if (process.env.NODE_ENV !== 'development') return null;
-
     return (
       <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs">
         <strong>Debug Info:</strong> Page {currentPage}/{totalPages} | Total: {totalPatients} | Showing: {safePatientData.length} | Loading: {loading ? 'Yes' : 'No'} | PagLoading: {paginationLoading ? 'Yes' : 'No'}
@@ -285,7 +211,7 @@ const Patient = () => {
 
   const databaseFields = [
     { key: 'hn', label: 'HN', required: true },
-    { key: 'prename', label: 'คำนำหน้า', required: false }, // เพิ่มบรรทัดนี้
+    { key: 'prename', label: 'คำนำหน้า', required: false },
     { key: 'first_name', label: 'ชื่อ', required: true },
     { key: 'last_name', label: 'นามสกุล', required: true },
     { key: 'id_card', label: 'บัตรประชาชน', required: false },
@@ -309,26 +235,21 @@ const Patient = () => {
     try {
       setExporting(true);
 
-      // Export all patients using page-based approach
-      const response = await fetch(`${API_BASE_URL}/patients?page=1&limit=10000`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      // UPDATE: ใช้ api.get
+      const response = await api.get('/patients', {
+        params: {
+          page: 1,
+          limit: 10000
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch all patients for export');
-      }
-
-      const data = await response.json();
+      const data = response.data ? response.data : response;
       const allPatients = (data.success && data.data) ? data.data : [];
 
       // Prepare data for export
       const exportData = allPatients.map(patient => ({
         'HN': patient.hn,
-        'คำนำหน้า': patient.prename,  // เปลี่ยนจาก prefix เป็น prename
+        'คำนำหน้า': patient.prename,
         'ชื่อ': patient.first_name,
         'นามสกุล': patient.last_name,
         'ชื่อภาษาอังกฤษ': patient.first_name_en,
@@ -472,7 +393,7 @@ const Patient = () => {
           columns.forEach(col => {
             const colLower = col.toLowerCase();
             if (colLower.includes('hn') || colLower === 'hn') autoMapping['hn'] = col;
-            else if (colLower.includes('คำนำหน้า') || colLower.includes('prename')) autoMapping['prename'] = col; // เพิ่มบรรทัดนี้
+            else if (colLower.includes('คำนำหน้า') || colLower.includes('prename')) autoMapping['prename'] = col;
             else if (colLower.includes('ชื่อ') && !colLower.includes('นาม') && !colLower.includes('อังกฤษ')) autoMapping['first_name'] = col;
             else if (colLower.includes('นามสกุล') && !colLower.includes('อังกฤษ')) autoMapping['last_name'] = col;
             else if (colLower.includes('บัตรประชาชน') || colLower.includes('เลขประจำตัว')) autoMapping['id_card'] = col;
@@ -587,7 +508,7 @@ const Patient = () => {
       console.error('Import error:', error);
       setImportStatus('error');
       setImporting(false);
-      alert('เกิดข้อผิดพลาดในการ Import: ' + error.message);
+      alert('เกิดข้อผิดพลาดในการ Import: ' + (error.message || 'Unknown error'));
     }
   };
 

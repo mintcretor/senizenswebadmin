@@ -21,7 +21,9 @@ import {
     Download,
     Upload
 } from 'lucide-react';
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+import api from '../api/baseapi';
+
+
 const UserManagementPage = () => {
     const [users, setUsers] = useState([]);
     const [divisions, setDivisions] = useState([]);
@@ -65,24 +67,19 @@ const UserManagementPage = () => {
             setError('');
 
 
-            const usersResponse = await fetch(`${API_BASE_URL}/users`);
-            const divisionsResponse = await fetch(`${API_BASE_URL}/divisions`);
-            const positionsResponse = await fetch(`${API_BASE_URL}/positions`);
-            if (!usersResponse.ok) {
-                throw new Error('ไม่สามารถดึงข้อมูลได้');
-            }
-            const usersData = await usersResponse.json();
+            const usersResponse = await api.get('/users');
+            const divisionsResponse = await api.get('/divisions');
+            const positionsResponse = await api.get('/positions');
 
-            console.log('Fetched users:', usersData);
-            const divisionsData = await divisionsResponse.json();
+            const usersData = await usersResponse.data;
 
-            console.log('Fetched divisions:', divisionsData);
-            const positionsData = await positionsResponse.json();
-            console.log('Fetched positions:', positionsData);
+            const divisionsData = await divisionsResponse.data;
 
-            setUsers(usersData);
-            setDivisions(divisionsData.data);
-            setPositions(positionsData.data);
+            const positionsData = await positionsResponse.data;
+
+            setUsers(Array.isArray(usersData) ? usersData : (usersData.data || []));
+            setDivisions(divisionsData.data || []);
+            setPositions(positionsData.data || []);
 
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -93,15 +90,17 @@ const UserManagementPage = () => {
     };
 
     // Filter users
-    const filteredUsers = users.filter(user => {
+    const safeUsers = Array.isArray(users) ? users : [];
+
+    const filteredUsers = safeUsers.filter(user => {
         const matchSearch = searchTerm === '' ||
             user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.nickname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.employee_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.username?.toLowerCase().includes(searchTerm.toLowerCase());
-        console.log('filterDivision:', filterDivision, 'user.division_id:', user.division_id);
-        console.log('filterPosition:', filterPosition, 'user.position_id:', user.position_id);
+        
+        // ... (เงื่อนไขอื่นๆ เหมือนเดิม)
         const matchDivision = filterDivision === '' || user.division_id === parseInt(filterDivision);
         const matchPosition = filterPosition === '' || user.position_id === parseInt(filterPosition);
         const matchStatus = filterStatus === '' || user.status === filterStatus;
@@ -191,17 +190,7 @@ const UserManagementPage = () => {
 
                 console.log('Creating user:', formData);
 
-                response = await fetch(`${API_BASE_URL}/users`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'ไม่สามารถเพิ่มพนักงานได้');
-                }
-
+                response = await api.post('/users', formData);
                 setSuccess('เพิ่มพนักงานสำเร็จ');
 
             } else {
@@ -210,16 +199,7 @@ const UserManagementPage = () => {
 
                 // ตัด password ออกถ้าเป็นค่าว่าง เพื่อไม่ให้ส่งไป update (ขึ้นอยู่กับ backend ว่าจัดการอย่างไร)
                 // แต่ถ้า backend แยก route เปลี่ยนรหัสผ่าน ก็ส่งไปทั้งก้อนได้เลย Backend ตัวที่ผมเขียนให้ก่อนหน้าจะไม่อัปเดตรหัสผ่านใน route นี้
-                response = await fetch(`${API_BASE_URL}/users/${selectedUser.user_id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'ไม่สามารถแก้ไขข้อมูลได้');
-                }
+                response = await api.put(`/users/${selectedUser.user_id}`, formData);
 
                 setSuccess('แก้ไขข้อมูลสำเร็จ');
             }
@@ -240,13 +220,7 @@ const UserManagementPage = () => {
 
 
                 // --- กรณีลบข้อมูล (DELETE) ---
-                const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    throw new Error('ไม่สามารถลบข้อมูลได้');
-                }
+                const response = await api.delete(`/users/${userId}`);
 
                 setSuccess('ลบพนักงานสำเร็จ');
                 setTimeout(() => setSuccess(''), 3000);

@@ -12,8 +12,11 @@ import {
   Dumbbell,
   Clipboard,
   Printer,
-  BarChart3  // เพิ่มไอคอนนี้
+  BarChart3
 } from 'lucide-react';
+
+// 1. นำเข้า api instance
+import api from '../api/baseapi';
 
 const Dashboard = () => {
   // State สำหรับเก็บข้อมูลจาก API
@@ -25,28 +28,19 @@ const Dashboard = () => {
   // เพิ่ม navigate สำหรับการนำทาง
   const navigate = useNavigate();
 
-  // API Base URL - ปรับตามโปรเจคของคุณ
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
   // Function สำหรับเรียก API
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/dashboard`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-      });
+      // 2. ใช้ api.get แทน fetch
+      // ไม่ต้องใส่ headers เอง เพราะ interceptor ใน baseapi จัดการให้แล้ว
+      const response = await api.get('/dashboard');
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Axios response.data คือข้อมูลที่ส่งมาจาก server
+      const result = response.data;
 
-      const result = await response.json();
       if (result.success) {
         setDashboardData(result.data);
         setLastUpdated(new Date());
@@ -56,7 +50,9 @@ const Dashboard = () => {
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError(err.message);
+      // ดึงข้อความ error จาก response ถ้ามี
+      const errorMessage = err.response?.data?.message || err.message;
+      setError(errorMessage);
 
       // ใช้ข้อมูล fallback หากเกิดข้อผิดพลาด
       setDashboardData(getFallbackData());
@@ -65,7 +61,7 @@ const Dashboard = () => {
     }
   };
 
-  // ข้อมูล Fallback กรณี API ล้มเหลว
+  // ข้อมูล Fallback กรณี API ล้มเหลว (คงเดิม)
   const getFallbackData = () => ({
     stats: [
       {
@@ -304,7 +300,6 @@ const Dashboard = () => {
           </div>
 
           {/* Action Buttons - แถวที่สอง (ปุ่มใหม่) */}
-          {/* Action Buttons - แถวที่สอง (ปุ่มใหม่) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <button
               onClick={() => navigate('/multidisciplinary')}
@@ -339,7 +334,6 @@ const Dashboard = () => {
               <BarChart3 size={24} />
               <span className="font-medium">รายงานหัตถการ</span>
             </button>
-
 
             <button
               onClick={() => navigate('/medicine-print')}

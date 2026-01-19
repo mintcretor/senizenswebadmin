@@ -15,7 +15,7 @@ import { generateBarcode } from '../utils/barcodeGenerator.js';
 import ImageModule from 'docxtemplater-image-module-free';
 import { processPatientName } from '../utils/prenameUtils.js';
 import { exportPatientRegistrationPDF } from '../utils/exportPatientRegistration.js';
-
+import api from '../api/baseapi'
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -118,7 +118,6 @@ export default function ThaiServiceForm() {
   const [packageData, setPackageData] = useState([]);
   const [medicalData, setMedicalData] = useState([]);
   const [contractData, setContractData] = useState([]);
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   const [modalForm, setModalForm] = useState({
     name: '',
@@ -160,19 +159,10 @@ export default function ThaiServiceForm() {
       setIsSearching(true);
       setError(null);
 
-      const response = await fetch(
-        `${API_BASE_URL}/patients/search?q=${encodeURIComponent(searchQuery.trim())}`,
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      const response = await api.get(`/patients/search?q=${encodeURIComponent(searchQuery.trim())}`);
+       
 
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-
-      const results = await response.json();
+      const results = response.data;
       console.log('Search response:', results);
       if (results.data && results.data.length > 0) {
         setSearchResults(results.data);
@@ -221,17 +211,10 @@ export default function ThaiServiceForm() {
         ? '/service-registrations/generate-an'
         : `/service-registrations/generate-vn?departmentCode=${encodeURIComponent(departmentCode)}`;
 
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await api.get(endpoint);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to generate ${type}`);
-      }
 
-      const result = await response.json();
+      const result = response.data;
       return result.data.number;
     } catch (err) {
       console.error(`Error generating ${type}:`, err);
@@ -270,16 +253,10 @@ export default function ThaiServiceForm() {
       setDepartmentsLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/departments`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await api.get('/departments');
+      
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success && data.data) {
         const activeDepartments = data.data.filter(dept => dept.is_active);
@@ -321,9 +298,6 @@ export default function ThaiServiceForm() {
 
       // ✅ FETCH TEMPLATE ก่อน (บรรทัดแรก)
       const response = await fetch(templatePath);
-      if (!response.ok) {
-        throw new Error(`Failed to load template: ${response.status}`);
-      }
       const arrayBuffer = await response.arrayBuffer();
       console.log('Template loaded, size:', arrayBuffer.byteLength);
 
@@ -444,16 +418,10 @@ export default function ThaiServiceForm() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/patients/${id}`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await api.get(`/patients/${id}`);
+      
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch patient: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = response.data;
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch patient');
       }
@@ -494,8 +462,8 @@ export default function ThaiServiceForm() {
 
   const fetchAvailablePackages = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/packages?active=true`);
-      const result = await response.json();
+      const response = await api.get('/packages?active=true');
+      const result = response.data;
       if (result.success) setAvailablePackages(result.data);
     } catch (error) {
       console.error('Error fetching packages:', error);
@@ -504,8 +472,8 @@ export default function ThaiServiceForm() {
 
   const fetchAvailableMedical = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/medical?active=true`);
-      const result = await response.json();
+      const response = await api.get('/medical?active=true');
+      const result = response.data;
       if (result.success) setAvailableMedical(result.data);
     } catch (error) {
       console.error('Error fetching medical:', error);
@@ -514,8 +482,8 @@ export default function ThaiServiceForm() {
 
   const fetchAvailableContracts = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/contracts?active=true`);
-      const result = await response.json();
+      const response = await api.get('/contracts?active=true');
+      const result = response.data;
       if (result.success) setAvailableContracts(result.data);
     } catch (error) {
       console.error('Error fetching contracts:', error);
@@ -527,16 +495,9 @@ export default function ThaiServiceForm() {
       setRoomsLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/room?active=true`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
+      const response = await api.get('/room?active=true');
+      
+      const data = response.data;
 
       if (data.success && data.data) {
         // เรียงตาม display_order
@@ -830,22 +791,9 @@ export default function ThaiServiceForm() {
         };
       }
 
-      const response = await fetch(`${API_BASE_URL}/service-registrations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await api.post('/service-registrations', payload);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-
+      const result = await response.data;
       alert(`บันทึกสำเร็จ! ${result.data.serviceNumber}`);
       setShowConfirmationModal(false);
 

@@ -1,56 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus, Users, User, Save, Share2, Dumbbell, ChevronRight, Info, AlertCircle, QrCode } from 'lucide-react';
 import { useParams } from 'react-router-dom';
+import api from '../api/baseapi'; // Import api instance
 
-// API Configuration
-const API_BASE_URL = 'http://172.16.40.11:3001/api';
-
-const createApiClient = () => {
-  const getToken = () => localStorage.getItem('userToken');
-  
-  const fetchWithAuth = async (endpoint, options = {}) => {
-    const token = getToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    };
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
-    return response.json();
-  };
-
-  return {
-    searchPatients: (query) => 
-      fetchWithAuth(`/patients/search?q=${encodeURIComponent(query)}`),
-    
-    getPatientByHN: (hn) => 
-      fetchWithAuth(`/patients/hn/${hn}`),
-    
-    saveRehabReport: (data) =>
-      fetchWithAuth('/reports/rehab', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-  };
-};
-
-const api = createApiClient();
-
+// Helper สำหรับดึง user (หรือเปลี่ยนไปใช้ Context ตามโปรเจคจริง)
 const useAuth = () => {
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });
-
   return { user };
 };
 
@@ -72,8 +30,13 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
 
     try {
       setIsSearching(true);
-      const results = await api.searchPatients(query);
-      setSearchResults(results.data || []);
+      // เปลี่ยนมาใช้ api.get พร้อม params
+      const response = await api.get('/patients/search', {
+        params: { q: query }
+      });
+      
+      const result = response.data;
+      setSearchResults(result.data || []);
     } catch (err) {
       console.error('Search error:', err);
       setError('เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง');
@@ -193,7 +156,7 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
 // RehabReport Component
 export default function RehabReport() {
   const { user } = useAuth();
-    const { hn } = useParams(); // เพิ่มบรรทัดนี้
+  const { hn } = useParams();
 
   const [showShareButton, setShowShareButton] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -211,23 +174,21 @@ export default function RehabReport() {
     others: '',
   });
 
-
   useEffect(() => {
-    // ลบส่วนเดิมที่อ่าน query string
-    // const params = new URLSearchParams(window.location.search);
-    // const hn = params.get('hn');
-    
     if (hn) {
       loadPatientByHN(hn);
     }
-  }, [hn]); // เพิ่ม dependency
+  }, [hn]);
 
   const loadPatientByHN = async (hn) => {
     try {
       setIsLoadingPatient(true);
-      const patient = await api.getPatientByHN(hn);
-      setSelectedPatient(patient.data);
-      //alert(`โหลดข้อมูลสำเร็จ\nผู้ป่วย: ${patient.first_name} ${patient.last_name}\nHN: ${patient.hn}`);
+      // เปลี่ยนมาใช้ api.get
+      const response = await api.get(`/patients/hn/${hn}`);
+      const result = response.data;
+      
+      // ตรวจสอบโครงสร้างข้อมูลตาม API ของคุณ (สมมติว่าเป็น result.data)
+      setSelectedPatient(result.data);
     } catch (error) {
       alert(`ข้อผิดพลาด\nไม่พบข้อมูลผู้ป่วย HN: ${hn}`);
     } finally {
@@ -319,7 +280,8 @@ ${formData.others}
         others: formData.others,
       };
 
-      await api.saveRehabReport(reportData);
+      // เปลี่ยนมาใช้ api.post
+      await api.post('/reports/rehab', reportData);
 
       const reportText = generateReportText();
       const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });

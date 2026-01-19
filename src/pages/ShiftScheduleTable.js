@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, Plus, Edit2, Save, X, Loader, AlertCircle, Filter, Printer } from 'lucide-react';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
+import api from '../api/baseapi';
 const ShiftScheduleTable = () => {
     const [employees, setEmployees] = useState([]);
     const [scheduleData, setScheduleData] = useState({});
@@ -34,10 +32,9 @@ const ShiftScheduleTable = () => {
     useEffect(() => {
         const fetchShiftTypes = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/schedules/shift-types`);
-                if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลประเภทเวรได้');
-                
-                const result = await response.json();
+                const response = await api.get(`/schedules/shift-types`);
+               
+                const result = response.data;
                 
                 if (result.success) {
                     setShiftTypes(result.data);
@@ -68,11 +65,9 @@ useEffect(() => {
             setError(null);
 
             // ดึงข้อมูลพนักงาน
-            const employeesResponse = await fetch(`${API_BASE_URL}/users`);
-            if (!employeesResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลพนักงานได้');
-            
-            const employeesResult = await employeesResponse.json();
-            
+            const employeesResponse = await api.get(`/users`);
+            const employeesResult = employeesResponse.data;
+                        
             // ตรวจสอบว่าข้อมูลอยู่ในรูปแบบใด
             let employeesData;
             if (Array.isArray(employeesResult)) {
@@ -97,14 +92,11 @@ useEffect(() => {
             setAvailableWards(wards);
 
             // ดึงตารางเวร
-            const scheduleResponse = await fetch(
-                `${API_BASE_URL}/schedules/monthly?month=${currentMonth}&year=${currentYear}`
-            );
+            const scheduleResponse = await api.get(`/schedules/monthly?month=${currentMonth}&year=${currentYear}`);
             
-            if (!scheduleResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลตารางเวรได้');
+            if (!scheduleResponse.data.success) throw new Error('ไม่สามารถดึงข้อมูลตารางเวรได้');
             
-            const scheduleResult = await scheduleResponse.json();
-            
+            const scheduleResult = scheduleResponse.data;
             if (scheduleResult.success && scheduleResult.data) {
                 // แปลงข้อมูลจาก API เป็นรูปแบบที่ใช้งาน
                 const formattedSchedule = {};
@@ -243,20 +235,8 @@ useEffect(() => {
             });
 
 
-            const response = await fetch(`${API_BASE_URL}/schedules/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ schedules })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'ไม่สามารถบันทึกตารางเวรได้');
-            }
-
-            const result = await response.json();
+            const response = await api.post(`/schedules/bulk`, { schedules });
+            const result = response.data;
             
             if (result.success) {
                 setSaveSuccess(true);

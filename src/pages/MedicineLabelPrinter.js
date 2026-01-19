@@ -3,7 +3,8 @@ import { Printer, User, Calendar, Pill, X, Check, Building, Home, ChevronRight, 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.thesenizens.com/';
+
+import api from '../api/baseapi';
 
 const MedicineLabelPrinter = () => {
   // States
@@ -63,10 +64,9 @@ const MedicineLabelPrinter = () => {
     console.log('Fetching medications for registration ID:', registrationId);
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/medication-reconciliation/${registrationId}`
+      const response = await api.get(`/medication-reconciliations/${registrationId}`
       );
-      const data = await response.json();
+      const data = response.data;
       console.log('Medication Reconciliation API Response:', data);
 
       if (data.data && data.data.medications && Array.isArray(data.data.medications)) {
@@ -164,8 +164,8 @@ const MedicineLabelPrinter = () => {
   const fetchWards = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/ward?is_active=true`);
-      const data = await response.json();
+      const response = await api.get('/ward?is_active=true');
+      const data = response.data;
       setWards(data.data);
     } catch (error) {
       console.error('Error fetching wards:', error);
@@ -178,8 +178,8 @@ const MedicineLabelPrinter = () => {
   const fetchRooms = async (wardId) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/ward/rooms?ward_id=${wardId}`);
-      const data = await response.json();
+      const response = await api.get(`/ward/rooms?ward_id=${wardId}`);
+      const data = response.data;
       setRooms(data.data);
     } catch (error) {
       console.error('Error fetching rooms:', error);
@@ -193,8 +193,8 @@ const MedicineLabelPrinter = () => {
     console.log('Fetching residents for room ID:', roomId);
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/ward/residents?room_id=${roomId}&is_active=true`);
-      const data = await response.json();
+      const response = await api.get(`/ward/residents?room_id=${roomId}&is_active=true`);
+      const data = response.data;
       //console.log('Residents data:', data);
       setResidents(data.data);
     } catch (error) {
