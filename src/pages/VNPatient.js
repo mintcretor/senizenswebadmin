@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, ChevronDown, Plus, Edit, Trash2, X, RefreshCw, Package, Search, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams, useParams, useLocation } from 'react-router-dom';
+import { Packer, Document, Paragraph, ImageRun, AlignmentType } from 'docx';
 import { jsPDF } from 'jspdf';
 import '../fonts/SarabunNew.js';
 import '../fonts/SarabunNewBold.js';
@@ -14,6 +15,7 @@ import { generateBarcode } from '../utils/barcodeGenerator.js';
 import ImageModule from 'docxtemplater-image-module-free';
 import { processPatientName } from '../utils/prenameUtils.js';
 import { exportPatientRegistrationPDF } from '../utils/exportPatientRegistration.js';
+
 
 const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -297,59 +299,55 @@ export default function ThaiServiceForm() {
   const exportToWord = async (formData, templatePath, setError) => {
     try {
       console.log('Starting Word export...');
-      console.log('Form data:', formData);
 
-      // 👇 เพิ่มตรงนี้
       const now = new Date();
-      const dateNow = formatThaiDate(now);        // "05/12/2568"
-      const timeNow = formatThaiTime(now);        // "15:30:45"
-      const effectiveDate = formatWesternDate(now); // "5 Dec 2024"
+      const dateNow = formatThaiDate(now);
+      const timeNow = formatThaiTime(now);
+      const effectiveDate = formatWesternDate(now);
 
-      console.log('Effective Date:', effectiveDate);
-      // 👆 จบ
-
-      // 🔹 เพิ่มตรงนี้ - สร้าง barcode จาก HN (บรรทัด 8-20)
-      let barcodeData = null;
+      // 🔹 สร้าง barcode
+      let barcodeImageData = null;
       if (formData.hn) {
-        const base64 = await generateBarcode(formData.hn);
-        if (base64) {
-          barcodeData = {
-            data: base64,
-            opts: {
-              width: 100,
-              height: 50
-            }
-          };
+        try {
+          const base64 = await generateBarcode(formData.hn);
+          if (base64) {
+            barcodeImageData = base64;
+          }
+          console.log('✅ Barcode generated successfully');
+        } catch (barcodeError) {
+          console.error('⚠️ Warning:', barcodeError);
         }
-        console.log('Barcode generated');
       }
 
-      // 🆕 คำนวณเดือนและวัน (ใช้ฟังก์ชันที่ import มา)
-      let totalMonths = '';
-      let totalDays = '';
-      if (formData.date && formData.toDate) {
-        const result = calculateMonthsAndDays(formData.date, formData.toDate);
-        // ❌ FIX: ผลลัพธ์มีแค่ months, days (ไม่มี year)
-        totalMonths = result.months.toString();
-        totalDays = result.days.toString();
-        console.log('Calculated months:', result.months, 'days:', result.days);
-      }
-      // Fetch the template
+      // ✅ FETCH TEMPLATE ก่อน (บรรทัดแรก)
       const response = await fetch(templatePath);
-
       if (!response.ok) {
         throw new Error(`Failed to load template: ${response.status}`);
       }
-
       const arrayBuffer = await response.arrayBuffer();
       console.log('Template loaded, size:', arrayBuffer.byteLength);
 
-      // Create PizZip instance
+      // ✅ Create PizZip
       const zip = new PizZip(arrayBuffer);
       console.log('PizZip created');
 
-      // Create Docxtemplater instance
+      // ✅ Create ImageModule
+      const imageModule = new ImageModule({
+        getImage: (tagValue) => {
+          if (tagValue && tagValue.startsWith('data:image')) {
+            const base64Data = tagValue.replace(/^data:image\/png;base64,/, '');
+            return Buffer.from(base64Data, 'base64');
+          }
+          return Buffer.from('', 'base64');
+        },
+        getSize: (imageBuffer) => {
+          return [914400, 304800];
+        }
+      });
+
+      // ✅ Create Docxtemplater
       const doc = new Docxtemplater(zip, {
+        modules: [imageModule],
         linebreaks: true,
         delimiters: {
           start: '{{',
@@ -357,6 +355,15 @@ export default function ThaiServiceForm() {
         }
       });
       console.log('Docxtemplater initialized');
+
+      // คำนวณเดือนและวัน
+      let totalMonths = '';
+      let totalDays = '';
+      if (formData.date && formData.toDate) {
+        const result = calculateMonthsAndDays(formData.date, formData.toDate);
+        totalMonths = result.months.toString();
+        totalDays = result.days.toString();
+      }
 
       const patientInfo = processPatientName({
         prename: formData.prename,
@@ -400,29 +407,24 @@ export default function ThaiServiceForm() {
         totalServiceFee: formData.totalServiceFee || '........................',
         extraDoctorVisitFee: formData.extraDoctorVisitFee || '........................',
         finalGender: patientInfo.finalGender,
-        // ✅ แล้วเพิ่มต่อด้วย:
-        dateNow: dateNow,                          // "05/12/2568"
-        timeNow: timeNow,                          // "15:30:45"
-        dateTimeNow: `${dateNow} ${timeNow}`,      // "05/12/2568 15:30:45"
-        effectiveDate: effectiveDate,               // "5 Dec 2024"
-
+        barcode: barcodeImageData || null,
+        dateNow: dateNow,
+        timeNow: timeNow,
+        dateTimeNow: `${dateNow} ${timeNow}`,
+        effectiveDate: effectiveDate,
       };
 
       console.log('Data prepared:', data);
 
-      // Set data in template
       doc.setData(data);
       console.log('Data set in template');
 
-      // Render the template
       doc.render();
       console.log('Template rendered');
 
-      // Generate the document
       const blob = doc.getZip().generate({ type: 'blob' });
       console.log('Blob generated, size:', blob.size);
 
-      // Save the file
       const fileName = `สัญญา_${formData.firstName || 'contract'}_${formData.lastName || 'document'}.docx`;
       saveAs(blob, fileName);
       console.log('File saved:', fileName);
@@ -431,8 +433,6 @@ export default function ThaiServiceForm() {
       alert('Export Word สำเร็จ!');
     } catch (error) {
       console.error('Error exporting to Word:', error);
-      console.error('Error stack:', error.stack);
-      console.error('Error properties:', error.properties);
       setError(`เกิดข้อผิดพลาดในการ export Word: ${error.message}`);
       alert(`Error: ${error.message}`);
     }
@@ -891,7 +891,8 @@ export default function ThaiServiceForm() {
 
             {isStrokeCenter() && (
               <div className="flex items-center space-x-4">
-                
+
+
                 <button
                   onClick={() => exportToWord(formData, '/templates/CODE1.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
@@ -900,11 +901,27 @@ export default function ThaiServiceForm() {
                   <span>สัญญาจ้างทางการแพทย์</span>
                 </button>
                 <button
+                  onClick={() => exportToWord(formData, '/templates/สัญญาเงื่อนไขและข้อตกลงการซื้อคอร์ส.docx', setError)}
+                  className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>สัญญาเงื่อนไขและข้อตกลงการซื้อคอร์ส</span>
+                </button>
+                <button
                   onClick={() => exportToWord(formData, '/templates/เอกสารAdmitnoan.docx', setError)}
                   className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                 >
                   📄 เอกสาร Admit
                 </button>
+                <button
+                  onClick={() => exportToWord(formData, '/templates/เอกสารแนบสัญญา.docx', setError)}
+                  className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                >
+                  📄 เอกสารแนบสัญญา
+                </button>
+
+
+
               </div>
 
             )}
