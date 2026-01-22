@@ -324,6 +324,12 @@ const PatientForm = ({ mode = "add" }) => {
     { value: 'นาย', label: 'นาย' },
     { value: 'นาง', label: 'นาง' },
     { value: 'นางสาว', label: 'นางสาว' },
+    { value: 'Ms.', label: 'Ms.' },
+    { value: 'Mr.', label: 'Mr.' },
+    { value: 'Mrs.', label: 'Mrs.' },
+    { value: 'Miss', label: 'Miss' },
+    { value: 'Mx.', label: 'Mx.' },
+    
 
     // เด็ก
     { value: 'เด็กชาย', label: 'เด็กชาย' },
@@ -676,9 +682,9 @@ const PatientForm = ({ mode = "add" }) => {
     }
 
     // validation patterns เหมือนเดิม
-    if (patientData.idCard && !/^\d{13}$/.test(patientData.idCard)) {
-      newErrors.idCard = 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก';
-    }
+    //if (patientData.idCard && !/^\d{13}$/.test(patientData.idCard)) {
+    //  newErrors.idCard = 'เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก';
+    //}
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
