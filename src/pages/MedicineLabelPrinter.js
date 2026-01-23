@@ -64,7 +64,7 @@ const MedicineLabelPrinter = () => {
     console.log('Fetching medications for registration ID:', registrationId);
     setLoading(true);
     try {
-      const response = await api.get(`/medication-reconciliations/${registrationId}`
+      const response = await api.get(`/medication-reconciliation/${registrationId}`
       );
       const data = response.data;
       console.log('Medication Reconciliation API Response:', data);
