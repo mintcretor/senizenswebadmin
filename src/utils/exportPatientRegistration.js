@@ -7,19 +7,45 @@ const formatThaiDate = (date) => {
   const day = date.getDate().toString().padStart(2, '0');
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const year = (date.getFullYear() + 543).toString();
-  return `${day}/${month}/${year}`;
+  return `${convertToEnglishNumber(day)}/${convertToEnglishNumber(month)}/${convertToEnglishNumber(year)}`;
 };
 
 const formatThaiTime = (date) => {
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
   const seconds = date.getSeconds().toString().padStart(2, '0');
-  return `${hours}:${minutes}:${seconds}`;
+  return `${convertToEnglishNumber(hours)}:${convertToEnglishNumber(minutes)}:${convertToEnglishNumber(seconds)}`;
 };
 
-/**
- * สร้าง Barcode เป็น Base64
- */
+const convertToEnglishNumber = (str) => {
+  if (!str) return str;
+  const thaiNumbers = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+  const englishNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  
+  let result = str.toString();
+  thaiNumbers.forEach((thai, index) => {
+    result = result.replace(new RegExp(thai, 'g'), englishNumbers[index]);
+  });
+  return result;
+};
+
+const sanitizeAllNumbers = (obj) => {
+  if (!obj) return obj;
+  const sanitized = { ...obj };
+  Object.keys(sanitized).forEach(key => {
+    if (sanitized[key] && typeof sanitized[key] === 'string') {
+      sanitized[key] = convertToEnglishNumber(sanitized[key]);
+    }
+  });
+  return sanitized;
+};
+
+const wrapNumbers = (text) => {
+  if (!text) return '';
+  const str = String(text);
+  return str.replace(/[0-9]/g, (match) => `<span style="font-family: 'Arial', sans-serif; font-size: 0.8em;">${match}</span>`);
+};
+
 const generateBarcodeBase64 = (text) => {
   try {
     const canvas = document.createElement('canvas');
@@ -27,7 +53,7 @@ const generateBarcodeBase64 = (text) => {
       format: 'CODE128',
       width: 2,
       height: 50,
-      displayValue: false, // ไม่แสดงเลขใต้ barcode
+      displayValue: false,
       margin: 5
     });
     return canvas.toDataURL('image/png');
@@ -37,51 +63,46 @@ const generateBarcodeBase64 = (text) => {
   }
 };
 
-/**
- * โหลด THSarabunNew font
- */
 const loadTHSarabunFont = () => {
   return new Promise((resolve) => {
-    // เช็คว่า font โหลดแล้วหรือยัง
     if (document.fonts && document.fonts.check) {
-      if (document.fonts.check('16px THSarabunNew')) {
+      if (document.fonts.check('16px TH SarabunPSK')) {
         resolve();
         return;
       }
     }
 
-    // สร้าง style element สำหรับโหลด font
     const style = document.createElement('style');
     style.textContent = `
       @font-face {
-        font-family: 'THSarabunNew';
+        font-family: 'TH SarabunPSK';
         font-style: normal;
         font-weight: 400;
-        src: url('https://cdn.jsdelivr.net/npm/@fontsource/sarabun@4.5.0/files/sarabun-thai-400-normal.woff2') format('woff2');
+        src: url('https://cdn.jsdelivr.net/npm/sarabun-psk@1.0.0/TH_SarabunPSK.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/npm/sarabun-psk@1.0.0/TH_SarabunPSK.woff') format('woff');
+        font-feature-settings: 'lnum' 1;
       }
       @font-face {
-        font-family: 'THSarabunNew';
+        font-family: 'TH SarabunPSK';
         font-style: normal;
         font-weight: 700;
-        src: url('https://cdn.jsdelivr.net/npm/@fontsource/sarabun@4.5.0/files/sarabun-thai-700-normal.woff2') format('woff2');
+        src: url('https://cdn.jsdelivr.net/npm/sarabun-psk@1.0.0/TH_SarabunPSK_Bold.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/npm/sarabun-psk@1.0.0/TH_SarabunPSK_Bold.woff') format('woff');
+        font-feature-settings: 'lnum' 1;
       }
     `;
     document.head.appendChild(style);
 
-    // รอให้ font โหลดเสร็จ
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => {
-        setTimeout(resolve, 100); // รอเพิ่มอีกนิด
+        setTimeout(resolve, 100);
       });
     } else {
-      setTimeout(resolve, 500); // รอแบบ fallback
+      setTimeout(resolve, 500);
     }
   });
 };
 
-/**
- * โหลดรูปภาพเป็น base64
- */
 const loadImageAsBase64 = (imagePath) => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -99,25 +120,42 @@ const loadImageAsBase64 = (imagePath) => {
   });
 };
 
-/**
- * Export ใบลงทะเบียนผู้ป่วยเป็น PDF (เหมือนต้นฉบับ 100%)
- * @param {Object} patientData - ข้อมูลผู้ป่วย
- * @param {Function} setError - function สำหรับ set error message
- */
+// CSS styles สำหรับ inline elements
+const underlineStyle = 'display: inline-block; padding-left: 5px; padding-right: 2px; padding-bottom: 4px; border-bottom: 1px dotted #000; vertical-align: bottom; margin-left: 5px;';
+const checkboxStyle = 'border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;';
+
+// Helper functions สำหรับสร้าง HTML elements
+const createUnderline = (value, width = '200px') => {
+  return `<span style="${underlineStyle} width: ${width}; min-width: ${width};">${value || ''}</span>`;
+};
+
+const createCheckbox = () => {
+  return `<span style="${checkboxStyle} margin-right: 3px;"></span>`;
+};
+
+const createField = (label, value, width = '200px', engLabel = '') => {
+  return `
+    <div style="margin: 10px 0;">
+      <span>${label}</span>
+      ${createUnderline(value, width)}
+      ${engLabel ? `<span style="margin-left: 20px;">${engLabel}</span>` : ''}
+    </div>
+  `;
+};
+
 export const exportPatientRegistrationPDF = async (patientData, setError) => {
   try {
     console.log('Starting PDF export...');
     console.log('Patient data:', patientData);
 
-    // โหลด THSarabunNew font ก่อน
+    const cleanedData = sanitizeAllNumbers(patientData);
     await loadTHSarabunFont();
-    console.log('THSarabunNew font loaded');
+    console.log('TH SarabunPSK font loaded');
 
     const now = new Date();
     const dateNow = formatThaiDate(now);
     const timeNow = formatThaiTime(now);
 
-    // สร้าง HTML element
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
@@ -127,36 +165,38 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
     container.style.padding = '0';
     container.style.margin = '0';
     container.style.backgroundColor = 'white';
-    container.style.fontFamily = "'THSarabunNew', 'Sarabun', sans-serif";
+    container.style.fontFamily = "'TH SarabunPSK', 'Sarabun', sans-serif";
     container.style.fontSize = '14px';
     container.style.lineHeight = '1.4';
+    container.style.fontVariantNumeric = 'lining-nums';
 
-    // สร้าง Barcode
     let barcodeDataUrl = '';
-    if (patientData.hn) {
-      console.log('Generating barcode for HN:', patientData.hn);
-      barcodeDataUrl = generateBarcodeBase64(patientData.hn);
+    if (cleanedData.hn) {
+      console.log('Generating barcode for HN:', cleanedData.hn);
+      barcodeDataUrl = generateBarcodeBase64(cleanedData.hn);
     }
 
-    // โหลด Logo (ถ้ามี)
     let logoDataUrl = '';
     try {
-      // โหลด logo จาก public/images/logo.png
       logoDataUrl = await loadImageAsBase64('/images/logo.png');
       console.log('Logo loaded successfully');
     } catch (error) {
       console.warn('Logo not found, continuing without logo');
-      // ถ้าไม่มี logo จะใช้ข้อความแทน
     }
 
-    const fullNameTh = `${patientData.prename || ''} ${patientData.first_name || ''} ${patientData.last_name || ''}`.trim();
-    const fullNameEn = `${patientData.first_name_en || ''} ${patientData.last_name_en || ''}`.trim();
-    const birthDateDisplay = patientData.birth_date ? patientData.birth_date.split('T')[0] : '';
-    const ageDisplay = patientData.age || '';
+    const fullNameTh = `${cleanedData.prename || ''} ${cleanedData.first_name || ''} ${cleanedData.last_name || ''}`.trim();
+    const fullNameEn = `${cleanedData.first_name_en || ''} ${cleanedData.last_name_en || ''}`.trim();
+    const birthDateDisplay = cleanedData.birth_date ? cleanedData.birth_date.split('T')[0] : '';
+    const ageDisplay = wrapNumbers(cleanedData.age || '');
+    const hnDisplay = wrapNumbers(cleanedData.hn || '');
+    const phoneDisplay = wrapNumbers(cleanedData.phone || '');
+    const houseNumberDisplay = wrapNumbers(cleanedData.house_number || '');
+    const villageDisplay = wrapNumbers(cleanedData.village || '');
+    const dateNowWrapped = wrapNumbers(dateNow);
+    const timeNowWrapped = wrapNumbers(timeNow);
 
-    // สร้าง HTML ตามต้นฉบับ
     container.innerHTML = `
-      <div style="padding: 15mm; font-size: 14px; line-height: 1.4; width: 210mm; min-height: 297mm; box-sizing: border-box; font-family: 'THSarabunNew', 'Sarabun', sans-serif;">
+      <div style="padding: 15mm; font-size: 14px; line-height: 1.4; width: 210mm; min-height: 297mm; box-sizing: border-box; font-family: 'TH SarabunPSK', 'Sarabun', sans-serif; font-variant-numeric: lining-nums;">
         
         <!-- Header Section -->
         <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 0px;">
@@ -174,28 +214,24 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
               <div style="font-size: 11px; line-height: 1.3;">
                 <div style="font-weight: bold;">CODE : OPDCARD</div>
                 <div style="font-weight: bold;">PROG : OPD</div>
-                <div style="margin-top: 5px;">คลินิกเวชกรรม เดอะซีนิเซ่นส์ เลขใบอนุญาต 10101005964</div>
-                <div>เลขที่ 446 ถนนบางแวก แขวงบางแวก เขตภาษีเจริญ กรุงเทพฯ 10160</div>
-                <div>Tel : 02-412099 Mobile : 064-2496818</div>
+                <div style="margin-top: 5px;">คลินิกเวชกรรม เดอะซีนิเซ่นส์ เลขใบอนุญาต ${wrapNumbers('10101005964')}</div>
+                <div>เลขที่ ${wrapNumbers('446')} ถนนบางแวก แขวงบางแวก เขตภาษีเจริญ กรุงเทพฯ ${wrapNumbers('10160')}</div>
+                <div>Tel : ${wrapNumbers('02-4120999')} Mobile : ${wrapNumbers('064-2496818')}</div>
               </div>
             </td>
-            <td style="width: 220px; vertical-align: top; text-align: right; padding-right: 0;  border: none;">
-              <div style="font-size: 13px;  margin-bottom: 5px;">ใบลงทะเบียนผู้ป่วย</div>
-              <div style="font-size: 11px; ">Patient Registration Form</div>
-              <div style="margin-top: 10px; ">
+            <td style="width: 220px; vertical-align: top; text-align: right; padding-right: 0; border: none;">
+              <div style="font-size: 13px; margin-bottom: 5px;">ใบลงทะเบียนผู้ป่วย</div>
+              <div style="font-size: 11px;">Patient Registration Form</div>
+              <div style="margin-top: 10px;">
                 <table style="float: right; text-align: left; font-size: 11px; border: none;">                                                
-                  <tr >
-                  <td  style="width: 55px; text-align: left; border: none;">Status</td>
-                    <td style=" width: 15px; text-align: left; border: none;">
-                      <div style="width: 12px; height: 12px; border: 1px solid #000; display: inline-block; vertical-align: middle;"></div>
-                    </td>
+                  <tr>
+                    <td style="width: 55px; text-align: left; border: none;">Status</td>
+                    <td style="width: 15px; text-align: left; border: none;">${createCheckbox()}</td>
                     <td style="border: none;">ทั่วไป(General)</td>
                   </tr>
-                  <tr >
-                  <td style="border: none;"></td>
-                    <td style="padding-right: 5px; border: none;">
-                       <div style="width: 12px; height: 12px; border: 1px solid #000; display: inline-block; vertical-align: middle;"></div>
-                    </td>
+                  <tr>
+                    <td style="border: none;"></td>
+                    <td style="padding-right: 5px; border: none;">${createCheckbox()}</td>
                     <td style="border: none;">ฉุกเฉิน(Emergency)</td>
                   </tr>
                 </table>
@@ -205,200 +241,134 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
         </table>
 
         <!-- HN Section -->
-        <div style="margin: 15px 0; padding: 10px 0; padding-top: 0; margin-top : 0; ">
+        <div style="margin: 15px 0; padding: 10px 0;">
           <table style="width: 100%; border-collapse: collapse; border: none;">
             <tr>
-              <td style="width: 50%; vertical-align: top; border: none; text-align: left; ">
-                <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px; ">H.N. ${patientData.hn || ''}</div>
+              <td style="width: 50%; vertical-align: top; border: none; text-align: left;">
+                <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">H.N. ${hnDisplay || createUnderline('', '150px')}</div>
                 ${barcodeDataUrl ? `
                   <div style="margin-top: 5px;">
                     <img src="${barcodeDataUrl}" style="height: 50px; width: auto;" alt="Barcode" />
-                    <div style="font-size: 12px; padding-left: 35px; margin-top: 2px;">${patientData.hn || ''}</div>
+                    <div style="font-size: 12px; padding-left: 35px; margin-top: 2px;">${hnDisplay}</div>
                   </div>
                 ` : ''}
               </td>
               <td style="width: 50%; text-align: right; vertical-align: top; font-size: 14px; border: none;">
-                <div style="margin-bottom: 5px;">วันที่/DATE : ${dateNow}</div>
-                <div>เวลา/TIME : ${timeNow}</div>
+                <div style="margin-bottom: 5px;">วันที่/DATE : ${dateNowWrapped}</div>
+                <div>เวลา/TIME : ${timeNowWrapped}</div>
               </td>
             </tr>
           </table>
         </div>
 
         <!-- Form Fields -->
-        <div style="margin: 10px 0;">
-          <div>ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)
-            <span style="display: inline-block; min-width: 400px; padding-left: 5px;">
-              ${fullNameTh}
-            </span>
-          </div>
-        </div>
-
-        <div style="margin: 10px 0;">
-          <div>Name(Mr./Mrs./Miss/Mast./Girl)
-            <span style="display: inline-block; min-width: 430px; padding-left: 5px;">
-              ${fullNameEn}
-            </span>
-          </div>
-        </div>
-
-        <div style="margin: 10px 0;">
-          <span>เพศ/SEX : </span>
-          <span style=" display: inline-block; min-width: 100px; padding-left: 5px;">
-            ${patientData.gender || ''}
-          </span>
-        </div>
+        ${createField('ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)', fullNameTh, '400px')}
+        ${createField('Name(Mr./Mrs./Miss/Mast./Girl)', fullNameEn, '430px')}
+        ${createField('เพศ/SEX : ', cleanedData.gender, '100px')}
 
         <div style="margin: 15px 0;">
-          <div style="font-weight: bold;  margin-bottom: 5px; text-align: center;">ที่อยู่ปัจจุบันที่สามารถติดต่อได้(Present address)</div>
+          <div style="font-weight: bold; margin-bottom: 5px; text-align: center;">ที่อยู่ปัจจุบันที่สามารถติดต่อได้(Present address)</div>
           <div style="margin: 5px 0;">
-            ที่อยู่/ADDRESS : 
-            <span style=" display: inline-block; min-width: 60px; padding-left: 5px;">
-              ${patientData.house_number || ''}
-            </span>
-            หมู่/MOO : 
-            <span style=" display: inline-block; min-width: 60px; padding-left: 5px;">
-              ${patientData.village || ''}
-            </span>
-            ตำบล/Sub-district : 
-            <span style=" display: inline-block; min-width: 120px; padding-left: 5px;">
-              ${patientData.sub_district_name || ''}
-            </span>
+            ที่อยู่/ADDRESS : ${createUnderline(houseNumberDisplay, '60px')}
+            หมู่/MOO : ${createUnderline(villageDisplay, '60px')}
+            ตำบล/Sub-district : ${createUnderline(cleanedData.sub_district_name, '120px')}
           </div>
           <div style="margin: 5px 0;">
-            อำเภอ/Region : 
-            <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-              ${patientData.district_name || ''}
-            </span>
-            จังหวัด/Area : 
-            <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-              ${patientData.province_name || ''}
-            </span>
+            อำเภอ/Region : ${createUnderline(cleanedData.district_name, '120px')}
+            จังหวัด/Area : ${createUnderline(cleanedData.province_name, '120px')}
           </div>
         </div>
 
         <div style="margin: 10px 0;">
           <span>โทรศัพท์/TEL : </span>
-          <span style="display: inline-block; min-width: 150px; padding-left: 5px;">
-            ${patientData.phone || ''}
-          </span>
+          ${createUnderline(phoneDisplay, '150px')}
           <span style="margin-left: 20px;">ต่อ/Ext : </span>
-          <span style="display: inline-block; min-width: 60px; padding-left: 5px;"></span>
+          ${createUnderline('', '60px')}
           <span style="margin-left: 20px;">มือถือ/Mobile : </span>
-          <span style="display: inline-block; min-width: 150px; padding-left: 5px;">
-            ${patientData.phone || ''}
-          </span>
+          ${createUnderline(phoneDisplay, '150px')}
         </div>
 
         <div style="margin: 10px 0;">
           <span>วันเดือนปีเกิด/Date of Birth : </span>
-          <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-            ${birthDateDisplay}
-          </span>
+          ${createUnderline(wrapNumbers(birthDateDisplay), '120px')}
           <span style="margin-left: 20px;">อายุ/AGE : </span>
-          <span style="display: inline-block; min-width: 50px; padding-left: 5px;">
-            ${ageDisplay}
-          </span>
+          ${createUnderline(ageDisplay, '50px')}
           <span style="margin-left: 5px;">ปี/Yrs.</span>
           <span style="margin-left: 20px;">สถานภาพ/STATUS : </span>
-          <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+          ${createUnderline('', '100px')}
         </div>
 
         <div style="margin: 10px 0;">
           <span>ศาสนา/Religion : </span>
-          <span style="display: inline-block; min-width: 150px; padding-left: 5px;">
-            ${patientData.religion || ''}
-          </span>
+          ${createUnderline(cleanedData.religion, '150px')}
           <span style="margin-left: 40px;">สัญชาติ/NATIONALITY : </span>
-          <span style="display: inline-block; min-width: 120px; padding-left: 5px;">
-            ${patientData.nationality || ''}
-          </span>
+          ${createUnderline(cleanedData.nationality, '120px')}
         </div>
 
         <div style="margin: 10px 0;">
           <span>อาชีพ/OCC. : </span>
-          <span style="display: inline-block; min-width: 180px; padding-left: 5px;">
-            ${patientData.ethnicity || ''}
-          </span>
+          ${createUnderline(cleanedData.ethnicity, '180px')}
           <span style="margin-left: 40px;">E-mail : </span>
-          <span style="display: inline-block; min-width: 250px; padding-left: 5px;">
-            ${patientData.email || ''}
-          </span>
+          ${createUnderline(cleanedData.email, '250px')}
         </div>
 
-        <div style="margin: 15px 0; ">
+        <div style="margin: 15px 0;">
           <div style="margin-bottom: 5px;">
             <span>แสดงบัตรประชาชน/บัตรอื่นๆ </span>
-            <span style="margin-left: 10px;">
-              <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;"></span>
-              มี/YES
-            </span>
-            <span style="margin-left: 10px;">
-              <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;"></span>
-              ไม่มี/NO
-            </span>
+            <span style="margin-left: 10px;">${createCheckbox()} มี/YES</span>
+            <span style="margin-left: 10px;">${createCheckbox()} ไม่มี/NO</span>
             <span style="margin-left: 10px;">ได้รับการแจ้งให้สำเนาบัตรมาภายหลัง วันหมดอายุ</span>
-            <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+            ${createUnderline('', '100px')}
           </div>
         </div>
 
         <div style="margin: 10px 0;">
           <span>ID Card/Passport </span>
-          <span style=" display: inline-block; min-width: 200px; padding-left: 5px;">
-            ${patientData.id_card || ''}
-          </span>
+          ${createUnderline(wrapNumbers(cleanedData.id_card), '200px')}
           <span style="margin-left: 20px;">From Photocopy</span>
-          <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+          ${createUnderline('', '100px')}
           <span style="margin-left: 10px;">Date of expiry</span>
-          <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+          ${createUnderline('', '100px')}
         </div>
 
         <div style="margin: 10px 0;">
           <div>ขณะที่ยังไม่มีบัตรแสดงตน ทางโรงพยาบาลขอสงวนสิทธิการออกเอกสารที่สามารถรับรองทางกฏหมายได้</div>
           <div>If you do not present legal documents for indentification, such as passport or ID card the hospital is unable to privide any medical certificates to be used for legal means.</div>
-          
         </div>
 
         <div style="margin: 15px 0;">
           <div style="margin-bottom: 5px;">
-            <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;"></span>
-            <span>ไม่ทราบ/Do not know</span>
-            <span style="margin-left: 20px;">
-              <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;"></span>
-              <span>ไม่แพ้</span>
-            </span>
-            <span style="margin-left: 20px;">
-              <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 3px;"></span>
-              <span>แพ้ยา</span>
-            </span>
+            ${createCheckbox()} <span>ไม่ทราบ/Do not know</span>
+            <span style="margin-left: 20px;">${createCheckbox()} <span>ไม่แพ้</span></span>
+            <span style="margin-left: 20px;">${createCheckbox()} <span>แพ้ยา</span></span>
           </div>
         </div>
 
         <div style="margin: 10px 0;">
           <span>ระบุชื่อยา/สารที่แพ้ Sensitive to </span>
-          <span style="display: inline-block; min-width: 350px; padding-left: 5px;"></span>
+          ${createUnderline('', '350px')}
         </div>
 
         <div style="margin: 10px 0;">
-          <span>กรณีฉุกเฉินติดต่อญาติ  ชื่อ/สกุล </span>
-          <span style="display: inline-block; min-width: 250px; padding-left: 5px;"></span>
+          <span>กรณีฉุกเฉินติดต่อญาติ ชื่อ/สกุล </span>
+          ${createUnderline('', '250px')}
           <span style="margin-left: 20px;">Blood Group / หมู่เลือด</span>
-          <span style="display: inline-block; min-width: 80px; padding-left: 5px;"></span>
+          ${createUnderline('', '80px')}
         </div>
 
         <div style="margin: 10px 0;">
           <span>In Case of emergency please notify Mr./Mrs./Miss </span>
-          <span style=" display: inline-block; min-width: 300px; padding-left: 5px;"></span>
+          ${createUnderline('', '300px')}
         </div>
 
         <div style="margin: 10px 0;">
           <span>ที่อยู่/Home Address </span>
-          <span style="display: inline-block; min-width: 500px; padding-left: 5px;"></span>
+          ${createUnderline('', '500px')}
         </div>
 
         <div style="margin: 10px 0;">
           <span>โทรศัพท์/Telephone Number </span>
-          <span style="display: inline-block; min-width: 450px; padding-left: 5px;"></span>
+          ${createUnderline('', '450px')}
         </div>
 
         <div style="margin: 15px 0; font-weight: bold;">
@@ -409,30 +379,21 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
           <table style="width: 100%; border-collapse: collapse; border: none;">
             <tr>
               <td style="width: 50%; vertical-align: top; border: none;">
+                <div style="margin-bottom: 5px;">${createCheckbox()} <span>จ่ายเอง/Self pay</span></div>
+                <div style="margin-bottom: 5px;">${createCheckbox()} <span>ประกันสังคม/Social security</span></div>
                 <div style="margin-bottom: 5px;">
-                  <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-                  <span>จ่ายเอง/Self pay</span>
-                </div>
-                <div style="margin-bottom: 5px;">
-                  <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-                  <span>ประกันสังคม/Social security</span>
-                </div>
-                <div style="margin-bottom: 5px;">
-                  <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-                  <span>บริษัทประกันสุขภาพ/Health insurance company</span>
-                  <span style="display: inline-block; min-width: 150px; padding-left: 5px;"></span>
+                  ${createCheckbox()} <span>บริษัทประกันสุขภาพ/Health insurance company</span>
+                  ${createUnderline('', '80px')}
                 </div>
               </td>
               <td style="width: 50%; vertical-align: top; border: none;">
                 <div style="margin-bottom: 5px;">
-                  <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-                  <span>ราชการ/Government service</span>
-                  <span style="display: inline-block; min-width: 100px; padding-left: 5px;"></span>
+                  ${createCheckbox()} <span>ราชการ/Government service</span>
+                  ${createUnderline('', '100px')}
                 </div>
                 <div style="margin-bottom: 5px;">
-                  <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-                  <span>สวัสดิการบริษัท/contract company</span>
-                  <span style="display: inline-block; min-width: 80px; padding-left: 5px;"></span>
+                  ${createCheckbox()} <span>สวัสดิการบริษัท/contract company</span>
+                  ${createUnderline('', '80px')}
                 </div>
               </td>
             </tr>
@@ -445,14 +406,12 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
         <div style="margin: 10px 0 10px 20px;">
           <div style="margin-bottom: 5px;">
-            <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-            <span>ระบุชื่อแพทย์/Your selected physician</span>
-            <span style="display: inline-block; min-width: 350px; padding-left: 5px;"></span>
+            ${createCheckbox()} <span>ระบุชื่อแพทย์/Your selected physician</span>
+            ${createUnderline('', '350px')}
           </div>
           <div style="margin-bottom: 5px;">
-            <span style="border: 1px solid #000; display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 5px;"></span>
-            <span>แพทย์ที่ทางโรงพยาบาลแนะนำ/Physician recommended by hospital</span>
-            <span style="display: inline-block; min-width: 220px; padding-left: 5px;"></span>
+            ${createCheckbox()} <span>แพทย์ที่ทางโรงพยาบาลแนะนำ/Physician recommended by hospital</span>
+            ${createUnderline('', '231px')}
           </div>
         </div>
 
@@ -460,11 +419,8 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
     `;
 
     document.body.appendChild(container);
-
-    // รอให้ render เสร็จ
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    // แปลง HTML เป็น canvas
     const canvas = await html2canvas(container, {
       scale: 2,
       useCORS: true,
@@ -473,10 +429,8 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
       backgroundColor: '#ffffff'
     });
 
-    // ลบ element ออก
     document.body.removeChild(container);
 
-    // สร้าง PDF
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -491,8 +445,7 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
     pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(imgHeight, pdfHeight));
 
-    // Save PDF
-    const fileName = `ใบลงทะเบียน_${patientData.first_name || 'patient'}_${patientData.hn || 'unknown'}.pdf`;
+    const fileName = `ใบลงทะเบียน_${cleanedData.first_name || 'patient'}_${cleanedData.hn || 'unknown'}.pdf`;
     pdf.save(fileName);
 
     console.log('PDF saved successfully:', fileName);
