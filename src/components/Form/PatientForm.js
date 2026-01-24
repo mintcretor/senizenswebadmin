@@ -259,22 +259,61 @@ const PatientForm = ({ mode = "add" }) => {
     contactPhone: ''
   });
 
-  const prenameOptions = [
-    { value: 'นาย', label: 'นาย' },
-    { value: 'นาง', label: 'นาง' },
-    { value: 'นางสาว', label: 'นางสาว' },
-    { value: 'Ms.', label: 'Ms.' },
-    { value: 'Mr.', label: 'Mr.' },
-    { value: 'Mrs.', label: 'Mrs.' },
-    { value: 'Miss', label: 'Miss' },
-    { value: 'Mx.', label: 'Mx.' },
-    
+ const prenameOptions = [
+  // --- บุคคลธรรมดา (ภาษาไทย) ---
+  { value: 'คุณ', label: 'คุณ' }, // เพิ่มตามคำขอ (นิยมใช้นำหน้าชื่อเพื่อความสุภาพ)
+  { value: 'นาย', label: 'นาย' },
+  { value: 'นาง', label: 'นาง' },
+  { value: 'นางสาว', label: 'นางสาว' },
+  { value: 'เด็กชาย', label: 'เด็กชาย' },
+  { value: 'เด็กหญิง', label: 'เด็กหญิง' },
 
-    // เด็ก
-    { value: 'เด็กชาย', label: 'เด็กชาย' },
-    { value: 'เด็กหญิง', label: 'เด็กหญิง' },
-    // ... (Options อื่นๆ คงเดิม)
-  ];
+  // --- General (English) ---
+  { value: 'Mr.', label: 'Mr.' },
+  { value: 'Mrs.', label: 'Mrs.' },
+  { value: 'Ms.', label: 'Ms.' },
+  { value: 'Miss', label: 'Miss' },
+  { value: 'Mx.', label: 'Mx.' },
+  { value: 'Dr.', label: 'Dr.' },
+
+  // --- วิชาการ / การแพทย์ (Academic & Medical) ---
+  { value: 'ดร.', label: 'ดร.' },
+  { value: 'นพ.', label: 'นพ.' },
+  { value: 'พญ.', label: 'พญ.' },
+  { value: 'ทพ.', label: 'ทพ.' },
+  { value: 'ทพญ.', label: 'ทพญ.' },
+  { value: 'ภก.', label: 'ภก.' },
+  { value: 'ภญ.', label: 'ภญ.' },
+  { value: 'สพ.ญ.', label: 'สพ.ญ.' },
+  { value: 'นสพ.', label: 'นสพ.' },
+  { value: 'ศ.', label: 'ศ.' },
+  { value: 'รศ.', label: 'รศ.' },
+  { value: 'ผศ.', label: 'ผศ.' },
+  { value: 'อ.', label: 'อ.' },
+
+  // --- ยศตำรวจ / ทหาร (Rank - Common) ---
+  { value: 'พล.ต.อ.', label: 'พล.ต.อ.' },
+  { value: 'พล.ต.ท.', label: 'พล.ต.ท.' },
+  { value: 'พล.ต.ต.', label: 'พล.ต.ต.' },
+  { value: 'พ.ต.อ.', label: 'พ.ต.อ.' },
+  { value: 'พ.ต.ท.', label: 'พ.ต.ท.' },
+  { value: 'พ.ต.ต.', label: 'พ.ต.ต.' },
+  { value: 'ร.ต.อ.', label: 'ร.ต.อ.' },
+  { value: 'ร.ต.ท.', label: 'ร.ต.ท.' },
+  { value: 'ร.ต.ต.', label: 'ร.ต.ต.' },
+  { value: 'พล.อ.', label: 'พล.อ.' },
+  { value: 'พล.ร.อ.', label: 'พล.ร.อ.' },
+  { value: 'พล.อ.อ.', label: 'พล.อ.อ.' },
+  { value: 'ว่าที่ร้อยตรี', label: 'ว่าที่ร้อยตรี' },
+
+  // --- ฐานันดรศักดิ์ (Royal Titles) ---
+  { value: 'ม.ร.ว.', label: 'ม.ร.ว.' },
+  { value: 'ม.ล.', label: 'ม.ล.' },
+
+  // --- อื่นๆ ---
+  { value: 'พระ', label: 'พระ' },
+  { value: 'ทนาย', label: 'ทนาย' },
+];
 
   // Allergies data
   const [allergies, setAllergies] = useState([]);
