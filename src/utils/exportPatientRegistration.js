@@ -266,14 +266,16 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
           </table>
         </div>
 
-        <!-- Form Fields -->
+       <!-- Form Fields -->
 <div style="font-size: 20px;">
-  ${createField('ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)', fullNameTh, '400px')}
-</div>
-<div style="font-size: 20px;">
-  ${createField('Name(Mr./Mrs./Miss/Mast./Girl)', fullNameEn, '430px')}
-</div>
-<div style="font-size: 20px;">
+  <div style="margin: 10px 0;">
+    <span>ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)</span>
+    <span style="${underlineStyle} width: 400px; min-width: 400px; font-weight: bold;">${fullNameTh || ''}</span>
+  </div>
+  <div style="margin: 10px 0;">
+    <span>Name(Mr./Mrs./Miss/Mast./Girl)</span>
+    <span style="${underlineStyle} width: 430px; min-width: 430px; font-weight: bold;">${fullNameEn || ''}</span>
+  </div>
   ${createField('เพศ/SEX : ', cleanedData.gender, '100px')}
 </div>
 
