@@ -267,7 +267,7 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
         </div>
 
        <!-- Form Fields -->
-<div style="font-size: 20px;">
+<div style="font-size: 22px;">
   <div style="margin: 10px 0;">
     <span>ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)</span>
     <span style="${underlineStyle} width: 400px; min-width: 400px; font-weight: bold;">${fullNameTh || ''}</span>
