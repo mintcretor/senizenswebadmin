@@ -250,11 +250,11 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
           <table style="width: 100%; border-collapse: collapse; border: none;">
             <tr>
               <td style="width: 50%; vertical-align: top; border: none; text-align: left;">
-                <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">H.N. ${hnDisplay || createUnderline('', '150px')}</div>
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">H.N. ${hnDisplay || createUnderline('', '150px')}</div>
                 ${barcodeDataUrl ? `
                   <div style="margin-top: 5px;">
                     <img src="${barcodeDataUrl}" style="height: 50px; width: auto;" alt="Barcode" />
-                    <div style="font-size: 12px; padding-left: 35px; margin-top: 2px;">${hnDisplay}</div>
+                    <div style="font-size: 16px; padding-left: 35px; margin-top: 2px;">${hnDisplay}</div>
                   </div>
                 ` : ''}
               </td>
