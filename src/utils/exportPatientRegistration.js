@@ -21,7 +21,7 @@ const convertToEnglishNumber = (str) => {
   if (!str) return str;
   const thaiNumbers = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
   const englishNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  
+
   let result = str.toString();
   thaiNumbers.forEach((thai, index) => {
     result = result.replace(new RegExp(thai, 'g'), englishNumbers[index]);
@@ -196,49 +196,54 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
     const timeNowWrapped = wrapNumbers(timeNow);
 
     container.innerHTML = `
-      <div style="padding: 15mm; font-size: 14px; line-height: 1.4; width: 210mm; min-height: 297mm; box-sizing: border-box; font-family: 'TH SarabunPSK', 'Sarabun', sans-serif; font-variant-numeric: lining-nums;">
+      <div style="padding: 15mm; font-size: 18px; line-height: 1.4; width: 210mm; min-height: 297mm; box-sizing: border-box; font-family: 'TH SarabunPSK', 'Sarabun', sans-serif; font-variant-numeric: lining-nums;">
         
         <!-- Header Section -->
-        <table style="width: 100%; border-collapse: collapse; border: none; margin-bottom: 0px;">
-          <tr>
-            <td style="width: 120px; vertical-align: top; border: none;">
-              ${logoDataUrl ? `
-                <img src="${logoDataUrl}" style="width: 100px; height: auto;" alt="SENIZENS Logo" />
-              ` : `
-                <div style="width: 100px; height: 80px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #999;">
-                  SENIZENS<br/>LOGO
-                </div>
-              `}
-            </td>
-            <td style="vertical-align: top; padding-left: 10px; border: none;">
-              <div style="font-size: 11px; line-height: 1.3;">
-                <div style="font-weight: bold;">CODE : OPDCARD</div>
-                <div style="font-weight: bold;">PROG : OPD</div>
-                <div style="margin-top: 5px;">คลินิกเวชกรรม เดอะซีนิเซ่นส์ เลขใบอนุญาต ${wrapNumbers('10101005964')}</div>
-                <div>เลขที่ ${wrapNumbers('446')} ถนนบางแวก แขวงบางแวก เขตภาษีเจริญ กรุงเทพฯ ${wrapNumbers('10160')}</div>
-                <div>Tel : ${wrapNumbers('02-4120999')} Mobile : ${wrapNumbers('064-2496818')}</div>
-              </div>
-            </td>
-            <td style="width: 220px; vertical-align: top; text-align: right; padding-right: 0; border: none;">
-              <div style="font-size: 13px; margin-bottom: 5px;">ใบลงทะเบียนผู้ป่วย</div>
-              <div style="font-size: 11px;">Patient Registration Form</div>
-              <div style="margin-top: 10px;">
-                <table style="float: right; text-align: left; font-size: 11px; border: none;">                                                
-                  <tr>
-                    <td style="width: 55px; text-align: left; border: none;">Status</td>
-                    <td style="width: 15px; text-align: left; border: none;">${createCheckbox()}</td>
-                    <td style="border: none;">ทั่วไป(General)</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none;"></td>
-                    <td style="padding-right: 5px; border: none;">${createCheckbox()}</td>
-                    <td style="border: none;">ฉุกเฉิน(Emergency)</td>
-                  </tr>
-                </table>
-              </div>
-            </td>
-          </tr>
-        </table>
+        <div style="font-size: 16px; display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0px; border-bottom: 1px solid #000; padding-bottom: 10px;">
+  
+  <!-- Left Side: Logo + Clinic Info -->
+  <div style="display: flex; gap: 15px; flex: 1;">
+    <!-- Logo -->
+    <div style="flex-shrink: 0;">
+      ${logoDataUrl ? `
+        <img src="${logoDataUrl}" style="width: 100px; height: auto;" alt="SENIZENS Logo" />
+      ` : `
+        <div style="width: 100px; height: 80px; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #999;">
+          SENIZENS<br/>LOGO
+        </div>
+      `}
+    </div>
+    
+    <!-- Clinic Information -->
+    <div style="line-height: 1.4;">
+      <div style="font-weight: 500; margin-bottom: 3px;">คลินิก เดอะซีนิเซ่นส์ เวชกรรม (The Senizens Wellness Clinic)</div>
+      <div>เลขที่ ${wrapNumbers('446')} ถนนบางแวก แขวงบางแวก เขตภาษีเจริญ กรุงเทพฯ ${wrapNumbers('10160')}</div>
+      <div>เลขใบอนุญาต ${wrapNumbers('10101005964')}</div>
+      <div>เบอร์โทร ${wrapNumbers('02-412-0999')} Mobile : ${wrapNumbers('064-2496818')} </div> 
+    </div>
+  </div>
+  
+  <!-- Right Side: Form Title + Status -->
+  <div style="text-align: right; flex-shrink: 0; min-width: 220px;">
+    <div style="font-weight: 500; margin-bottom: 2px;">ใบลงทะเบียนผู้ป่วย</div>
+    <div style="margin-bottom: 10px;">Patient Registration Form</div>
+    
+    <!-- Status Checkboxes -->
+    <div style="display: inline-block; text-align: left;">
+      <div style="margin-bottom: 5px;">
+        <span style="display: inline-block; width: 50px;">Status</span>
+        <span style="display: inline-block; margin: 0 5px;">${createCheckbox()}</span>
+        <span>ทั่วไป (General)</span>
+      </div>
+      <div>
+        <span style="display: inline-block; width: 50px;"></span>
+        <span style="display: inline-block; margin: 0 5px;">${createCheckbox()}</span>
+        <span>ฉุกเฉิน (Emergency)</span>
+      </div>
+    </div>
+  </div>
+  
+</div>
 
         <!-- HN Section -->
         <div style="margin: 15px 0; padding: 10px 0;">
@@ -269,7 +274,7 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
         <div style="margin: 15px 0;">
           <div style="font-weight: bold; margin-bottom: 5px; text-align: center;">ที่อยู่ปัจจุบันที่สามารถติดต่อได้(Present address)</div>
           <div style="margin: 5px 0;">
-            ที่อยู่/ADDRESS : ${createUnderline(houseNumberDisplay, '60px')}
+            ที่อยู่/ADDRESS : ${createUnderline(houseNumberDisplay, '150px')}
             หมู่/MOO : ${createUnderline(villageDisplay, '60px')}
             ตำบล/Sub-district : ${createUnderline(cleanedData.sub_district_name, '120px')}
           </div>
@@ -290,8 +295,8 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
         <div style="margin: 10px 0;">
           <span>วันเดือนปีเกิด/Date of Birth : </span>
-          ${createUnderline(wrapNumbers(birthDateDisplay), '120px')}
-          <span style="margin-left: 20px;">อายุ/AGE : </span>
+          ${createUnderline(wrapNumbers(birthDateDisplay), '100px')}
+          <span style="margin-left: 15px;">อายุ/AGE : </span>
           ${createUnderline(ageDisplay, '50px')}
           <span style="margin-left: 5px;">ปี/Yrs.</span>
           <span style="margin-left: 20px;">สถานภาพ/STATUS : </span>
@@ -300,7 +305,7 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
         <div style="margin: 10px 0;">
           <span>ศาสนา/Religion : </span>
-          ${createUnderline(cleanedData.religion, '150px')}
+          ${createUnderline(cleanedData.religion, '120px')}
           <span style="margin-left: 40px;">สัญชาติ/NATIONALITY : </span>
           ${createUnderline(cleanedData.nationality, '120px')}
         </div>
@@ -324,7 +329,7 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
 
         <div style="margin: 10px 0;">
           <span>ID Card/Passport </span>
-          ${createUnderline(wrapNumbers(cleanedData.id_card), '200px')}
+          ${createUnderline(wrapNumbers(cleanedData.id_card), '150px')}
           <span style="margin-left: 20px;">From Photocopy</span>
           ${createUnderline('', '100px')}
           <span style="margin-left: 10px;">Date of expiry</span>
