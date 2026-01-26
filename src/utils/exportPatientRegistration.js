@@ -267,9 +267,15 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
         </div>
 
         <!-- Form Fields -->
-        ${createField('ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)', fullNameTh, '400px')}
-        ${createField('Name(Mr./Mrs./Miss/Mast./Girl)', fullNameEn, '430px')}
-        ${createField('เพศ/SEX : ', cleanedData.gender, '100px')}
+<div style="font-size: 20px;">
+  ${createField('ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)', fullNameTh, '400px')}
+</div>
+<div style="font-size: 20px;">
+  ${createField('Name(Mr./Mrs./Miss/Mast./Girl)', fullNameEn, '430px')}
+</div>
+<div style="font-size: 20px;">
+  ${createField('เพศ/SEX : ', cleanedData.gender, '100px')}
+</div>
 
         <div style="margin: 15px 0;">
           <div style="font-weight: bold; margin-bottom: 5px; text-align: center;">ที่อยู่ปัจจุบันที่สามารถติดต่อได้(Present address)</div>
