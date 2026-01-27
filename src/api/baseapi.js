@@ -22,27 +22,24 @@ let currentBaseURL = API_URLS[currentUrlIndex];
 const api = axios.create({
   baseURL: currentBaseURL,
   timeout: 5000, // 5 วินาที
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // ฟังก์ชันสลับไปใช้ URL ถัดไป
 const switchToNextURL = () => {
   currentUrlIndex++;
-  
+
   if (currentUrlIndex < API_URLS.length) {
     currentBaseURL = API_URLS[currentUrlIndex];
     api.defaults.baseURL = currentBaseURL;
-    
+
     // บันทึก URL ที่ใช้งานได้
     localStorage.setItem('activeBaseURL', currentBaseURL);
     localStorage.setItem('activeUrlIndex', currentUrlIndex.toString());
-    
+
     console.log(`🔄 Switched to URL [${currentUrlIndex}/${API_URLS.length}]: ${currentBaseURL}`);
     return currentBaseURL; // return URL ใหม่
   }
-  
+
   // หมด URL แล้ว - รีเซ็ตกลับไปใช้ primary
   console.error(`❌ All ${API_URLS.length} URLs failed, resetting to primary`);
   resetToPrimaryURL();
@@ -62,20 +59,20 @@ export const resetToPrimaryURL = () => {
 // ⚠️ ฟังก์ชัน logout อัตโนมัติ
 const handleAutoLogout = () => {
   console.warn('🔐 Token expired - Auto logout');
-  
+
   // ลบข้อมูลทั้งหมดที่เกี่ยวกับ authentication
   localStorage.removeItem('userToken');
   localStorage.removeItem('user');
   localStorage.removeItem('authToken'); // กรณีมีชื่อเก่า
-  
+
   // แสดง notification (ถ้าต้องการ)
   const message = 'เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่';
-  
+
   // ใช้ alert หรือ toast notification
   if (window.confirm) {
     alert(message);
   }
-  
+
   // Redirect ไปหน้า login
   if (!window.location.pathname.includes('/login')) {
     window.location.href = '/login';
@@ -90,16 +87,39 @@ export const getAllURLs = () => [...API_URLS];
 
 // ฟังก์ชันดึง URL สำหรับรูปภาพ
 export const getImageBaseURL = () => {
-  // ใช้ URL ที่ active อยู่ โดยเอา /api ออก
-  return currentBaseURL.replace('/api', '');
+  // ตรวจสอบว่า currentBaseURL มีค่า
+  if (!currentBaseURL) {
+    console.error('❌ currentBaseURL is empty!');
+    return 'https://api.thesenizens.com';
+  }
+  
+  console.log('🔍 Original currentBaseURL:', currentBaseURL);
+  
+  // วิธีที่ปลอดภัยกว่า: แยก protocol และ domain ออกมา
+  let baseURL = currentBaseURL;
+  
+  // ลบ /api ออก (ทั้ง /api และ /api/)
+  baseURL = baseURL.replace(/\/api\/?$/, '');
+  
+  // ลบ / ท้ายออก
+  baseURL = baseURL.replace(/\/$/, '');
+  
+  // ตรวจสอบว่าต้องมี protocol (http:// หรือ https://)
+  if (!baseURL.startsWith('http://') && !baseURL.startsWith('https://')) {
+    console.error('❌ Invalid URL format:', baseURL);
+    return 'https://api.thesenizens.com';
+  }
+  
+  console.log('✅ Final Image Base URL:', baseURL);
+  
+  return baseURL;
 };
-
 // โหลด URL ที่ใช้งานได้จากครั้งก่อน
 const loadActiveURL = () => {
   try {
     const savedURL = localStorage.getItem('activeBaseURL');
     const savedIndex = localStorage.getItem('activeUrlIndex');
-    
+
     if (savedURL && savedIndex) {
       const index = parseInt(savedIndex);
       if (index < API_URLS.length && API_URLS[index] === savedURL) {
@@ -110,7 +130,7 @@ const loadActiveURL = () => {
         return;
       }
     }
-    
+
     console.log(`🚀 Starting with primary URL [0/${API_URLS.length}]: ${currentBaseURL}`);
   } catch (error) {
     console.error('⚠️ Error loading active URL:', error);
@@ -124,9 +144,16 @@ loadActiveURL();
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('userToken');
-    
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    if (!(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+    } else {
+      // ถ้าเป็น FormData ให้ลบ Content-Type ออก ให้ browser ตั้งค่าเอง
+      delete config.headers['Content-Type'];
     }
 
     if (process.env.REACT_APP_ENV === 'development') {
@@ -196,7 +223,7 @@ api.interceptors.response.use(
       if (error.response.status >= 500 && !originalRequest._retry) {
         console.warn('💥 Server error - trying next URL');
         originalRequest._retry = true;
-        
+
         const newBaseURL = switchToNextURL();
         if (newBaseURL) {
           // อัปเดต baseURL ใน originalRequest
@@ -205,14 +232,14 @@ api.interceptors.response.use(
           await new Promise(resolve => setTimeout(resolve, 500));
           return api(originalRequest);
         }
-        
+
         alert('เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง');
       }
 
     } else if (error.request) {
       // Network Error หรือ Timeout - ลองสลับ URL ทันที
       const isTimeout = error.code === 'ECONNABORTED';
-      
+
       console.error('🌐 Network Error:', {
         message: error.message,
         code: error.code,
@@ -220,26 +247,26 @@ api.interceptors.response.use(
         currentURL: originalRequest.baseURL || currentBaseURL,
         urlIndex: `${currentUrlIndex}/${API_URLS.length}`,
       });
-      
+
       if (!originalRequest._retry) {
         originalRequest._retry = true;
-        
+
         const newBaseURL = switchToNextURL();
         if (newBaseURL) {
           // อัปเดต baseURL ใน originalRequest
           originalRequest.baseURL = newBaseURL;
-          
+
           console.log(`🔄 Retrying request with URL [${currentUrlIndex}/${API_URLS.length}]: ${newBaseURL}`);
-          
+
           // รอ 300ms ก่อนลองใหม่
           await new Promise(resolve => setTimeout(resolve, 300));
-          
+
           return api(originalRequest);
         }
       }
-      
+
       alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
-      
+
     } else {
       console.error('⚠️ Error:', error.message);
     }

@@ -3,7 +3,7 @@ import { X, Plus, Trash2, Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 // 1. นำเข้า api และ helper สำหรับ URL รูปภาพ
-import api, { getImageBaseURL } from '../../api/baseapi'; 
+import api, { getImageBaseURL } from '../../api/baseapi';
 
 console.log('API Base URL:', process.env.REACT_APP_API_BASE_URL);
 // Helper function สำหรับคำนวณอายุ
@@ -40,38 +40,70 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
 
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
 
-      setUploadStatus('uploading');
-      
-      const formData = new FormData();
-      formData.append('image', file);
+    if (!file) {
+      console.error('No file selected');
+      return;
+    }
 
-      try {
-        // ใช้ api.post แทน fetch
-        // Axios จะจัดการ Content-Type: multipart/form-data ให้อัตโนมัติเมื่อส่ง FormData
-        const response = await api.post('/patients/upload-image', formData);
-        
-        const result = response.data;
-        
-        if (result.success && result.data) {
-          setUploadStatus('success');
-          // ใช้ getImageBaseURL() เพื่อความยืดหยุ่น หรือใช้ URL เต็มจาก backend
-          const imgPath = result.data.imageUrl || result.data.url;
-          const fullUrl = imgPath.startsWith('http') ? imgPath : `${getImageBaseURL()}${imgPath}`;
-          
-          onFileUpload(fullUrl);
-        } else {
-          setUploadStatus('error');
-          console.error('Upload failed:', result.message);
-        }
-      } catch (error) {
-        setUploadStatus('error');
-        console.error('Upload error:', error);
-      }
+    if (!file.type.startsWith('image/')) {
+      console.error('Selected file is not an image');
+      return;
+    }
+
+    console.log('📁 File to upload:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setUploadStatus('uploading');
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    // ตรวจสอบว่า FormData มีข้อมูล
+    console.log('📤 Sending FormData...');
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}:`, value);
+    }
+
+    try {
+      // ✅ วิธีที่ 1: ใช้ axios โดยไม่ระบุ config เลย
+      const response = await api.post('/patients/upload-image', formData);
+
+      console.log('✅ Response:', response.data);
+
+      const result = response.data;
+if (result.success && result.data) {
+  setUploadStatus('success');
+  const imgPath = result.data.imageUrl || result.data.url;
+  
+  // ✅ แก้ไขการสร้าง URL
+  let fullUrl;
+  if (imgPath.startsWith('http')) {
+    // ถ้าเป็น full URL อยู่แล้ว
+    fullUrl = imgPath;
+  } else {
+    // ลบ / ตัวหน้าออก (ถ้ามี) เพราะ getImageBaseURL() มี / ต่อท้ายอยู่แล้ว
+   // const cleanPath = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
+    fullUrl = `${getImageBaseURL()}${imgPath}`;
+    console.log('🖼️ Constructed Image URL:', fullUrl);
+  }
+
+  console.log('✅ Full image URL:', fullUrl);
+  onFileUpload(fullUrl);
+} else {
+  setUploadStatus('error');
+  console.error('❌ Upload failed:', result.message);
+}
+    } catch (error) {
+      setUploadStatus('error');
+      console.error('❌ Upload error:', error);
+      console.error('Error response:', error.response?.data);
     }
   };
 
@@ -216,7 +248,7 @@ const PatientForm = ({ mode = "add" }) => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isVNModalOpen, setIsVNModalOpen] = useState(false);
   const [newPatientId, setNewPatientId] = useState(null);
-  
+
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   // Loading states
@@ -259,61 +291,61 @@ const PatientForm = ({ mode = "add" }) => {
     contactPhone: ''
   });
 
- const prenameOptions = [
-  // --- บุคคลธรรมดา (ภาษาไทย) ---
-  { value: 'คุณ', label: 'คุณ' }, // เพิ่มตามคำขอ (นิยมใช้นำหน้าชื่อเพื่อความสุภาพ)
-  { value: 'นาย', label: 'นาย' },
-  { value: 'นาง', label: 'นาง' },
-  { value: 'นางสาว', label: 'นางสาว' },
-  { value: 'เด็กชาย', label: 'เด็กชาย' },
-  { value: 'เด็กหญิง', label: 'เด็กหญิง' },
+  const prenameOptions = [
+    // --- บุคคลธรรมดา (ภาษาไทย) ---
+    { value: 'คุณ', label: 'คุณ' }, // เพิ่มตามคำขอ (นิยมใช้นำหน้าชื่อเพื่อความสุภาพ)
+    { value: 'นาย', label: 'นาย' },
+    { value: 'นาง', label: 'นาง' },
+    { value: 'นางสาว', label: 'นางสาว' },
+    { value: 'เด็กชาย', label: 'เด็กชาย' },
+    { value: 'เด็กหญิง', label: 'เด็กหญิง' },
 
-  // --- General (English) ---
-  { value: 'Mr.', label: 'Mr.' },
-  { value: 'Mrs.', label: 'Mrs.' },
-  { value: 'Ms.', label: 'Ms.' },
-  { value: 'Miss', label: 'Miss' },
-  { value: 'Mx.', label: 'Mx.' },
-  { value: 'Dr.', label: 'Dr.' },
+    // --- General (English) ---
+    { value: 'Mr.', label: 'Mr.' },
+    { value: 'Mrs.', label: 'Mrs.' },
+    { value: 'Ms.', label: 'Ms.' },
+    { value: 'Miss', label: 'Miss' },
+    { value: 'Mx.', label: 'Mx.' },
+    { value: 'Dr.', label: 'Dr.' },
 
-  // --- วิชาการ / การแพทย์ (Academic & Medical) ---
-  { value: 'ดร.', label: 'ดร.' },
-  { value: 'นพ.', label: 'นพ.' },
-  { value: 'พญ.', label: 'พญ.' },
-  { value: 'ทพ.', label: 'ทพ.' },
-  { value: 'ทพญ.', label: 'ทพญ.' },
-  { value: 'ภก.', label: 'ภก.' },
-  { value: 'ภญ.', label: 'ภญ.' },
-  { value: 'สพ.ญ.', label: 'สพ.ญ.' },
-  { value: 'นสพ.', label: 'นสพ.' },
-  { value: 'ศ.', label: 'ศ.' },
-  { value: 'รศ.', label: 'รศ.' },
-  { value: 'ผศ.', label: 'ผศ.' },
-  { value: 'อ.', label: 'อ.' },
+    // --- วิชาการ / การแพทย์ (Academic & Medical) ---
+    { value: 'ดร.', label: 'ดร.' },
+    { value: 'นพ.', label: 'นพ.' },
+    { value: 'พญ.', label: 'พญ.' },
+    { value: 'ทพ.', label: 'ทพ.' },
+    { value: 'ทพญ.', label: 'ทพญ.' },
+    { value: 'ภก.', label: 'ภก.' },
+    { value: 'ภญ.', label: 'ภญ.' },
+    { value: 'สพ.ญ.', label: 'สพ.ญ.' },
+    { value: 'นสพ.', label: 'นสพ.' },
+    { value: 'ศ.', label: 'ศ.' },
+    { value: 'รศ.', label: 'รศ.' },
+    { value: 'ผศ.', label: 'ผศ.' },
+    { value: 'อ.', label: 'อ.' },
 
-  // --- ยศตำรวจ / ทหาร (Rank - Common) ---
-  { value: 'พล.ต.อ.', label: 'พล.ต.อ.' },
-  { value: 'พล.ต.ท.', label: 'พล.ต.ท.' },
-  { value: 'พล.ต.ต.', label: 'พล.ต.ต.' },
-  { value: 'พ.ต.อ.', label: 'พ.ต.อ.' },
-  { value: 'พ.ต.ท.', label: 'พ.ต.ท.' },
-  { value: 'พ.ต.ต.', label: 'พ.ต.ต.' },
-  { value: 'ร.ต.อ.', label: 'ร.ต.อ.' },
-  { value: 'ร.ต.ท.', label: 'ร.ต.ท.' },
-  { value: 'ร.ต.ต.', label: 'ร.ต.ต.' },
-  { value: 'พล.อ.', label: 'พล.อ.' },
-  { value: 'พล.ร.อ.', label: 'พล.ร.อ.' },
-  { value: 'พล.อ.อ.', label: 'พล.อ.อ.' },
-  { value: 'ว่าที่ร้อยตรี', label: 'ว่าที่ร้อยตรี' },
+    // --- ยศตำรวจ / ทหาร (Rank - Common) ---
+    { value: 'พล.ต.อ.', label: 'พล.ต.อ.' },
+    { value: 'พล.ต.ท.', label: 'พล.ต.ท.' },
+    { value: 'พล.ต.ต.', label: 'พล.ต.ต.' },
+    { value: 'พ.ต.อ.', label: 'พ.ต.อ.' },
+    { value: 'พ.ต.ท.', label: 'พ.ต.ท.' },
+    { value: 'พ.ต.ต.', label: 'พ.ต.ต.' },
+    { value: 'ร.ต.อ.', label: 'ร.ต.อ.' },
+    { value: 'ร.ต.ท.', label: 'ร.ต.ท.' },
+    { value: 'ร.ต.ต.', label: 'ร.ต.ต.' },
+    { value: 'พล.อ.', label: 'พล.อ.' },
+    { value: 'พล.ร.อ.', label: 'พล.ร.อ.' },
+    { value: 'พล.อ.อ.', label: 'พล.อ.อ.' },
+    { value: 'ว่าที่ร้อยตรี', label: 'ว่าที่ร้อยตรี' },
 
-  // --- ฐานันดรศักดิ์ (Royal Titles) ---
-  { value: 'ม.ร.ว.', label: 'ม.ร.ว.' },
-  { value: 'ม.ล.', label: 'ม.ล.' },
+    // --- ฐานันดรศักดิ์ (Royal Titles) ---
+    { value: 'ม.ร.ว.', label: 'ม.ร.ว.' },
+    { value: 'ม.ล.', label: 'ม.ล.' },
 
-  // --- อื่นๆ ---
-  { value: 'พระ', label: 'พระ' },
-  { value: 'ทนาย', label: 'ทนาย' },
-];
+    // --- อื่นๆ ---
+    { value: 'พระ', label: 'พระ' },
+    { value: 'ทนาย', label: 'ทนาย' },
+  ];
 
   // Allergies data
   const [allergies, setAllergies] = useState([]);
@@ -354,7 +386,7 @@ const PatientForm = ({ mode = "add" }) => {
           await loadSubDistricts(patientData.district);
         }
       };
-      
+
       loadLocationData();
     }
   }, [initialDataLoaded, patientData.province, patientData.district]);
@@ -388,7 +420,7 @@ const PatientForm = ({ mode = "add" }) => {
     try {
       const response = await api.get('/location/provinces');
       const result = response.data;
-      
+
       if (result.success && result.data) {
         setProvinces(result.data.map(province => ({
           value: province.id,
@@ -415,7 +447,7 @@ const PatientForm = ({ mode = "add" }) => {
     try {
       const response = await api.get(`/location/districts/${provinceId}`);
       const result = response.data;
-      
+
       if (result.success && result.data) {
         setDistricts(result.data.map(d => ({
           value: d.id,
@@ -440,7 +472,7 @@ const PatientForm = ({ mode = "add" }) => {
     try {
       const response = await api.get(`/location/sub-districts/${districtId}`);
       const result = response.data;
-      
+
       if (result.success && result.data) {
         setSubDistricts(result.data.map(s => ({
           value: s.id,
@@ -459,15 +491,15 @@ const PatientForm = ({ mode = "add" }) => {
   const loadPatientDataForEdit = async () => {
     try {
       setIsLoading(true);
-      
+
       await loadProvinces();
-      
+
       if (patientFromState) {
         populateFormData(patientFromState);
       } else {
         const response = await api.get(`/patients/${id}`);
         const result = response.data;
-        
+
         if (result.success && result.data) {
           populateFormData(result.data);
         } else {
@@ -504,16 +536,23 @@ const PatientForm = ({ mode = "add" }) => {
         imageUrl
       },
       allergies: allergies || [],
-      emergencyContacts: emergencyContacts || []
+      emergencyContacts: emergencyContacts || [],
+      addresses: patientData.province || patientData.district || patientData.subDistrict ? [{
+      houseNumber: patientData.houseNumber,
+      village: patientData.village,
+      subDistrict: patientData.subDistrict,
+      district: patientData.district,
+      province: patientData.province
+    }] : []
     };
 
     const endpoint = mode === "edit" ? `/patients/${id}` : '/patients';
-    
+
     // api instance จัดการ method และ headers ให้แล้ว
     if (mode === "edit") {
-        return await api.put(endpoint, payload);
+      return await api.put(endpoint, payload);
     } else {
-        return await api.post(endpoint, payload);
+      return await api.post(endpoint, payload);
     }
   };
 
@@ -560,7 +599,7 @@ const PatientForm = ({ mode = "add" }) => {
     if (data.emergencyContacts) {
       setEmergencyContacts(data.emergencyContacts);
     }
-    
+
     if (data.imageUrl || data.profile_image) {
       let img = data.imageUrl || data.profile_image;
       // เช็คว่าเป็น full URL หรือ path
@@ -798,7 +837,7 @@ const PatientForm = ({ mode = "add" }) => {
   // ... (ส่วน JSX UI ด้านล่างเหมือนเดิมทุกประการ ไม่ต้องเปลี่ยนแปลง)
   // เพื่อความกระชับของคำตอบ ผมจะละส่วน JSX ที่ยาวมากไว้ 
   // แต่ในการใช้งานจริงคุณสามารถ Copy JSX จากโค้ดเก่ามาวางต่อจากบรรทัดนี้ได้เลยครับ
-  
+
   return (
     <div className="flex flex-col bg-gray-100 min-h-screen p-2 sm:p-4 lg:p-6">
       {/* Toast Notification */}
@@ -1140,75 +1179,75 @@ const PatientForm = ({ mode = "add" }) => {
 
       {/* Include Modals (Allergy, Contact, Confirm, VN) - Copy from original code */}
       {/* ... (Modals ส่วนใหญ่ logic เหมือนเดิม สามารถใช้โค้ดเดิมได้เลย) ... */}
-      
+
       {/* Allergy Modal */}
       {isAllergyModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
             {/* ... Content of Allergy Modal ... */}
             <div className="flex justify-between items-center mb-4">
-               <h3 className="text-base sm:text-lg font-semibold text-gray-800">เพิ่มข้อมูลการแพ้</h3>
-               <button onClick={closeAllergyModal} className="text-gray-400 hover:text-gray-600 p-1">
-                 <X className="h-5 w-5 sm:h-6 sm:w-6" />
-               </button>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">เพิ่มข้อมูลการแพ้</h3>
+              <button onClick={closeAllergyModal} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
             </div>
             <div className="space-y-4">
-               {/* ... Input fields for allergy ... */}
-               <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการแพ้</label>
-                  <select
-                    value={newAllergy.type}
-                    onChange={(e) => setNewAllergy({ ...newAllergy, type: e.target.value })}
-                    className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="drug">แพ้ยา</option>
-                    <option value="food">แพ้อาหาร</option>
-                  </select>
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อ{newAllergy.type === 'drug' ? 'ยา' : 'อาหาร'}ที่แพ้</label>
-                 <input
-                   type="text"
-                   value={newAllergy.name}
-                   onChange={(e) => setNewAllergy({ ...newAllergy, name: e.target.value })}
-                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                 />
-               </div>
-               {/* ... other fields ... */}
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-2">ระดับความรุนแรง</label>
-                 <select
-                   value={newAllergy.severity}
-                   onChange={(e) => setNewAllergy({ ...newAllergy, severity: e.target.value })}
-                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                 >
-                   <option value="mild">เล็กน้อย</option>
-                   <option value="moderate">ปานกลาง</option>
-                   <option value="severe">รุนแรง</option>
-                 </select>
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-2">อาการที่เกิดขึ้น</label>
-                 <textarea
-                   value={newAllergy.symptoms}
-                   onChange={(e) => setNewAllergy({ ...newAllergy, symptoms: e.target.value })}
-                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg"
-                   rows="3"
-                 />
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
-                 <textarea
-                   value={newAllergy.notes}
-                   onChange={(e) => setNewAllergy({ ...newAllergy, notes: e.target.value })}
-                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg"
-                   rows="2"
-                 />
-               </div>
+              {/* ... Input fields for allergy ... */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการแพ้</label>
+                <select
+                  value={newAllergy.type}
+                  onChange={(e) => setNewAllergy({ ...newAllergy, type: e.target.value })}
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="drug">แพ้ยา</option>
+                  <option value="food">แพ้อาหาร</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ชื่อ{newAllergy.type === 'drug' ? 'ยา' : 'อาหาร'}ที่แพ้</label>
+                <input
+                  type="text"
+                  value={newAllergy.name}
+                  onChange={(e) => setNewAllergy({ ...newAllergy, name: e.target.value })}
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {/* ... other fields ... */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ระดับความรุนแรง</label>
+                <select
+                  value={newAllergy.severity}
+                  onChange={(e) => setNewAllergy({ ...newAllergy, severity: e.target.value })}
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="mild">เล็กน้อย</option>
+                  <option value="moderate">ปานกลาง</option>
+                  <option value="severe">รุนแรง</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">อาการที่เกิดขึ้น</label>
+                <textarea
+                  value={newAllergy.symptoms}
+                  onChange={(e) => setNewAllergy({ ...newAllergy, symptoms: e.target.value })}
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg"
+                  rows="3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">หมายเหตุ</label>
+                <textarea
+                  value={newAllergy.notes}
+                  onChange={(e) => setNewAllergy({ ...newAllergy, notes: e.target.value })}
+                  className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg"
+                  rows="2"
+                />
+              </div>
             </div>
             <div className="flex justify-end space-x-3 mt-6">
-               <button onClick={closeAllergyModal} className="px-4 py-2 border rounded-lg">ยกเลิก</button>
-               <button onClick={addAllergy} className="px-4 py-2 bg-green-600 text-white rounded-lg">เพิ่มข้อมูล</button>
+              <button onClick={closeAllergyModal} className="px-4 py-2 border rounded-lg">ยกเลิก</button>
+              <button onClick={addAllergy} className="px-4 py-2 bg-green-600 text-white rounded-lg">เพิ่มข้อมูล</button>
             </div>
           </div>
         </div>
@@ -1216,57 +1255,57 @@ const PatientForm = ({ mode = "add" }) => {
 
       {/* Emergency Contact Modal */}
       {isContactModalOpen && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-           <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4">
-             {/* ... Content similar to original ... */}
-             <div className="flex justify-between items-center mb-4">
-               <h3 className="text-base sm:text-lg font-semibold text-gray-800">เพิ่มผู้ติดต่อฉุกเฉิน</h3>
-               <button onClick={closeContactModal} className="text-gray-400 hover:text-gray-600 p-1">
-                 <X className="h-5 w-5 sm:h-6 sm:w-6" />
-               </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4">
+            {/* ... Content similar to original ... */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">เพิ่มผู้ติดต่อฉุกเฉิน</h3>
+              <button onClick={closeContactModal} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
             </div>
             <div className="space-y-4">
-              <input type="text" placeholder="ชื่อ-นามสกุล" value={newContact.name} onChange={e => setNewContact({...newContact, name: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
-              <select value={newContact.relationship} onChange={e => setNewContact({...newContact, relationship: e.target.value})} className="w-full px-3 py-2 border rounded-lg">
-                 <option value="">เลือกความสัมพันธ์</option>
-                 <option value="บิดา">บิดา</option>
-                 <option value="มารดา">มารดา</option>
-                 <option value="สามี">สามี</option>
-                 <option value="ภรรยา">ภรรยา</option>
-                 <option value="บุตร">บุตร</option>
-                 <option value="อื่นๆ">อื่นๆ</option>
+              <input type="text" placeholder="ชื่อ-นามสกุล" value={newContact.name} onChange={e => setNewContact({ ...newContact, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+              <select value={newContact.relationship} onChange={e => setNewContact({ ...newContact, relationship: e.target.value })} className="w-full px-3 py-2 border rounded-lg">
+                <option value="">เลือกความสัมพันธ์</option>
+                <option value="บิดา">บิดา</option>
+                <option value="มารดา">มารดา</option>
+                <option value="สามี">สามี</option>
+                <option value="ภรรยา">ภรรยา</option>
+                <option value="บุตร">บุตร</option>
+                <option value="อื่นๆ">อื่นๆ</option>
               </select>
-              <input type="tel" placeholder="เบอร์โทรศัพท์" value={newContact.phone} onChange={e => setNewContact({...newContact, phone: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
-              <textarea placeholder="ที่อยู่" value={newContact.address} onChange={e => setNewContact({...newContact, address: e.target.value})} className="w-full px-3 py-2 border rounded-lg" rows="3" />
+              <input type="tel" placeholder="เบอร์โทรศัพท์" value={newContact.phone} onChange={e => setNewContact({ ...newContact, phone: e.target.value })} className="w-full px-3 py-2 border rounded-lg" />
+              <textarea placeholder="ที่อยู่" value={newContact.address} onChange={e => setNewContact({ ...newContact, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg" rows="3" />
             </div>
             <div className="flex justify-end space-x-3 mt-6">
-               <button onClick={closeContactModal} className="px-4 py-2 border rounded-lg">ยกเลิก</button>
-               <button onClick={addContact} className="px-4 py-2 bg-blue-600 text-white rounded-lg">เพิ่มข้อมูล</button>
+              <button onClick={closeContactModal} className="px-4 py-2 border rounded-lg">ยกเลิก</button>
+              <button onClick={addContact} className="px-4 py-2 bg-blue-600 text-white rounded-lg">เพิ่มข้อมูล</button>
             </div>
-           </div>
-         </div>
+          </div>
+        </div>
       )}
 
       {/* Confirm Modal */}
       {isConfirmModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-             <div className="flex justify-between items-center mb-4">
-               <h3 className="text-base sm:text-lg font-semibold text-gray-800">ตรวจสอบข้อมูลก่อนบันทึก</h3>
-               <button onClick={closeConfirmModal} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
-             </div>
-             {/* ... Review Data Sections (use patientData state) ... */}
-             <div className="space-y-4">
-                <p><strong>HN:</strong> {patientData.hn}</p>
-                <p><strong>ชื่อ-นามสกุล:</strong> {patientData.prename}{patientData.firstName} {patientData.lastName}</p>
-                {/* ... other summary ... */}
-             </div>
-             <div className="flex justify-end space-x-3 mt-6 border-t pt-4">
-               <button onClick={closeConfirmModal} className="px-4 py-2 border rounded-lg">แก้ไข</button>
-               <button onClick={confirmSave} disabled={isSaving} className="px-4 py-2 bg-green-600 text-white rounded-lg">
-                 {isSaving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'}
-               </button>
-             </div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">ตรวจสอบข้อมูลก่อนบันทึก</h3>
+              <button onClick={closeConfirmModal} className="text-gray-400 hover:text-gray-600 p-1"><X className="h-5 w-5" /></button>
+            </div>
+            {/* ... Review Data Sections (use patientData state) ... */}
+            <div className="space-y-4">
+              <p><strong>HN:</strong> {patientData.hn}</p>
+              <p><strong>ชื่อ-นามสกุล:</strong> {patientData.prename}{patientData.firstName} {patientData.lastName}</p>
+              {/* ... other summary ... */}
+            </div>
+            <div className="flex justify-end space-x-3 mt-6 border-t pt-4">
+              <button onClick={closeConfirmModal} className="px-4 py-2 border rounded-lg">แก้ไข</button>
+              <button onClick={confirmSave} disabled={isSaving} className="px-4 py-2 bg-green-600 text-white rounded-lg">
+                {isSaving ? 'กำลังบันทึก...' : 'ยืนยันบันทึก'}
+              </button>
+            </div>
           </div>
         </div>
       )}

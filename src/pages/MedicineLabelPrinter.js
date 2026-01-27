@@ -264,7 +264,7 @@ const MedicineLabelPrinter = () => {
       'q72h': 'ทุก 72 ชั่วโมง',
       'prn': 'เมื่อต้องการ',
       'stat': 'ทันที',
-      'sos':'ทานเมื่อมีอาการ'
+      'sos': 'ทานเมื่อมีอาการ'
     };
 
     if (!frequency) return '';
@@ -311,8 +311,8 @@ const MedicineLabelPrinter = () => {
         usageDetail += ` ${freqLabel}`;
       }
       if (schedule.schedule_time_display) {
-  usageDetail += `<div>${formatMealTiming(schedule.schedule_time_display, schedule.timing)}</div>`;
-}
+        usageDetail += `<div>${formatMealTiming(schedule.schedule_time_display, schedule.timing)}</div>`;
+      }
       if (schedule.special_instruction) {
         special_instruction += `<div class="usage-detail2">
             ${schedule.special_instruction || '-'}
@@ -541,7 +541,7 @@ const MedicineLabelPrinter = () => {
         printWindow.print();
       }, 1000);
     };
-    
+
   };
   // Reset selection
   const handleReset = () => {
@@ -599,37 +599,47 @@ const MedicineLabelPrinter = () => {
   };
 
   // ฟังก์ชันจัดการแสดงเวลารับประทานยา
- const formatMealTiming = (scheduleTimeDisplay, timing) => {
-  console.log('Formatting meal timing for:', { scheduleTimeDisplay, timing });
-  
-  if (!scheduleTimeDisplay) return '-';
-  
-  // แปล timing code เป็นภาษาไทย
-  const timingMap = {
-    'ac': 'ก่อนอาหาร',
-    'pc': 'หลังอาหาร',
-    'hs': 'ก่อนนอน',
-    'prn': 'เมื่อต้องการ',
-    'stat': 'ทันที',
-    'S.O.S': 'เมื่อมีอาการ'
+  const formatMealTiming = (scheduleTimeDisplay, timing) => {
+    if (!scheduleTimeDisplay) return '';
+
+    // 1. กำหนดคำแปลของ timing
+    const timingMap = {
+      'ac': 'ก่อนอาหาร',
+      'pc': 'หลังอาหาร',
+      'hs': 'ก่อนนอน',
+      'prn': 'เมื่อต้องการ',
+      'stat': 'ทันที',
+      'sos': 'เมื่อมีอาการ'
+    };
+
+    const prefix = timingMap[timing?.toLowerCase()] || '';
+
+    // 2. ตรวจสอบว่าใน scheduleTimeDisplay มีคำระบุประเภทอยู่แล้วหรือไม่
+    // เช่น มีคำว่า "ก่อนอาหาร", "หลังอาหาร", "ก่อนนอน" อยู่ในประโยคแล้วหรือยัง
+    const hasPrefixAlready =
+      scheduleTimeDisplay.includes('ก่อนอาหาร') ||
+      scheduleTimeDisplay.includes('หลังอาหาร') ||
+      scheduleTimeDisplay.includes('ก่อนนอน');
+
+    // 3. ถ้าเป็น timing ประเภท ac หรือ pc และยังไม่มีคำนำหน้าในข้อความ
+    if ((timing?.toLowerCase() === 'ac' || timing?.toLowerCase() === 'pc') && !hasPrefixAlready) {
+      // แยกรายการเวลา (กรณีมีหลายเวลา เช่น "เช้า, เที่ยง, เย็น") 
+      // แล้วนำมารวมกันใหม่โดยมี prefix นำหน้าแค่ครั้งเดียว
+      const times = scheduleTimeDisplay.split(',').map(t => t.trim()).join(' ');
+      return `${prefix} ${times}`;
+    }
+
+    // 4. กรณี timing อื่นๆ (เช่น hs, prn) หรือมีคำนำหน้าอยู่แล้ว
+    if (timing && !hasPrefixAlready) {
+      const timingLabel = timingMap[timing.toLowerCase()] || timing;
+      // ถ้า timingLabel ไม่เท่ากับค่าเดิม (คือแปลได้) ให้เอามาต่อกัน
+      if (timingLabel !== timing) {
+        return `${timingLabel} ${scheduleTimeDisplay}`;
+      }
+    }
+
+    return scheduleTimeDisplay;
   };
-  
-  // ถ้ามี timing และเป็น ac หรือ pc ให้ใส่คำนำหน้า
-  if (timing && (timing === 'ac' || timing === 'pc')) {
-    const prefix = timingMap[timing];
-    // แยกเวลาและลบช่องว่างเกิน
-    const times = scheduleTimeDisplay.split(',').map(t => t.trim());
-    return `${prefix} ${times.join(' ')}`;
-  }
-  
-  // ถ้าเป็น timing อื่นๆ เช่น hs, prn, stat
-  if (timing && timingMap[timing]) {
-    return timingMap[timing];
-  }
-  
-  // ถ้าไม่มี timing หรือไม่ตรงเงื่อนไข ให้คืนค่าเดิม
-  return scheduleTimeDisplay;
-};
 
   // Current step tracker
   const getCurrentStep = () => {
@@ -659,7 +669,7 @@ const MedicineLabelPrinter = () => {
 
       console.log('Schedule time display:', schedule);
       if (schedule.schedule_time_display) {
-    detail += ` ${formatMealTiming(schedule.schedule_time_display, schedule.timing)}`;
+        detail += ` ${formatMealTiming(schedule.schedule_time_display, schedule.timing)}`;
       }
 
       return detail || '-';
