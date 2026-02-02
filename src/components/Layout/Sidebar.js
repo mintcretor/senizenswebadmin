@@ -49,7 +49,7 @@ const Sidebar = ({ isSidebarOpen }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('userToken');
     localStorage.removeItem('user');
     sessionStorage.clear();
 

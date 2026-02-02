@@ -143,6 +143,17 @@ const createField = (label, value, width = '200px', engLabel = '') => {
   `;
 };
 
+
+const createFieldName = (label, value, width = '200px', engLabel = '') => {
+  return `
+    <div style="margin: 10px 0;">
+      <span>${label}</span>
+      ${createUnderline(value, width)}
+      ${engLabel ? `<span style="margin-left: 20px; font-size: 20px;font-weight: bold;">${engLabel}</span>` : ''}
+    </div>
+  `;
+};
+
 export const exportPatientRegistrationPDF = async (patientData, setError) => {
   try {
     console.log('Starting PDF export...');
@@ -245,37 +256,39 @@ export const exportPatientRegistrationPDF = async (patientData, setError) => {
   
 </div>
 
-        <!-- HN Section -->
-        <div style="margin: 15px 0; padding: 10px 0;">
-          <table style="width: 100%; border-collapse: collapse; border: none;">
-            <tr>
-              <td style="width: 50%; vertical-align: top; border: none; text-align: left;">
-                <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">H.N. ${hnDisplay || createUnderline('', '150px')}</div>
-                ${barcodeDataUrl ? `
-                  <div style="margin-top: 5px;">
-                    <img src="${barcodeDataUrl}" style="height: 50px; width: auto;" alt="Barcode" />
-                    <div style="font-size: 12px; padding-left: 35px; margin-top: 2px;">${hnDisplay}</div>
-                  </div>
-                ` : ''}
-              </td>
-              <td style="width: 50%; text-align: right; vertical-align: top; font-size: 14px; border: none;">
-                <div style="margin-bottom: 5px;">วันที่/DATE : ${dateNowWrapped}</div>
-                <div>เวลา/TIME : ${timeNowWrapped}</div>
-              </td>
-            </tr>
-          </table>
-        </div>
 
-       <!-- Form Fields -->
-<div style="font-size: 22px;">
-  <div style="margin: 10px 0;">
-    <span>ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)</span>
-    <span style="${underlineStyle} width: 400px; min-width: 400px; font-weight: bold;">${fullNameTh || ''}</span>
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+    
+    <div style="flex: 1; text-align: left;">
+      <div style="margin-bottom: 5px; font-weight: bold;">
+        <span style="font-size: 16px;">H.N.</span> 
+        <span style="font-size: 28px; margin-left: 5px;">${hnDisplay || createUnderline('', '150px')}</span>
+      </div>
+
+      ${barcodeDataUrl ? `
+        <div style="margin-top: 5px;">
+          <img src="${barcodeDataUrl}" style="height: 50px; width: auto;" alt="Barcode" />
+          <div style="font-size: 16px; padding-left: 35px; margin-top: 2px;">${hnDisplay}</div>
+        </div>
+      ` : ''}
+    </div>
+
+    <div style="flex: 1; text-align: right; font-size: 14px;">
+      <div style="margin-bottom: 5px;">วันที่/DATE : ${dateNowWrapped}</div>
+      <div>เวลา/TIME : ${timeNowWrapped}</div>
+    </div>
+
   </div>
-  <div style="margin: 10px 0;">
-    <span>Name(Mr./Mrs./Miss/Mast./Girl)</span>
-    <span style="${underlineStyle} width: 430px; min-width: 430px; font-weight: bold;">${fullNameEn || ''}</span>
-  </div>
+
+
+        <!-- Form Fields -->
+<div style="font-size: 22px;font-weight: bold;">
+  ${createFieldName('ชื่อ-สกุล (นาย/นาง/นางสาว/ด.ช./ด.ญ.)', fullNameTh, '400px')}
+</div>
+<div style="font-size: 20px;">
+  ${createFieldName('Name(Mr./Mrs./Miss/Mast./Girl)', fullNameEn, '430px')}
+</div>
+<div style="font-size: 20px;">
   ${createField('เพศ/SEX : ', cleanedData.gender, '100px')}
 </div>
 

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronRight, Clock, User, ChevronDown, X, Camera, ImageIcon,Home } from 'lucide-react';
+import { Search, ChevronRight, Clock, User, ChevronDown, X, Camera, ImageIcon, Home } from 'lucide-react';
 import { procedureService } from '../services/procedureService';
+
+// 1. นำเข้า api และ getImageBaseURL
+import api, { getImageBaseURL } from '../api/baseapi';
+
 // เพิ่ม PatientSearch Component
 function PatientSearchModal({ visible, onClose, onSelectPatient }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -8,7 +12,13 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
   const [searchMode, setSearchMode] = useState('patient'); // 'patient' หรือ 'room'
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
+  // Helper สำหรับรูปภาพ
+  const getProfileImageUrl = (img) => {
+    if (!img || img === '/api/placeholder/80/80') return null;
+    if (img.startsWith('http')) return img;
+    return `${getImageBaseURL()}${img}`;
+  };
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -22,23 +32,16 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
     try {
       setIsSearching(true);
 
-      let url;
+      // 2. ปรับการเรียก API ใช้ api.get และ params
+      const params = {};
       if (searchMode === 'room') {
-        // ✅ ค้นหาตามห้อง
-        url = `${API_BASE_URL}/service-registrations?room=${encodeURIComponent(query)}`;
+        params.room = query;
       } else {
-        // ค้นหาตาม HN/ชื่อ
-        url = `${API_BASE_URL}/service-registrations?search=${encodeURIComponent(query)}`;
+        params.search = query;
       }
 
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      const result = await response.json();
+      const response = await api.get('/service-registrations', { params });
+      const result = response.data;
 
       if (result.success) {
         const transformedPatients = result.data.map(p => ({
@@ -51,7 +54,7 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
           hn: p.hn,
           room: p.room_number || '-',
           service_number: p.service_number,
-          image: p.profile_image || '/api/placeholder/80/80'
+          image: p.profile_image
         }));
         setSearchResults(transformedPatients);
       } else {
@@ -176,12 +179,18 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
                     }}
                     className="w-full flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white border rounded-xl hover:border-blue-500 hover:shadow-md transition-all text-left"
                   >
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      {patient.image && patient.image !== '/api/placeholder/80/80' ? (
-                        <img src={patient.image} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {patient.image ? (
+                        <img 
+                            src={getProfileImageUrl(patient.image)} 
+                            alt="" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                        />
                       ) : (
-                        <User size={24} className="sm:w-8 sm:h-8 text-gray-500" />
+                         <User size={24} className="sm:w-8 sm:h-8 text-gray-500" />
                       )}
+                      <User size={24} className="sm:w-8 sm:h-8 text-gray-500" style={{display: 'none'}} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">
@@ -250,6 +259,7 @@ function PatientSearchModal({ visible, onClose, onSelectPatient }) {
     </div>
   );
 }
+
 const PatientProcedureForm = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
@@ -286,22 +296,25 @@ const PatientProcedureForm = () => {
   const [ivMachines, setIvMachines] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-  const PATIENTS_PER_PAGE = 50;
-  const [page, setPage] = useState(1);
-  const [searchParam, setSearchParam] = useState('');
+
+  // Helper สำหรับรูปภาพ
+  const getProfileImageUrl = (img) => {
+    if (!img || img === '/api/placeholder/80/80') return null;
+    if (img.startsWith('http')) return img;
+    return `${getImageBaseURL()}${img}`;
+  };
+
   // Load data on mount
   useEffect(() => {
     loadInitialData();
   }, []);
+
   const loadInitialData = async () => {
     setLoading(true);
     try {
       // Load patients
       const patientsResult = await procedureService.getANPatients();
-      //const patientsResult = await response.json();
-
-
+      
       if (patientsResult.success) {
         // Transform data to match component format
         const transformedPatients = patientsResult.data.map(p => ({
@@ -314,23 +327,10 @@ const PatientProcedureForm = () => {
           hn: p.hn,
           room: p.room_number || '-',
           service_number: p.service_number,
-          image: p.profile_image || '/api/placeholder/80/80'
+          image: p.profile_image
         }));
         setPatients(transformedPatients);
       }
-
-      // Load procedure types
-      /* const proceduresResult = await procedureService.getProcedureTypes();
-       if (proceduresResult.success) {
-         const transformedProcedures = proceduresResult.data.map(p => ({
-           id: p.id,
-           name: p.name,
-           canPerform: p.can_perform,
-           hasSubOption: p.has_sub_option,
-           subType: p.sub_type
-         }));
-       //  setProcedureItems(transformedProcedures);
-       }*/
 
       // Load machine numbers
       const machinesResult = await procedureService.getMachineNumbers();
@@ -430,7 +430,7 @@ const PatientProcedureForm = () => {
     }
   };
 
-  // ✅ Function: อัพโหลดรูปภาพไปยัง API
+  // ✅ Function: อัพโหลดรูปภาพไปยัง API (ใช้ api.post)
   const uploadImages = async () => {
     if (procedureImages.length === 0) return [];
 
@@ -443,17 +443,10 @@ const PatientProcedureForm = () => {
         formData.append('images', image.file);
       });
 
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/procedure-records/upload-images`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      const result = await response.json();
+      // 3. ใช้ api.post แทน fetch, ไม่ต้องใส่ headers Auth เพราะ interceptor จัดการให้
+      // Axios จะ detect Content-Type เป็น multipart/form-data เองเมื่อส่ง FormData
+      const response = await api.post('/procedure-records/upload-images', formData);
+      const result = response.data;
 
       if (result.success) {
         return result.imageUrls;
@@ -465,10 +458,9 @@ const PatientProcedureForm = () => {
 
       let errorMessage = 'ไม่สามารถอัพโหลดรูปภาพได้';
 
-      if (error.message.includes('401')) {
-        errorMessage += '\nToken หมดอายุ กรุณา Login ใหม่';
-      } else if (error.message.includes('413')) {
-        errorMessage += '\nไฟล์ใหญ่เกินไป (เกิน 5MB)';
+      if (error.response) {
+          if (error.response.status === 401) errorMessage += '\nToken หมดอายุ กรุณา Login ใหม่';
+          else if (error.response.status === 413) errorMessage += '\nไฟล์ใหญ่เกินไป (เกิน 5MB)';
       }
 
       alert(errorMessage);
@@ -477,6 +469,7 @@ const PatientProcedureForm = () => {
       setUploadingImages(false);
     }
   };
+  
   // Update time every second
   useEffect(() => {
     const interval = setInterval(() => {
@@ -485,18 +478,12 @@ const PatientProcedureForm = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const filteredPatients = patients.filter(p =>
-    p.firstname.toLowerCase().includes(searchText.toLowerCase()) ||
-    p.lastname.toLowerCase().includes(searchText.toLowerCase()) ||
-    p.hn.toLowerCase().includes(searchText.toLowerCase())
-  );
-
   const handleProcedureToggle = (item) => {
-    const exists = selectedProcedures.find(p => p.id === item.id); // เปลี่ยนจาก p.name === item.name
+    const exists = selectedProcedures.find(p => p.id === item.id); 
 
     if (exists) {
       // ยกเลิกการเลือก
-      setSelectedProcedures(selectedProcedures.filter(p => p.id !== item.id)); // เปลี่ยนจาก p.name !== item.name
+      setSelectedProcedures(selectedProcedures.filter(p => p.id !== item.id)); 
 
       // Reset sub-options
       if (item.subType === 'hour') {
@@ -565,7 +552,7 @@ const PatientProcedureForm = () => {
     setLoading(true);
     try {
       // Validate ก่อนส่ง
-      if (!selectedPatient || !selectedPatient.id || !selectedPatient.id) {
+      if (!selectedPatient || !selectedPatient.id) {
         alert('ข้อมูลผู้ป่วยไม่ครบถ้วน กรุณาเลือกผู้ป่วยใหม่');
         setLoading(false);
         return;
@@ -598,7 +585,7 @@ const PatientProcedureForm = () => {
           subOptionValue: proc.subOptionValue || null
         })),
         nonChargeableProcedures: checkedOther,
-        imageUrls: imageUrls, // ✅ เพิ่ม imageUrls
+        imageUrls: imageUrls, 
         createdBy: user.user_id || 1
       };
 
@@ -614,11 +601,14 @@ const PatientProcedureForm = () => {
       }
     } catch (err) {
       console.error('Submit error:', err);
-      alert('ไม่สามารถบันทึกข้อมูลได้: ' + err.message);
+      // ดึง message จาก response ถ้ามี
+      const msg = err.response?.data?.message || err.message;
+      alert('ไม่สามารถบันทึกข้อมูลได้: ' + msg);
     } finally {
       setLoading(false);
     }
   };
+
   const procedureItems = [
     { id: 1, name: "ทำแผลเจาะคอ", canPerform: "both" },
     { id: 2, name: "ทำแผลหน้าท้อง", canPerform: "both" },
@@ -660,6 +650,7 @@ const PatientProcedureForm = () => {
     { id: 38, name: "ญาติขอผ้าเช็ดตัว", canPerform: "both" },
     { id: 39, name: "หัตถการอื่นๆ", canPerform: "both" }
   ];
+
   const resetForm = () => {
     setSelectedPatient(null);
     setIntolerance('-');
@@ -681,7 +672,7 @@ const PatientProcedureForm = () => {
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
     setEditableAge(patient.age);
-    setEditableRoom(patient.room); // เพิ่มบรรทัดนี้
+    setEditableRoom(patient.room); 
     setShowPatientModal(false);
     setSearchText('');
   };
@@ -861,7 +852,14 @@ const PatientProcedureForm = () => {
           >
             {selectedPatient ? (
               <>
-                <img src={selectedPatient.image} alt="" className="w-12 h-12 rounded-full object-cover" />
+                <img 
+                    src={getProfileImageUrl(selectedPatient.image)} 
+                    alt="" 
+                    className="w-12 h-12 rounded-full object-cover" 
+                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                />
+                 <User size={40} className="text-gray-300" style={{display: 'none'}} />
+
                 <div className="flex-1">
                   <p className="font-medium">{selectedPatient.prefix}{selectedPatient.firstname} {selectedPatient.lastname}</p>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -1039,7 +1037,6 @@ const PatientProcedureForm = () => {
         visible={showPatientModal}
         onClose={() => setShowPatientModal(false)}
         onSelectPatient={handlePatientSelect}
-        patients={patients}
       />
 
       {/* Procedure Modal (รวมกัน) */}
@@ -1075,13 +1072,12 @@ const PatientProcedureForm = () => {
                         <span className="font-medium text-sm sm:text-base break-words">{item.name}</span>
 
                         {/* แสดง dropdown เลือกผู้ปฏิบัติ ถ้า canPerform = 'both' */}
-                        {/* แสดง dropdown เลือกผู้ปฏิบัติ ถ้า canPerform = 'both' */}
                         {isChecked && item.canPerform === 'both' && (
                           <select
                             value={isChecked.performedBy}
                             onChange={(e) => {
                               e.stopPropagation();
-                              handlePerformerChange(item.id, e.target.value); // เปลี่ยนจาก item.name เป็น item.id
+                              handlePerformerChange(item.id, e.target.value); 
                             }}
                             onClick={(e) => e.stopPropagation()}
                             className="mt-2 w-full border rounded px-2 py-1.5 text-xs sm:text-sm"

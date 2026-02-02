@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, X, Save, Settings, Package, DollarSign, FileText } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Settings, Package, DollarSign, FileText } from 'lucide-react';
+import api from '../api/baseapi'; // นำเข้า api instance
 
-// API Base URL
-const API_BASE_URL =process.env.REACT_APP_API_BASE_URL;
 export default function ServiceManagementSystem() {
   const [currentTab, setCurrentTab] = useState('packages');
   const [masterData, setMasterData] = useState({
@@ -39,9 +38,13 @@ export default function ServiceManagementSystem() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/${currentTab}`);
-      const result = await response.json();
+      // เปลี่ยนมาใช้ api.get
+      const response = await api.get(`/${currentTab}`);
+      const result = response.data;
+      
       console.log('Fetch result:', currentTab);
+      
+      // ตรวจสอบโครงสร้าง response ตาม Backend ของคุณ
       if (result.success) {
         setMasterData(prev => ({
           ...prev,
@@ -139,21 +142,16 @@ export default function ServiceManagementSystem() {
     }
 
     try {
-      const url = editingItem 
-        ? `${API_BASE_URL}/${currentTab}/${editingItem.id}`
-        : `${API_BASE_URL}/${currentTab}`;
+      let response;
       
-      const method = editingItem ? 'PUT' : 'POST';
+      // ใช้ api.put สำหรับแก้ไข และ api.post สำหรับสร้างใหม่
+      if (editingItem) {
+        response = await api.put(`/${currentTab}/${editingItem.id}`, requestData);
+      } else {
+        response = await api.post(`/${currentTab}`, requestData);
+      }
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData)
-      });
-
-      const result = await response.json();
+      const result = response.data;
 
       if (result.success) {
         closeModal();
@@ -179,11 +177,9 @@ export default function ServiceManagementSystem() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/${currentTab}/${itemId}`, {
-        method: 'DELETE'
-      });
-
-      const result = await response.json();
+      // เปลี่ยนมาใช้ api.delete
+      const response = await api.delete(`/${currentTab}/${itemId}`);
+      const result = response.data;
 
       if (result.success) {
         fetchData(); // Refresh data
@@ -204,11 +200,9 @@ export default function ServiceManagementSystem() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/${currentTab}/${itemId}/toggle`, {
-        method: 'PATCH'
-      });
-
-      const result = await response.json();
+      // เปลี่ยนมาใช้ api.patch
+      const response = await api.patch(`/${currentTab}/${itemId}/toggle`);
+      const result = response.data;
 
       if (result.success) {
         fetchData(); // Refresh data

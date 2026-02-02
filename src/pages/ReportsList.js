@@ -1,65 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Search, FileText, Calendar, User, Download, Eye, ChevronRight, Filter, Home } from 'lucide-react';
+import { Search, FileText, Calendar, User, Eye, Filter, Home } from 'lucide-react'; // ลบ Download, ChevronRight ออกเพราะไม่ได้ใช้
 import { useNavigate } from 'react-router-dom';
 
-// API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
-
-const createApiClient = () => {
-  const getToken = () => {
-    try {
-      return localStorage.getItem('authToken');
-    } catch {
-      return null;
-    }
-  };
-  
-  const fetchWithAuth = async (endpoint, options = {}) => {
-    const token = getToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    };
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
-    return response.json();
-  };
-
-  return {
-    getAllReportsSummary: (date) =>
-      fetchWithAuth(`/reports/summary?date=${date}`),
-    
-    getPatientReports: (patientId, date) =>
-      fetchWithAuth(`/reports/patient/${patientId}?date=${date}`),
-  };
-};
-
-const api = createApiClient();
-
-const useAuth = () => {
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('user');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  return { user };
-};
+// TODO: ตรวจสอบ path ให้ตรงกับไฟล์ api ของคุณ
+import api from '../api/baseapi';
 
 export default function ReportsList() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [reports, setReports] = useState([]);
@@ -90,8 +36,16 @@ export default function ReportsList() {
   const loadReports = async () => {
     try {
       setIsLoading(true);
-      const response = await api.getAllReportsSummary(selectedDate);
-      setReports(response.data || []);
+      
+      // UPDATE: เปลี่ยนมาใช้ api.get พร้อม params
+      const response = await api.get('/reports/summary', {
+        params: { date: selectedDate }
+      });
+
+      // ตรวจสอบ response ตามโครงสร้างของ Axios หรือ Interceptor ของคุณ
+      const data = response.data ? response.data : response;
+      
+      setReports(data.data || []);
     } catch (error) {
       console.error('Load reports error:', error);
       alert('ไม่สามารถโหลดรายงานได้');

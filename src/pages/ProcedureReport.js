@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Download, Calendar, Filter, X } from 'lucide-react';
+import api from '../api/baseapi'; // Import api instance
 
 const ProcedureReport = () => {
   const [records, setRecords] = useState([]);
@@ -10,8 +11,6 @@ const ProcedureReport = () => {
   const [searchText, setSearchText] = useState('');
   const [shiftFilter, setShiftFilter] = useState('all');
   const [performerFilter, setPerformerFilter] = useState('');
-  
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
     loadData();
@@ -24,32 +23,34 @@ const ProcedureReport = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/procedure-records?startDate=${startDate}&endDate=${endDate}&limit=1000`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+      // 1. เรียกข้อมูลรายการทั้งหมด
+      // ใช้ api.get และส่ง params แทนการต่อ String URL
+      const response = await api.get('/procedure-records', {
+        params: {
+          startDate,
+          endDate,
+          limit: 1000
         }
-      );
-      const result = await response.json();
-     // console.log('Fetch result:', result);
+      });
+
+      // Axios จะคืนค่า data มาใน response.data
+      const result = response.data;
+
       if (result.success) {
-        // ดึงรายละเอียดของแต่ละ record
+        // 2. ดึงรายละเอียดของแต่ละ record (Loop fetch details)
         const detailedRecords = await Promise.all(
           result.data.map(async (record) => {
-            const detailResponse = await fetch(
-              `${API_BASE_URL}/procedure-records/${record.id}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-              }
-            );
-            const detailResult = await detailResponse.json();
-            return detailResult.success ? detailResult.data : record;
+            try {
+              const detailResponse = await api.get(`/procedure-records/${record.id}`);
+              const detailResult = detailResponse.data;
+              return detailResult.success ? detailResult.data : record;
+            } catch (err) {
+              console.error(`Error fetching detail for ID ${record.id}`, err);
+              return record; // กรณี error ให้คืนค่า record เดิมกลับไป
+            }
           })
         );
+
         console.log('Detailed Records:', detailedRecords);
         setRecords(detailedRecords);
       }
@@ -66,7 +67,7 @@ const ProcedureReport = () => {
 
     // Filter by search text
     if (searchText) {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.hn?.toLowerCase().includes(searchText.toLowerCase()) ||
         r.first_name?.toLowerCase().includes(searchText.toLowerCase()) ||
         r.last_name?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -82,7 +83,7 @@ const ProcedureReport = () => {
 
     // Filter by created_by_name
     if (performerFilter) {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.created_by_name?.toLowerCase().includes(performerFilter.toLowerCase())
       );
     }
@@ -93,7 +94,7 @@ const ProcedureReport = () => {
   const exportToExcel = () => {
     // สร้างข้อมูลสำหรับ Excel
     const excelData = [];
-    
+
     // Header
     excelData.push([
       'วันที่',
@@ -117,36 +118,36 @@ const ProcedureReport = () => {
 
     // Data rows
     filteredRecords.forEach(record => {
-      const procedures = record.procedures?.map(p => 
+      const procedures = record.procedures?.map(p =>
         p.display_name
       ).join(', ') || '-';
-      
-      const nonChargeable = record.nonChargeableProcedures?.map(p => 
+
+      const nonChargeable = record.nonChargeableProcedures?.map(p =>
         p.procedure_name
       ).join(', ') || '-';
 
       // ✅ ข้อมูล contract
       const billingType = record.contract?.billing_type || '-';
-      const totalPrice = record.contract?.total_price 
+      const totalPrice = record.contract?.total_price
         ? `${parseFloat(record.contract.total_price).toLocaleString()} บาท`
         : '-';
-    
+
 
       // ✅ Medical Supplies
-      const medicalSupplies = record.contract?.medical_supplies?.map(m => 
+      const medicalSupplies = record.contract?.medical_supplies?.map(m =>
         m.item_name
       ).join(', ') || '-';
-      
-      const medicalPrices = record.contract?.medical_supplies?.map(m => 
+
+      const medicalPrices = record.contract?.medical_supplies?.map(m =>
         `${parseFloat(m.final_price).toLocaleString()} บาท`
       ).join(', ') || '-';
 
       // ✅ Contract Items
-      const contractItems = record.contract?.contract_items?.map(item => 
+      const contractItems = record.contract?.contract_items?.map(item =>
         item.item_name
       ).join(', ') || '-';
-      
-      const contractPrices = record.contract?.contract_items?.map(item => 
+
+      const contractPrices = record.contract?.contract_items?.map(item =>
         `${parseFloat(item.final_price).toLocaleString()} บาท`
       ).join(', ') || '-';
 
@@ -172,14 +173,14 @@ const ProcedureReport = () => {
     });
 
     // แปลงเป็น CSV
-    const csvContent = excelData.map(row => 
+    const csvContent = excelData.map(row =>
       row.map(cell => `"${cell}"`).join(',')
     ).join('\n');
 
     // เพิ่ม BOM สำหรับ UTF-8
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    
+
     // Download
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -199,10 +200,10 @@ const ProcedureReport = () => {
   // สรุปสถิติ
   const stats = {
     total: filteredRecords.length,
-    totalProcedures: filteredRecords.reduce((sum, r) => 
+    totalProcedures: filteredRecords.reduce((sum, r) =>
       sum + (r.procedures?.length || 0), 0
     ),
-    totalNonChargeable: filteredRecords.reduce((sum, r) => 
+    totalNonChargeable: filteredRecords.reduce((sum, r) =>
       sum + (r.nonChargeableProcedures?.length || 0), 0
     )
   };
@@ -342,7 +343,7 @@ const ProcedureReport = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
                       ไม่พบข้อมูล
                     </td>
                   </tr>

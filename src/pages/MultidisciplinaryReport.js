@@ -2,69 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus, Users, User, Save, Share2, ChevronRight, Info, AlertCircle, QrCode, Image as ImageIcon, CheckSquare, Square, Home } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { formatDateForInput, formatTime } from '../utils/dateUtils';
-
-
-// API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
-
-const createApiClient = () => {
-  const getToken = () => localStorage.getItem('authToken');
-
-  const fetchWithAuth = async (endpoint, options = {}) => {
-    const token = getToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    };
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
-    return response.json();
-  };
-
-  return {
-    searchPatients: (query) =>
-      fetchWithAuth(`/service-registrations?search=${encodeURIComponent(query)}`),
-
-    // 🆕 ค้นหาด้วยเลขห้อง
-    searchPatientsByRoom: (roomNumber) =>
-      fetchWithAuth(`/service-registrations?room=${encodeURIComponent(roomNumber)}`),
-
-    getPatientByHN: (hn) =>
-      fetchWithAuth(`/service-registrations/hn/${hn}`),
-
-    // 🆕 เพิ่ม API สำหรับดึงรายงานเดี่ยว
-    getReportById: (id) =>
-      fetchWithAuth(`/reports/multidisciplinary/${id}`),
-
-    saveMultidisciplinaryReport: (data) =>
-      fetchWithAuth('/reports/multidisciplinary', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-
-    // 🆕 เพิ่ม API สำหรับแก้ไขรายงาน
-    updateMultidisciplinaryReport: (id, data) =>
-      fetchWithAuth(`/reports/multidisciplinary/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
-
-    // 🆕 เพิ่ม API สำหรับดึงรูปภาพจากหัตถการ
-    getProcedureImages: (patientId, startDate, endDate) =>
-      fetchWithAuth(`/procedure-records?patientId=${patientId}&startDate=${startDate}&endDate=${endDate}`),
-  };
-};
-
-const api = createApiClient();
+import api from '../api/baseapi'; // ✅ นำเข้า api
 
 const useAuth = () => {
   const [user, setUser] = useState(() => {
@@ -75,14 +13,13 @@ const useAuth = () => {
   return { user };
 };
 
-
 // PatientSearch Component
 function PatientSearch({ visible, onClose, onSelectPatient }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
-  const [searchMode, setSearchMode] = useState('patient'); // 'patient' หรือ 'room'
+  const [searchMode, setSearchMode] = useState('patient');
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -96,19 +33,19 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
     try {
       setIsSearching(true);
       
-      let results;
+      let response;
       
       if (searchMode === 'room') {
         // ✅ ค้นหาตามห้อง
-        results = await api.searchPatientsByRoom(query);
+        response = await api.get(`/service-registrations?room=${encodeURIComponent(query)}`);
       } else {
         // ค้นหาตาม HN/ชื่อ
-        results = await api.searchPatients(query);
+        response = await api.get(`/service-registrations?search=${encodeURIComponent(query)}`);
       }
 
-      const allResults = results.data || [];
+      const allResults = response.data.data || [];
 
-      // ลบข้อมูลซ้ำ (ถ้ามี) โดยใช้ patient_id
+      // ลบข้อมูลซ้ำ
       const uniqueResults = allResults.filter((patient, index, self) =>
         index === self.findIndex((p) => p.patient_id === patient.patient_id)
       );
@@ -123,7 +60,6 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
     }
   };
 
-  // เคลียร์ค่าเมื่อเปลี่ยนโหมด
   useEffect(() => {
     setSearchQuery('');
     setSearchResults([]);
@@ -150,7 +86,6 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
           <div className="w-10" />
         </div>
 
-        {/* ✅ Toggle Search Mode */}
         <div className="p-3 sm:p-4 bg-gray-50 border-b">
           <div className="flex gap-2 mb-3">
             <button
@@ -181,7 +116,6 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
             </button>
           </div>
 
-          {/* Search Input */}
           <div className="flex items-center gap-2 sm:gap-3 bg-white border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
             <Search size={18} className="sm:w-5 sm:h-5 text-gray-500" />
             <input
@@ -217,7 +151,6 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
             </div>
           ) : searchResults.length > 0 ? (
             <>
-              {/* ✅ แสดงชื่อห้องถ้าค้นหาตามห้อง */}
               {searchMode === 'room' && (
                 <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <div className="flex items-center gap-2">
@@ -312,7 +245,7 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
   );
 }
 
-// 🆕 ImageModal Component - สำหรับดูรูปภาพขยาย
+// ImageModal Component
 function ImageModal({ visible, onClose, imageUrl }) {
   if (!visible) return null;
 
@@ -342,13 +275,11 @@ export default function MultidisciplinaryReport() {
   const [isLoadingPatient, setIsLoadingPatient] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const { hn, id } = useParams(); // เพิ่ม id สำหรับ edit mode
+  const { hn, id } = useParams();
 
-  // 🆕 เพิ่ม state สำหรับ edit mode
   const [isEditMode, setIsEditMode] = useState(false);
   const [reportId, setReportId] = useState(null);
 
-  // 🆕 States สำหรับรูปภาพ
   const [procedureImages, setProcedureImages] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [isLoadingImages, setIsLoadingImages] = useState(false);
@@ -384,26 +315,23 @@ export default function MultidisciplinaryReport() {
 
   useEffect(() => {
     if (id) {
-      // Edit mode
       setIsEditMode(true);
       setReportId(id);
       loadReportForEdit(id);
     } else if (hn) {
-      // Create mode with HN
       loadPatientByHN(hn);
     }
   }, [hn, id]);
 
-  // 🆕 โหลดข้อมูลรายงานสำหรับแก้ไข
+  // ✅ โหลดข้อมูลรายงานสำหรับแก้ไข
   const loadReportForEdit = async (reportId) => {
     try {
       setIsLoadingPatient(true);
-      const response = await api.getReportById(reportId);
+      const response = await api.get(`/reports/multidisciplinary/${reportId}`);
       
-      if (response.success && response.data) {
-        const report = response.data;
+      if (response.data.success && response.data.data) {
+        const report = response.data.data;
         
-        // Set patient data
         setSelectedPatient({
           patient_id: report.patient_id,
           hn: report.patient_hn,
@@ -414,8 +342,7 @@ export default function MultidisciplinaryReport() {
           room_number: report.room_number,
           chronic_diseases: report.chronic_diseases,
         });
-        console.log('Loaded report for edit:', report);
-        // Set form data
+
         setFormData({
           roomNumber: report.room_number || '',
           shift: report.shift || 'N',
@@ -444,14 +371,12 @@ export default function MultidisciplinaryReport() {
           appointment: report.appointment || '',
         });
 
-        // Load existing images if any
         if (report.image_urls && Array.isArray(report.image_urls)) {
           const images = report.image_urls.map((url, index) => ({
             id: index,
             image_url: url,
           }));
           setProcedureImages(images);
-          // Pre-select all existing images
           setSelectedImages(images.map((_, index) => index));
         }
       }
@@ -463,7 +388,6 @@ export default function MultidisciplinaryReport() {
     }
   };
 
-  // 🆕 Load images เมื่อเลือกวันที่หรือผู้ป่วย
   useEffect(() => {
     if (selectedPatient && formData.date) {
       loadProcedureImages();
@@ -473,10 +397,10 @@ export default function MultidisciplinaryReport() {
   const loadPatientByHN = async (hn) => {
     try {
       setIsLoadingPatient(true);
-      const patient = await api.getPatientByHN(hn);
-      setSelectedPatient(patient.data);
-      if (patient.data.room_number) {
-        setFormData(prev => ({ ...prev, roomNumber: patient.data.room_number }));
+      const response = await api.get(`/service-registrations/hn/${hn}`);
+      setSelectedPatient(response.data.data);
+      if (response.data.data.room_number) {
+        setFormData(prev => ({ ...prev, roomNumber: response.data.data.room_number }));
       }
     } catch (error) {
       alert(`ข้อผิดพลาด\nไม่พบข้อมูลผู้ป่วย HN: ${hn}`);
@@ -485,28 +409,24 @@ export default function MultidisciplinaryReport() {
     }
   };
 
-  // 🆕 โหลดรูปภาพจากหัตถการ
+  // ✅ โหลดรูปภาพจากหัตถการ
   const loadProcedureImages = async () => {
     if (!selectedPatient) return;
 
     setIsLoadingImages(true);
     try {
-      console.log('🔵 Loading procedure images...');
-      console.log('🔵 Patient ID:', selectedPatient.patient_id);
-      console.log('🔵 Date:', formData.date);
+      const response = await api.get('/procedure-records', {
+        params: {
+          patientId: selectedPatient.patient_id,
+          startDate: formData.date,
+          endDate: formData.date
+        }
+      });
 
-      const response = await api.getProcedureImages(
-        selectedPatient.patient_id,
-        formData.date,
-        formData.date
-      );
-
-      console.log('✅ Response:', response);
-
-      if (response.success && response.data) {
+      if (response.data.success && response.data.data) {
         const images = [];
         
-        response.data.forEach((record) => {
+        response.data.data.forEach((record) => {
           if (record.image_urls && Array.isArray(record.image_urls) && record.image_urls.length > 0) {
             record.image_urls.forEach((imageUrl) => {
               images.push({
@@ -521,15 +441,14 @@ export default function MultidisciplinaryReport() {
           }
         });
 
-        console.log('✅ Found images:', images.length);
         setProcedureImages(images);
-        setSelectedImages([]); // Reset selection
+        setSelectedImages([]);
       } else {
         setProcedureImages([]);
         setSelectedImages([]);
       }
     } catch (error) {
-      console.error('❌ Load images error:', error);
+      console.error('Load images error:', error);
       setProcedureImages([]);
       setSelectedImages([]);
     } finally {
@@ -537,7 +456,6 @@ export default function MultidisciplinaryReport() {
     }
   };
 
-  // 🆕 Toggle เลือก/ยกเลิก รูปภาพ
   const toggleImageSelection = (index) => {
     setSelectedImages(prev => {
       if (prev.includes(index)) {
@@ -548,13 +466,11 @@ export default function MultidisciplinaryReport() {
     });
   };
 
-  // 🆕 เลือกทั้งหมด
   const selectAllImages = () => {
     const allIndices = procedureImages.map((_, index) => index);
     setSelectedImages(allIndices);
   };
 
-  // 🆕 ยกเลิกทั้งหมด
   const deselectAllImages = () => {
     setSelectedImages([]);
   };
@@ -615,7 +531,6 @@ export default function MultidisciplinaryReport() {
     const reporterName = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.nickname || 'ผู้ใช้งาน';
     const patientName = selectedPatient ? `${selectedPatient.first_name} ${selectedPatient.last_name}` : '';
 
-    // 🆕 เพิ่มข้อมูลรูปภาพ
     let imageInfo = '';
     if (selectedImages.length > 0) {
       imageInfo = `\n\nรูปภาพแนบ: ${selectedImages.length} รูป`;
@@ -686,7 +601,6 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
     try {
       setIsSaving(true);
 
-      // 🆕 รวม image URLs ที่เลือก
       const selectedImageUrls = selectedImages.map(index => procedureImages[index].image_url);
 
       const reportData = {
@@ -717,17 +631,15 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
         feeding_time: formData.feedingTime || null,
         additional_notes: formData.additionalNotes || null,
         appointment: formData.appointment || null,
-        image_urls: selectedImageUrls.length > 0 ? selectedImageUrls : null, // 🆕
+        image_urls: selectedImageUrls.length > 0 ? selectedImageUrls : null,
       };
 
-      console.log('🔵 Saving report with images:', selectedImageUrls.length);
-
-      // 🆕 เรียก API ที่ต่างกันตามโหมด
+      // ✅ เรียก API ที่ต่างกันตามโหมด
       if (isEditMode && reportId) {
-        await api.updateMultidisciplinaryReport(reportId, reportData);
+        await api.put(`/reports/multidisciplinary/${reportId}`, reportData);
         alert('สำเร็จ\nแก้ไขรายงานเรียบร้อยแล้ว');
       } else {
-        await api.saveMultidisciplinaryReport(reportData);
+        await api.post('/reports/multidisciplinary', reportData);
         alert('สำเร็จ\nบันทึกรายงานเรียบร้อยแล้ว');
       }
       
@@ -750,7 +662,7 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
     }
   };
 
-  // 🆕 Render รูปภาพจากหัตถการ
+  // Render รูปภาพจากหัตถการ
   const renderProcedureImages = () => {
     if (!selectedPatient) return null;
 
@@ -798,7 +710,6 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
           </div>
         ) : (
           <>
-            {/* Image Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
               {procedureImages.map((image, index) => {
                 const isSelected = selectedImages.includes(index);
@@ -817,26 +728,22 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
                       className="w-full h-full object-cover"
                     />
                     
-                    {/* Checkbox */}
                     <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
                       isSelected ? 'bg-purple-600' : 'bg-white border-2 border-gray-300'
                     }`}>
                       {isSelected && <CheckSquare size={16} className="text-white" />}
                     </div>
 
-                    {/* Time Info */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                       <p className="text-xs font-semibold text-white truncate">
                         {image.record_time}
                       </p>
                     </div>
 
-                    {/* Selection Overlay */}
                     {isSelected && (
                       <div className="absolute inset-0 bg-purple-600 bg-opacity-20"></div>
                     )}
 
-                    {/* Zoom button */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -851,7 +758,6 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
               })}
             </div>
 
-            {/* Help Text */}
             <div className="flex items-start gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
               <Info size={16} className="text-purple-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-purple-700">
@@ -1009,7 +915,6 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
           </div>
         </div>
 
-        {/* 🆕 Procedure Images Section */}
         {renderProcedureImages()}
 
         <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
@@ -1184,7 +1089,6 @@ ${!formData.feedingType && !formData.feedingFrequency && !formData.feedingAmount
         onSelectPatient={handleSelectPatient}
       />
 
-      {/* 🆕 Image Modal */}
       <ImageModal
         visible={viewImageUrl !== null}
         onClose={() => setViewImageUrl(null)}

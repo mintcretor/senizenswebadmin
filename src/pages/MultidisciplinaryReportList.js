@@ -7,49 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { canEditreport, canDeleteReport } from '../utils/permissionUtils';
 
-// API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
-
-const createApiClient = () => {
-    const getToken = () => localStorage.getItem('authToken');
-
-    const fetchWithAuth = async (endpoint, options = {}) => {
-        const token = getToken();
-        const headers = {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-            ...options.headers,
-        };
-
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...options,
-            headers,
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-
-        return response.json();
-    };
-
-    return {
-        getReports: (params) => {
-            const queryString = new URLSearchParams(params).toString();
-            return fetchWithAuth(`/reports/multidisciplinary?${queryString}`);
-        },
-
-        getReportById: (id) =>
-            fetchWithAuth(`/reports/multidisciplinary/${id}`),
-
-        deleteReport: (id) =>
-            fetchWithAuth(`/reports/multidisciplinary/${id}`, {
-                method: 'DELETE',
-            }),
-    };
-};
-
-const api = createApiClient();
+import api from '../api/baseapi';
 
 const useAuth = () => {
     const [user, setUser] = useState(() => {
@@ -264,12 +222,13 @@ export default function MultidisciplinaryReportList() {
                 ...filters,
             };
 
-            const response = await api.getReports(params);
+            const response = await api.get('/reports/multidisciplinary', { params });
+            const data = response.data ? response.data : response;
             console.log('Load reports response:', response);
-            if (response.success) {
-                setReports(response.data || []);
-                setTotalPages(response.pagination?.totalPages || 1);
-                setTotalReports(response.pagination?.total || 0);
+            if (data.success) {
+                setReports(data.data || []);
+                setTotalPages(data.pagination?.totalPages || 1);
+                setTotalReports(data.pagination?.total || 0);
             }
         } catch (error) {
             console.error('Load reports error:', error);
@@ -307,7 +266,7 @@ export default function MultidisciplinaryReportList() {
             checkCreator: true,
             checkRole: true,
             hoursLimit: 30,
-            allowedRoles: ['ธุรการประจำ Ward', 'หัวหน้าพยาบาล แผนก IPD' , 'admin']
+            allowedRoles: ['ธุรการประจำ Ward', 'หัวหน้าพยาบาล แผนก IPD', 'admin']
         });
     };
 
@@ -341,7 +300,7 @@ export default function MultidisciplinaryReportList() {
 
         setIsDeleting(true);
         try {
-            await api.deleteReport(selectedReport.report_id);
+            await api.delete(`/reports/multidisciplinary/${selectedReport.report_id}`);
             alert('ลบรายงานสำเร็จ');
             setShowDeleteModal(false);
             setSelectedReport(null);

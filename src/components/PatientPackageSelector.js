@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, DollarSign, Percent, Calendar, Save } from 'lucide-react';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api';
+// 1. นำเข้า api ที่คุณสร้างไว้
+import api from '../api/baseapi'; // ตรวจสอบ path ให้ถูกต้องตามโครงสร้างไฟล์ของคุณ
 
 const PatientPackageSelector = ({ patient, onClose, onSave }) => {
   const [packages, setPackages] = useState([]);
   const [selectedPackage, setSelectedPackage] = useState(null);
-  const [discountType, setDiscountType] = useState('percent'); // 'percent' or 'amount'
+  const [discountType, setDiscountType] = useState('percent');
   const [discountValue, setDiscountValue] = useState(0);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -18,14 +18,18 @@ const PatientPackageSelector = ({ patient, onClose, onSave }) => {
 
   const fetchPackages = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/packages?active=true`);
-      const result = await response.json();
+      // 2. ใช้ api.get แทน fetch และใช้ path สั้นๆ
+      const response = await api.get('/packages?active=true');
+      
+      // Axios จะเก็บข้อมูลไว้ใน .data
+      const result = response.data;
       
       if (result.success) {
         setPackages(result.data);
       }
     } catch (error) {
       console.error('Error fetching packages:', error);
+      // alert ถูกจัดการใน baseapi แล้วบางส่วน แต่ใส่ไว้เพื่อ UX ที่ดีเฉพาะจุดได้
       alert('ไม่สามารถโหลดรายการแพ็คเกจได้');
     } finally {
       setLoading(false);
@@ -68,17 +72,11 @@ const PatientPackageSelector = ({ patient, onClose, onSave }) => {
         created_at: new Date().toISOString()
       };
 
-      // เรียก API บันทึกแพ็คเกจของผู้ป่วย
-      const response = await fetch(`${API_BASE_URL}/patient-packages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(data)
-      });
-
-      const result = await response.json();
+      // 3. ใช้ api.post แทน fetch
+      // ไม่ต้องใส่ headers หรือแปลง JSON.stringify เอง Axios จัดการให้
+      const response = await api.post('/patient-packages', data);
+      
+      const result = response.data;
 
       if (result.success) {
         alert('บันทึกแพ็คเกจเรียบร้อยแล้ว');
@@ -89,7 +87,9 @@ const PatientPackageSelector = ({ patient, onClose, onSave }) => {
       }
     } catch (error) {
       console.error('Error saving package:', error);
-      alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
+      // ข้อความ Error อาจจะมาจาก response.data.message ถ้า backend ส่งมา
+      const msg = error.response?.data?.message || error.message;
+      alert('เกิดข้อผิดพลาดในการบันทึก: ' + msg);
     } finally {
       setSaving(false);
     }
@@ -108,6 +108,7 @@ const PatientPackageSelector = ({ patient, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {/* ส่วน UI คงเดิม ไม่ต้องเปลี่ยนแปลง */}
       <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
           <div>

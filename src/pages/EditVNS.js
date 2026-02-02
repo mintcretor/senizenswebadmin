@@ -188,7 +188,7 @@ export default function EditVN() {
           max-width: 210mm;
           margin: 0 auto;
           background: white;
-          font-size: 16px;  /* เพิ่มจาก 14px */
+          font-size: 19px;  /* เพิ่มจาก 14px */
           line-height: 1.5;  /* เพิ่มจาก 1.4 */
         }
         
@@ -213,7 +213,7 @@ export default function EditVN() {
         }
         
         .hospital-name {
-          font-size: 24px;  /* เพิ่มจาก 20px */
+          font-size: 25px;  /* เพิ่มจาก 20px */
           font-weight: bold;
         }
         
@@ -222,7 +222,7 @@ export default function EditVN() {
         }
         
         .vn-label {
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 19px;  /* เพิ่มจาก 12px */
           margin-bottom: 5px;
         }
         
@@ -230,7 +230,7 @@ export default function EditVN() {
           display: flex;
           align-items: center;
           gap: 10px;
-          font-size: 18px;  /* เพิ่มจาก 16px */
+          font-size: 19px;  /* เพิ่มจาก 16px */
           font-weight: bold;
         }
         
@@ -239,16 +239,16 @@ export default function EditVN() {
           padding: 5px 15px;
           min-width: 100px;
           text-align: center;
-          font-size: 18px;  /* เพิ่ม */
+          font-size: 19px;  /* เพิ่ม */
         }
         
         .print-date {
-          font-size: 13px;  /* เพิ่มจาก 11px */
+          font-size: 19px;  /* เพิ่มจาก 11px */
           margin-top: 5px;
         }
         
         .contract-label {
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 19px;  /* เพิ่มจาก 12px */
           margin-bottom: 3px;
         }
         
@@ -259,7 +259,7 @@ export default function EditVN() {
         .info-row {
           display: flex;
           margin-bottom: 8px;
-          font-size: 15px;  /* เพิ่มจาก 13px */
+          font-size: 19px;  /* เพิ่มจาก 13px */
         }
         
         .info-row strong {
@@ -277,7 +277,7 @@ export default function EditVN() {
           display: flex;
           gap: 30px;
           margin-bottom: 8px;
-          font-size: 15px;  /* เพิ่ม */
+          font-size: 19px;  /* เพิ่ม */
         }
         
         .flex-item {
@@ -290,7 +290,7 @@ export default function EditVN() {
           font-weight: bold;
           margin: 15px 0 10px 0;
           border-left: 4px solid #333;
-          font-size: 16px;  /* เพิ่มจาก 14px */
+          font-size: 18px;  /* เพิ่มจาก 14px */
         }
         
         .doctor-section {
@@ -307,7 +307,7 @@ export default function EditVN() {
           background: #f5f5f5;
           border: 1px solid #ccc;
           padding: 8px;  /* เพิ่มจาก 5px */
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 19px;  /* เพิ่มจาก 14px */
           text-align: center;
         }
         
@@ -315,7 +315,7 @@ export default function EditVN() {
           border: 1px solid #ccc;
           padding: 8px;  /* เพิ่มจาก 5px */
           height: 30px;  /* เพิ่มจาก 25px */
-          font-size: 14px;  /* เพิ่ม */
+          font-size: 19px;  /* เพิ่ม */
         }
         
         .checkbox-section {
@@ -325,7 +325,7 @@ export default function EditVN() {
         .checkbox-title {
           font-weight: bold;
           margin-bottom: 8px;
-          font-size: 15px;  /* เพิ่มจาก 13px */
+          font-size: 17px;  /* เพิ่มจาก 13px */
         }
         
         .checkbox-grid {
@@ -339,7 +339,7 @@ export default function EditVN() {
           display: flex;
           align-items: center;
           gap: 5px;
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 19px;  /* เพิ่มจาก 12px */
         }
         
         .checkbox {
@@ -361,7 +361,7 @@ export default function EditVN() {
           width: 100%;
           border-collapse: collapse;
           margin: 10px 0;
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 18px;  /* เพิ่มจาก 12px */
         }
         
         table th {
@@ -396,14 +396,14 @@ export default function EditVN() {
           display: flex;
           justify-content: space-between;
           padding: 3px 0;
-          font-size: 15px;  /* เพิ่มจาก 13px */
+          font-size: 17px;  /* เพิ่มจาก 13px */
         }
         
         .total-row.grand-total {
           border-top: 2px solid #333;
           margin-top: 8px;
           padding-top: 8px;
-          font-size: 18px;  /* เพิ่มจาก 16px */
+          font-size: 19px;  /* เพิ่มจาก 16px */
           font-weight: bold;
         }
         
@@ -411,13 +411,13 @@ export default function EditVN() {
           margin: 15px 0;
           border: 1px solid #ccc;
           padding: 12px;  /* เพิ่มจาก 10px */
-          font-size: 15px;  /* เพิ่ม */
+          font-size: 17px;  /* เพิ่ม */
         }
         
         .contact-title {
           font-weight: bold;
           margin-bottom: 8px;
-          font-size: 15px;  /* เพิ่มจาก 13px */
+          font-size: 17px;  /* เพิ่มจาก 13px */
         }
         
         .signature-section {
@@ -435,7 +435,7 @@ export default function EditVN() {
           border-top: 1px solid #333;
           margin: 50px 20px 8px 20px;
           padding-top: 5px;
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 19px;  /* เพิ่มจาก 12px */
         }
         
         .barcode-section {
@@ -443,7 +443,7 @@ export default function EditVN() {
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          font-size: 13px;  /* เพิ่มจาก 11px */
+          font-size: 17px;  /* เพิ่มจาก 11px */
         }
         
         .barcode {
@@ -456,7 +456,7 @@ export default function EditVN() {
         
         .footer-note {
           margin-top: 15px;
-          font-size: 13px;  /* เพิ่มจาก 11px */
+          font-size: 17px;  /* เพิ่มจาก 11px */
           color: #666;
           text-align: center;
         }
@@ -465,7 +465,7 @@ export default function EditVN() {
           display: inline-block;
           padding: 4px 12px;  /* เพิ่ม */
           border-radius: 3px;
-          font-size: 14px;  /* เพิ่มจาก 12px */
+          font-size: 19px;  /* เพิ่มจาก 12px */
           font-weight: bold;
           margin-left: 10px;
         }
@@ -485,7 +485,7 @@ export default function EditVN() {
         .underline {
           border-bottom: 1px dotted #999;
           display: inline-block;
-          min-width: 200px;
+          min-width: 150px;
           padding: 0 5px;
         }
       </style>
@@ -621,13 +621,13 @@ export default function EditVN() {
           <div class="signature-line">
             ผู้บันทึก
           </div>
-          <div style="font-size: 11px;">วันที่ ....../....../......</div>
+          <div style="font-size: 18px;">วันที่ ....../....../......</div>
         </div>
         <div class="signature-box">
           <div class="signature-line">
             ผู้ตรวจสอบ
           </div>
-          <div style="font-size: 11px;">วันที่ ....../....../......</div>
+          <div style="font-size: 18px;">วันที่ ....../....../......</div>
         </div>
       </div>
 

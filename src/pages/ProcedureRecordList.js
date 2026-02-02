@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Search, Edit, Trash2, Calendar, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { canEditRecord, canDeleteRecord } from '../utils/permissionUtils';
+import api from '../api/baseapi';
+
 
 const ProcedureRecordList = () => {
     const navigate = useNavigate();
@@ -44,20 +46,8 @@ const ProcedureRecordList = () => {
         setError(null);
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/procedure-records?startDate=${startDate}&endDate=${endDate}&limit=1000`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
+            const response = await api.get(`/procedure-records?startDate=${startDate}&endDate=${endDate}&limit=1000`);
+            const result = response.data;
 
             if (result.success) {
                 setRecords(result.data);
@@ -164,18 +154,8 @@ const ProcedureRecordList = () => {
         if (!deleteTarget) return;
 
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/procedure-records/${deleteTarget.id}`,
-                {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    }
-                }
-            );
-
-            const result = await response.json();
-
+            const response = await api.delete(`/procedure-records/${deleteTarget.id}`);
+            const result = response.data;
             if (result.success) {
                 alert('ลบบันทึกสำเร็จ');
                 loadData();

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock, ArrowRight, ArrowLeft, Shield, Search, CheckCircle, Building2, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../api/baseapi';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -46,7 +46,7 @@ const SenizensRegister = () => {
 
         try {
             // เรียก API เพื่อค้นหาข้อมูลพนักงาน
-            const response = await axios.get(`${API_BASE_URL}/auth/search-employee/${formData.code}`);
+            const response = await api.get(`/auth/search-employee/${formData.code}`);
 
             if (response.data.success) {
                 const employee = response.data.data;
@@ -122,7 +122,7 @@ const SenizensRegister = () => {
         }
 
         try {
-            const response = await axios.post(`${API_BASE_URL}/auth/register`, {
+            const response = await api.post(`/auth/register`, {
                 code: formData.code,
                 username: formData.username.trim(),
                 password: formData.password,
