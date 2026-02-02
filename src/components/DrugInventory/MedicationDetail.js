@@ -10,8 +10,8 @@ import { Plus, X, Clock, CheckCircle, Edit, Trash2, Save } from 'lucide-react';
 
 // Mapping for frequency descriptions
 const frequencyMap = {
-  'od': 'OD - วันละครั้ง (omni die)',
-  'qd': 'QD - วันละครั้ง (quaque die)',
+  'od': 'OD - วันละ 1 ครั้ง (omni die)',
+  'qd': 'QD - วันละ 1 ครั้ง (quaque die)',
   'bid': 'bid - วันละ 2 ครั้ง (Bis in die)',
   'tid': 'tid - วันละ 3 ครั้ง (Ter in die)',
   'qid': 'qid - วันละ 4 ครั้ง (Quater in die)',

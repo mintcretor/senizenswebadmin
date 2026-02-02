@@ -3,7 +3,8 @@ import { Printer, User, Calendar, Pill, X, Check, Building, Home, ChevronRight, 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 // API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://api.thesenizens.com/';
+
+import api from '../api/baseapi';
 
 const MedicineLabelPrinter = () => {
   // States
@@ -63,10 +64,9 @@ const MedicineLabelPrinter = () => {
     console.log('Fetching medications for registration ID:', registrationId);
     setLoading(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/medication-reconciliation/${registrationId}`
+      const response = await api.get(`/medication-reconciliation/${registrationId}`
       );
-      const data = await response.json();
+      const data = response.data;
       console.log('Medication Reconciliation API Response:', data);
 
       if (data.data && data.data.medications && Array.isArray(data.data.medications)) {
@@ -164,8 +164,8 @@ const MedicineLabelPrinter = () => {
   const fetchWards = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/ward?is_active=true`);
-      const data = await response.json();
+      const response = await api.get('/ward?is_active=true');
+      const data = response.data;
       setWards(data.data);
     } catch (error) {
       console.error('Error fetching wards:', error);
@@ -178,8 +178,8 @@ const MedicineLabelPrinter = () => {
   const fetchRooms = async (wardId) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/ward/rooms?ward_id=${wardId}`);
-      const data = await response.json();
+      const response = await api.get(`/ward/rooms?ward_id=${wardId}`);
+      const data = response.data;
       setRooms(data.data);
     } catch (error) {
       console.error('Error fetching rooms:', error);
@@ -193,8 +193,8 @@ const MedicineLabelPrinter = () => {
     console.log('Fetching residents for room ID:', roomId);
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/ward/residents?room_id=${roomId}&is_active=true`);
-      const data = await response.json();
+      const response = await api.get(`/ward/residents?room_id=${roomId}&is_active=true`);
+      const data = response.data;
       //console.log('Residents data:', data);
       setResidents(data.data);
     } catch (error) {
@@ -249,8 +249,8 @@ const MedicineLabelPrinter = () => {
   const getFrequencyLabel = (frequency) => {
 
     const frequencyMap = {
-      'od': 'วันละครั้ง',
-      'qd': 'วันละครั้ง',
+      'od': 'วันละ 1 ครั้ง',
+      'qd': 'วันละ 1 ครั้ง',
       'bid': 'วันละ 2 ครั้ง',
       'tid': 'วันละ 3 ครั้ง',
       'qid': 'วันละ 4 ครั้ง',
@@ -264,6 +264,7 @@ const MedicineLabelPrinter = () => {
       'q72h': 'ทุก 72 ชั่วโมง',
       'prn': 'เมื่อต้องการ',
       'stat': 'ทันที',
+      'sos': 'ทานเมื่อมีอาการ'
     };
 
     if (!frequency) return '';
@@ -310,7 +311,7 @@ const MedicineLabelPrinter = () => {
         usageDetail += ` ${freqLabel}`;
       }
       if (schedule.schedule_time_display) {
-        usageDetail += `<div>${schedule.schedule_time_display}</div>`;
+        usageDetail += `<div>${formatMealTiming(schedule.schedule_time_display, schedule.timing)}</div>`;
       }
       if (schedule.special_instruction) {
         special_instruction += `<div class="usage-detail2">
@@ -333,7 +334,6 @@ const MedicineLabelPrinter = () => {
         <div class="content">
           <div class="patient"><strong>${selectedResident.patient_name}</strong></div>
           <div class="medicine"><strong>${fullMedicineName}</strong></div>
-          ${schedule.trade_name ? `<div class="trade-name">ชื่อการค้า: ${schedule.trade_name}</div>` : ''}
           <div class="usage-detail">${usageDetail}</div>
           ${special_instruction}
         </div>
@@ -467,7 +467,7 @@ const MedicineLabelPrinter = () => {
         }
 
         .usage-detail {
-          font-size: 11px;
+          font-size: 14px;
           margin-bottom: 1mm;
           line-height: 1.5;
           color: #000;
@@ -541,6 +541,7 @@ const MedicineLabelPrinter = () => {
         printWindow.print();
       }, 1000);
     };
+
   };
   // Reset selection
   const handleReset = () => {
@@ -597,6 +598,49 @@ const MedicineLabelPrinter = () => {
     return colors[slot] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
+  // ฟังก์ชันจัดการแสดงเวลารับประทานยา
+  const formatMealTiming = (scheduleTimeDisplay, timing) => {
+    if (!scheduleTimeDisplay) return '';
+
+    // 1. กำหนดคำแปลของ timing
+    const timingMap = {
+      'ac': 'ก่อนอาหาร',
+      'pc': 'หลังอาหาร',
+      'hs': 'ก่อนนอน',
+      'prn': 'เมื่อต้องการ',
+      'stat': 'ทันที',
+      'sos': 'เมื่อมีอาการ'
+    };
+
+    const prefix = timingMap[timing?.toLowerCase()] || '';
+
+    // 2. ตรวจสอบว่าใน scheduleTimeDisplay มีคำระบุประเภทอยู่แล้วหรือไม่
+    // เช่น มีคำว่า "ก่อนอาหาร", "หลังอาหาร", "ก่อนนอน" อยู่ในประโยคแล้วหรือยัง
+    const hasPrefixAlready =
+      scheduleTimeDisplay.includes('ก่อนอาหาร') ||
+      scheduleTimeDisplay.includes('หลังอาหาร') ||
+      scheduleTimeDisplay.includes('ก่อนนอน');
+
+    // 3. ถ้าเป็น timing ประเภท ac หรือ pc และยังไม่มีคำนำหน้าในข้อความ
+    if ((timing?.toLowerCase() === 'ac' || timing?.toLowerCase() === 'pc') && !hasPrefixAlready) {
+      // แยกรายการเวลา (กรณีมีหลายเวลา เช่น "เช้า, เที่ยง, เย็น") 
+      // แล้วนำมารวมกันใหม่โดยมี prefix นำหน้าแค่ครั้งเดียว
+      const times = scheduleTimeDisplay.split(',').map(t => t.trim()).join(' ');
+      return `${prefix} ${times}`;
+    }
+
+    // 4. กรณี timing อื่นๆ (เช่น hs, prn) หรือมีคำนำหน้าอยู่แล้ว
+    if (timing && !hasPrefixAlready) {
+      const timingLabel = timingMap[timing.toLowerCase()] || timing;
+      // ถ้า timingLabel ไม่เท่ากับค่าเดิม (คือแปลได้) ให้เอามาต่อกัน
+      if (timingLabel !== timing) {
+        return `${timingLabel} ${scheduleTimeDisplay}`;
+      }
+    }
+
+    return scheduleTimeDisplay;
+  };
+
   // Current step tracker
   const getCurrentStep = () => {
     if (!selectedWard) return 1;
@@ -623,8 +667,9 @@ const MedicineLabelPrinter = () => {
         detail += ` ${freqLabel}`;
       }
 
+      console.log('Schedule time display:', schedule);
       if (schedule.schedule_time_display) {
-        detail += ` ${schedule.schedule_time_display}`;
+        detail += ` ${formatMealTiming(schedule.schedule_time_display, schedule.timing)}`;
       }
 
       return detail || '-';

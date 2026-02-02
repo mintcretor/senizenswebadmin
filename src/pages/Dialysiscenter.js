@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Search, Users, FileText, AlertCircle, Menu, RefreshCw, Eye, ChevronLeft, ChevronRight, Edit, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+// 1. นำเข้า api instance
+import api, { getImageBaseURL } from '../api/baseapi';
+
 export default function VNPatientList() {
   const navigate = useNavigate();
 
@@ -22,9 +25,6 @@ export default function VNPatientList() {
   const [paginationLoading, setPaginationLoading] = useState(false);
   const PATIENTS_PER_PAGE = 20;
 
-  // API Configuration
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
   // API Functions
   const fetchPatients = async (page = 1, search = '') => {
     try {
@@ -35,25 +35,19 @@ export default function VNPatientList() {
       }
       setError(null);
 
-      // Build query parameters
-      const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
-
-      const response = await fetch(
-        `${API_BASE_URL}/service-registrations?patientType=VN&departmentId=DIALYSIS&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+      // 2. ใช้ api.get พร้อม params object (Axios จะจัดการ encode ให้เอง)
+      const response = await api.get('/service-registrations', {
+        params: {
+          patientType: 'VN',
+          departmentId: 'DIALYSIS',
+          page: page,
+          limit: PATIENTS_PER_PAGE,
+          search: search || undefined // ส่งไปเฉพาะเมื่อมีค่า search
         }
-      );
+      });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Axios response.data คือ body ที่ได้จาก server
+      const data = response.data;
       console.log('API Response:', data);
 
       if (data.success && data.data && data.pagination) {
@@ -67,7 +61,9 @@ export default function VNPatientList() {
 
     } catch (error) {
       console.error('Error fetching patients:', error);
-      setError('ไม่สามารถโหลดข้อมูลผู้รับบริการได้: ' + error.message);
+      // จัดการ Error message ให้แสดงผลได้ดีขึ้น
+      const msg = error.response?.data?.message || error.message;
+      setError('ไม่สามารถโหลดข้อมูลผู้รับบริการได้: ' + msg);
     } finally {
       setLoading(false);
       setPaginationLoading(false);
@@ -165,8 +161,15 @@ export default function VNPatientList() {
     });
   };
 
-  const patientImageUrl = '/images/logo.png';
+  const defaultPatientImage = '/images/logo.png';
   const safePatientData = Array.isArray(patientData) ? patientData : [];
+
+  // Helper สำหรับจัดการ URL รูปภาพ
+  const getProfileImageUrl = (img) => {
+    if (!img) return defaultPatientImage;
+    if (img.startsWith('http')) return img;
+    return `${getImageBaseURL()}${img}`;
+  };
 
   const PatientCard = ({ patient }) => {
     const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
@@ -176,10 +179,12 @@ export default function VNPatientList() {
         <div className="flex items-start space-x-4">
           <div className="flex-shrink-0">
             <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-100 rounded-lg overflow-hidden">
+              {/* ใช้ helper function จัดการรูปภาพ */}
               <img
-                src={patient.profile_image || patientImageUrl}
+                src={getProfileImageUrl(patient.profile_image)}
                 alt="รูปภาพคนไข้"
                 className="w-full h-full object-cover"
+                onError={(e) => { e.target.src = defaultPatientImage; }} 
               />
             </div>
           </div>

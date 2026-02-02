@@ -4,32 +4,55 @@
 export const prenameToGender = (prename) => {
   if (!prename) return '';
 
-  const femaleNames = [
-    'นาง', 'นางสาว', 'ด.ญ.', 'หญิง',
-    'Mrs.', 'Miss', 'Ms.', 'Dr. (Female)',
-    'Prof. (Female)', 'Assoc.Prof. (Female)'
-  ];
+  // ลบช่องว่างหน้าหลังและแปลงเป็นตัวเล็กเพื่อการตรวจสอบ (สำหรับภาษาอังกฤษ)
+  // แต่ภาษาไทยเราจะเทียบตรงๆ หรือใช้ includes
+  const text = prename.trim();
+  
+  // ---------------------------------------------------------
+  // 1. กลุ่มที่ระบุเพศหญิง (Female)
+  // ---------------------------------------------------------
+  const femaleSet = new Set([
+    'นาง', 'นางสาว', 'เด็กหญิง', 'ด.ญ.', 
+    'คุณหญิง', 'ท่านผู้หญิง', // เพิ่มกลุ่มฐานันดรศักดิ์ที่เจอบ่อย
+    'Mrs.', 'Miss', 'Ms.', 
+    'พญ.', 'ทพญ.', 'ภญ.', 'สพ.ญ.'
+  ]);
 
-  const maleNames = [
-    'นาย', 'ด.ช.', 'ชาย',
-    'Mr.', 'Dr. (Male)',
-    'Prof. (Male)', 'Assoc.Prof. (Male)',
-    'Eng.', 'Arch.'
-  ];
+  if (femaleSet.has(text)) return 'หญิง';
 
-  const prenameToCheck = prename.trim().toLowerCase();
+  // ตรวจสอบกรณีมีคำต่อท้าย เช่น "พล.ต.หญิง" หรือ "คุณหญิง" (กรณีไม่ได้อยู่ใน Set)
+  if (text.endsWith('หญิง') || text.includes('คุณหญิง')) return 'หญิง';
+  if (text.toLowerCase().includes('(female)')) return 'หญิง';
 
-  // ตรวจสอบเพศหญิง
-  if (femaleNames.some(name => prenameToCheck.includes(name.toLowerCase()))) {
-    return 'หญิง';
-  }
 
-  // ตรวจสอบเพศชาย
-  if (maleNames.some(name => prenameToCheck.includes(name.toLowerCase()))) {
-    return 'ชาย';
-  }
+  // ---------------------------------------------------------
+  // 2. กลุ่มที่ระบุเพศชาย (Male)
+  // ---------------------------------------------------------
+  const maleSet = new Set([
+    'นาย', 'เด็กชาย', 'ด.ช.', 
+    'Mr.', 'Master', 
+    'นพ.', 'ทพ.', 'ภก.', 'นสพ.',
+    'พระ', 'สามเณร'
+  ]);
 
-  // ถ้าไม่พบ return ว่าง
+  if (maleSet.has(text)) return 'ชาย';
+  
+  // ตรวจสอบกรณีระบุ (Male)
+  if (text.toLowerCase().includes('(male)')) return 'ชาย';
+
+
+  // ---------------------------------------------------------
+  // 3. กลุ่มเป็นกลาง (Neutral) - คืนค่าว่างเพื่อให้ User ระบุเอง
+  // ---------------------------------------------------------
+  // การ Import Excel ถ้าเจอคำพวกนี้ ให้ถือว่าระบุเพศไม่ได้
+  const neutralSet = new Set([
+    'คุณ', 'ดร.', 'ศ.', 'รศ.', 'ผศ.', 'อ.', 'ทนาย',
+    'Dr.', 'Prof.', 'Mx.'
+  ]);
+
+  if (neutralSet.has(text)) return ''; // ระบุไม่ได้
+
+  // กรณีไม่เข้าเงื่อนไขใดๆ เลย
   return '';
 };
 

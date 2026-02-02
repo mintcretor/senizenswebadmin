@@ -2,52 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Search, X, UserPlus, Users, User, Download, Share2, ChevronRight, Info, AlertCircle, QrCode, FileText, Calendar } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 
-// API Configuration
-const API_BASE_URL = 'https://api.thesenizens.com/api';
+// 1. นำเข้า api instance
+import api, { getImageBaseURL } from '../api/baseapi';
 
-const createApiClient = () => {
-    const getToken = () => {
-        try {
-            return localStorage.getItem('authToken');
-        } catch {
-            return null;
-        }
-    };
-
-    const fetchWithAuth = async (endpoint, options = {}) => {
-        const token = getToken();
-        const headers = {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-            ...options.headers,
-        };
-
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-            ...options,
-            headers,
-        });
-
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-
-        return response.json();
-    };
-
-    return {
-        searchPatients: (query) =>
-            fetchWithAuth(`/patients/search?q=${encodeURIComponent(query)}`),
-        getPatientByHN: (hn) =>
-            fetchWithAuth(`/patients/hn/${hn}`),
-        getMultidisciplinaryReports: (patientId) =>
-            fetchWithAuth(`/reports/patient/${patientId}/multidisciplinary`),
-        getRehabReports: (patientId) =>
-            fetchWithAuth(`/reports/patient/${patientId}/rehab`),
-    };
-};
-
-const api = createApiClient();
-
+// Helper for User Auth (ถ้ายังต้องการใช้ local storage แบบง่ายๆ หรือจะเปลี่ยนไปใช้ Context ก็ได้)
 const useAuth = () => {
     const [user, setUser] = useState(() => {
         try {
@@ -79,8 +37,12 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
 
         try {
             setIsSearching(true);
-            const results = await api.searchPatients(query);
-            setSearchResults(results.data || []);
+            // 2. ใช้ api.get แทน function เก่า
+            const response = await api.get(`/patients/search?q=${encodeURIComponent(query)}`);
+            
+            // Axios response structure: response.data คือ body ที่ server ส่งมา
+            // สมมติ server ส่ง { success: true, data: [...] }
+            setSearchResults(response.data.data || []);
         } catch (err) {
             console.error('Search error:', err);
             setError('เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง');
@@ -95,6 +57,13 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
         setSearchQuery('');
         setSearchResults([]);
         onClose();
+    };
+
+    // Helper function สำหรับแสดงรูปภาพ
+    const getProfileImageUrl = (img) => {
+        if (!img) return null;
+        if (img.startsWith('http')) return img;
+        return `${getImageBaseURL()}${img}`;
     };
 
     if (!visible) return null;
@@ -153,9 +122,13 @@ function PatientSearch({ visible, onClose, onSelectPatient }) {
                                     onClick={() => handleSelectPatient(patient)}
                                     className="w-full flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-white border rounded-xl hover:border-purple-500 hover:shadow-md transition-all text-left"
                                 >
-                                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                         {patient.profile_image ? (
-                                            <img src={patient.profile_image} alt="" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover" />
+                                            <img 
+                                                src={getProfileImageUrl(patient.profile_image)} 
+                                                alt="" 
+                                                className="w-full h-full object-cover" 
+                                            />
                                         ) : (
                                             <User size={24} className="sm:w-8 sm:h-8 text-gray-500" />
                                         )}
@@ -225,9 +198,11 @@ export default function DailyReport() {
     const loadPatientByHN = async (hn) => {
         try {
             setIsLoadingPatient(true);
-            const response = await api.getPatientByHN(hn);
-            setSelectedPatient(response.data);
+            // 3. ใช้ api.get
+            const response = await api.get(`/patients/hn/${hn}`);
+            setSelectedPatient(response.data.data);
         } catch (error) {
+            console.error('Error loading patient:', error);
             alert(`ข้อผิดพลาด\nไม่พบข้อมูลผู้ป่วย HN: ${hn}`);
         } finally {
             setIsLoadingPatient(false);
@@ -240,9 +215,10 @@ export default function DailyReport() {
         try {
             setIsLoadingReports(true);
 
+            // 4. เรียก API แบบขนานด้วย api.get
             const [multiResponse, rehabResponse] = await Promise.all([
-                api.getMultidisciplinaryReports(selectedPatient.id),
-                api.getRehabReports(selectedPatient.id),
+                api.get(`/reports/patient/${selectedPatient.id}/multidisciplinary`),
+                api.get(`/reports/patient/${selectedPatient.id}/rehab`),
             ]);
 
             const normalizeDate = (dateStr) => {
@@ -250,10 +226,10 @@ export default function DailyReport() {
                 return dateStr.split('T')[0];
             };
 
-            const filteredMulti = (multiResponse.data || []).filter(
+            const filteredMulti = (multiResponse.data.data || []).filter(
                 report => normalizeDate(report.report_date) === selectedDate
             );
-            const filteredRehab = (rehabResponse.data || []).filter(
+            const filteredRehab = (rehabResponse.data.data || []).filter(
                 report => normalizeDate(report.report_date) === selectedDate
             );
 
@@ -287,7 +263,9 @@ export default function DailyReport() {
     const generateQRCodeURL = () => {
         if (!selectedPatient) return '';
         const baseURL = window.location.origin + window.location.pathname;
-        return `${baseURL}/${selectedPatient.hn}`;
+        // ลบ / ที่อาจซ้ำกันออกถ้าจำเป็น
+        const cleanBaseURL = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+        return `${cleanBaseURL}/${selectedPatient.hn}`;
     };
 
     const handleGenerateQR = () => {
@@ -516,8 +494,16 @@ ${report.others ? `อื่นๆ:\n${report.others}` : ''}
                     {selectedPatient ? (
                         <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 sm:p-4 mb-4">
                             <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-200 flex items-center justify-center flex-shrink-0">
-                                    <User size={20} className="sm:w-6 sm:h-6 text-purple-700" />
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-purple-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                     {selectedPatient.profile_image ? (
+                                        <img 
+                                            src={selectedPatient.profile_image.startsWith('http') ? selectedPatient.profile_image : `${getImageBaseURL()}${selectedPatient.profile_image}`} 
+                                            alt="" 
+                                            className="w-full h-full object-cover" 
+                                        />
+                                    ) : (
+                                        <User size={20} className="sm:w-6 sm:h-6 text-purple-700" />
+                                    )}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="font-bold text-purple-900 text-base sm:text-lg truncate">
@@ -661,10 +647,7 @@ ${report.others ? `อื่นๆ:\n${report.others}` : ''}
                                                                     <p className="text-xs text-gray-500">อุจจาระ</p>
                                                                     <p className="font-semibold text-xs sm:text-sm">{report.defecation && report.defecation !== 0 ? `${report.defecation} ครั้ง` : 'ยังไม่ได้ถ่าย'}</p>
                                                                 </div>
-
                                                             </div>
-
-
 
                                                             {report.additional_notes && (
                                                                 <div>

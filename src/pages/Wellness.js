@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, FileText, AlertCircle, Menu, RefreshCw, Eye, ChevronLeft, ChevronRight, Edit, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import api from '../api/baseapi';
 
 export default function VNPatientList() {
   const navigate = useNavigate();
@@ -38,22 +39,9 @@ export default function VNPatientList() {
       // Build query parameters
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
 
-      const response = await fetch(
-        `${API_BASE_URL}/service-registrations?patientType=VN&departmentId=WELLNESS&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await api.get(`/service-registrations?patientType=VN&departmentId=WELLNESS&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log('API Response:', data);
 
       if (data.success && data.data && data.pagination) {

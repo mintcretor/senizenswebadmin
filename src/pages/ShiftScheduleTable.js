@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, User, Plus, Edit2, Save, X, Loader, AlertCircle, Filter, Printer } from 'lucide-react';
-
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
+import api from '../api/baseapi';
 const ShiftScheduleTable = () => {
     const [employees, setEmployees] = useState([]);
     const [scheduleData, setScheduleData] = useState({});
@@ -34,10 +32,9 @@ const ShiftScheduleTable = () => {
     useEffect(() => {
         const fetchShiftTypes = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/schedules/shift-types`);
-                if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลประเภทเวรได้');
-                
-                const result = await response.json();
+                const response = await api.get(`/schedules/shift-types`);
+               
+                const result = response.data;
                 
                 if (result.success) {
                     setShiftTypes(result.data);
@@ -60,99 +57,107 @@ const ShiftScheduleTable = () => {
     }, []);
 
     // ดึงข้อมูลพนักงานและตารางเวร
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setIsLoading(true);
-                setError(null);
+   // ดึงข้อมูลพนักงานและตารางเวร
+useEffect(() => {
+    const fetchData = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
 
-                // ดึงข้อมูลพนักงาน
-                const employeesResponse = await fetch(`${API_BASE_URL}/users`);
-                if (!employeesResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลพนักงานได้');
-                
-                const employeesData = await employeesResponse.json();
-                setEmployees(employeesData);
-
-                // สร้างรายการตำแหน่งและ ward ที่มี
-                const roles = [...new Set(employeesData.map(emp => emp.division_name).filter(Boolean))];
-                const wards = [...new Set(employeesData.map(emp => emp.ward).filter(Boolean).sort())];
-                setAvailableRoles(roles);
-                setAvailableWards(wards);
-
-                // ดึงตารางเวร
-                const scheduleResponse = await fetch(
-                    `${API_BASE_URL}/schedules/monthly?month=${currentMonth}&year=${currentYear}`
-                );
-                
-
-                if (!scheduleResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลตารางเวรได้');
-                
-                const scheduleResult = await scheduleResponse.json();
-                
-                if (scheduleResult.success && scheduleResult.data) {
-                    // แปลงข้อมูลจาก API เป็นรูปแบบที่ใช้งาน
-                    const formattedSchedule = {};
-                    
-                    scheduleResult.data.forEach(userSchedule => {
-                        // ใช้ user_id ที่ถูกต้อง
-                        const userId = userSchedule.user_id;
-                        formattedSchedule[userId] = {};
+            // ดึงข้อมูลพนักงาน
+            const employeesResponse = await api.get(`/users`);
+            const employeesResult = employeesResponse.data;
                         
-                        // ถ้ามี schedules ให้ใส่ข้อมูล
-                        if (userSchedule.schedules) {
-                            Object.keys(userSchedule.schedules).forEach(day => {
-                                formattedSchedule[userId][parseInt(day)] = 
-                                    userSchedule.schedules[day].shift_code;
-                            });
-                        }
-                        
-                        // เติมวันที่ไม่มีข้อมูลด้วย 'X'
-                        for (let day = 1; day <= daysInMonth; day++) {
-                            if (!formattedSchedule[userId][day]) {
-                                formattedSchedule[userId][day] = 'X';
-                            }
-                        }
-                    });
-                    
-                    // เติมข้อมูลพนักงานที่ยังไม่มีในตาราง
-                    employeesData.forEach(emp => {
-                        // ใช้ user_id แทน id
-                        const userId = emp.user_id;
-                        if (!formattedSchedule[userId]) {
-                            formattedSchedule[userId] = {};
-                            for (let day = 1; day <= daysInMonth; day++) {
-                                formattedSchedule[userId][day] = 'X';
-                            }
-                        }
-                    });
-                    
-                    setScheduleData(formattedSchedule);
-                } else {
-                    // ถ้าไม่มีข้อมูล สร้างตารางเปล่า
-                    initializeEmptySchedule(employeesData);
-                }
-
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setError(err.message);
-                
-                // ใช้ข้อมูลตัวอย่างถ้าดึงไม่ได้
-                const sampleEmployees = [
-                    { user_id: 1, first_name: 'แนงมีสิตา', last_name: 'วอลอัมคา', role_id: 'PA', ward: 'Ward A' },
-                    { user_id: 2, first_name: 'พัชรี', last_name: 'ภรวีธิช', role_id: 'NA', ward: 'Ward B' },
-                    { user_id: 3, first_name: 'อธิตา', last_name: 'มนต์ศิล', role_id: 'RN', ward: null },
-                ];
-                setEmployees(sampleEmployees);
-                setAvailableRoles(['PA', 'NA', 'RN']);
-                setAvailableWards(['Ward A', 'Ward B']);
-                initializeEmptySchedule(sampleEmployees);
-            } finally {
-                setIsLoading(false);
+            // ตรวจสอบว่าข้อมูลอยู่ในรูปแบบใด
+            let employeesData;
+            if (Array.isArray(employeesResult)) {
+                // ถ้า response เป็น array โดยตรง
+                employeesData = employeesResult;
+            } else if (employeesResult.success && Array.isArray(employeesResult.data)) {
+                // ถ้า response อยู่ใน format { success: true, data: [...] }
+                employeesData = employeesResult.data;
+            } else if (Array.isArray(employeesResult.users)) {
+                // ถ้า response อยู่ใน format { users: [...] }
+                employeesData = employeesResult.users;
+            } else {
+                throw new Error('รูปแบบข้อมูลพนักงานไม่ถูกต้อง');
             }
-        };
+            
+            setEmployees(employeesData);
 
-        fetchData();
-    }, [currentMonth, currentYear, daysInMonth]);
+            // สร้างรายการตำแหน่งและ ward ที่มี
+            const roles = [...new Set(employeesData.map(emp => emp.division_name).filter(Boolean))];
+            const wards = [...new Set(employeesData.map(emp => emp.ward).filter(Boolean).sort())];
+            setAvailableRoles(roles);
+            setAvailableWards(wards);
+
+            // ดึงตารางเวร
+            const scheduleResponse = await api.get(`/schedules/monthly?month=${currentMonth}&year=${currentYear}`);
+            
+            if (!scheduleResponse.data.success) throw new Error('ไม่สามารถดึงข้อมูลตารางเวรได้');
+            
+            const scheduleResult = scheduleResponse.data;
+            if (scheduleResult.success && scheduleResult.data) {
+                // แปลงข้อมูลจาก API เป็นรูปแบบที่ใช้งาน
+                const formattedSchedule = {};
+                
+                scheduleResult.data.forEach(userSchedule => {
+                    const userId = userSchedule.user_id;
+                    formattedSchedule[userId] = {};
+                    
+                    if (userSchedule.schedules) {
+                        Object.keys(userSchedule.schedules).forEach(day => {
+                            formattedSchedule[userId][parseInt(day)] = 
+                                userSchedule.schedules[day].shift_code;
+                        });
+                    }
+                    
+                    // เติมวันที่ไม่มีข้อมูลด้วย 'X'
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        if (!formattedSchedule[userId][day]) {
+                            formattedSchedule[userId][day] = 'X';
+                        }
+                    }
+                });
+                
+                // เติมข้อมูลพนักงานที่ยังไม่มีในตาราง
+                employeesData.forEach(emp => {
+                    const userId = emp.user_id;
+                    if (!formattedSchedule[userId]) {
+                        formattedSchedule[userId] = {};
+                        for (let day = 1; day <= daysInMonth; day++) {
+                            formattedSchedule[userId][day] = 'X';
+                        }
+                    }
+                });
+                
+                setScheduleData(formattedSchedule);
+            } else {
+                // ถ้าไม่มีข้อมูล สร้างตารางเปล่า
+                initializeEmptySchedule(employeesData);
+            }
+
+        } catch (err) {
+            console.error('Error fetching data:', err);
+            setError(err.message);
+            
+            // ใช้ข้อมูลตัวอย่างถ้าดึงไม่ได้
+            const sampleEmployees = [
+                { user_id: 1, first_name: 'แนงมีสิตา', last_name: 'วอลอัมคา', role_id: 'PA', division_name: 'ผู้ช่วยพยาบาลและพนักงานผู้ช่วยพยาบาล', ward: 'Ward A' },
+                { user_id: 2, first_name: 'พัชรี', last_name: 'ภรวีธิช', role_id: 'NA', division_name: 'ผู้ช่วยพยาบาลและพนักงานผู้ช่วยพยาบาล', ward: 'Ward B' },
+                { user_id: 3, first_name: 'อธิตา', last_name: 'มนต์ศิล', role_id: 'RN', division_name: 'พยาบาลวิชาชีพ', ward: null },
+            ];
+            setEmployees(sampleEmployees);
+            setAvailableRoles(['ผู้ช่วยพยาบาลและพนักงานผู้ช่วยพยาบาล', 'พยาบาลวิชาชีพ']);
+            setAvailableWards(['Ward A', 'Ward B']);
+            initializeEmptySchedule(sampleEmployees);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchData();
+}, [currentMonth, currentYear, daysInMonth]);
 
     // สร้างตารางเปล่า
     const initializeEmptySchedule = (employeeList) => {
@@ -230,20 +235,8 @@ const ShiftScheduleTable = () => {
             });
 
 
-            const response = await fetch(`${API_BASE_URL}/schedules/bulk`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ schedules })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'ไม่สามารถบันทึกตารางเวรได้');
-            }
-
-            const result = await response.json();
+            const response = await api.post(`/schedules/bulk`, { schedules });
+            const result = response.data;
             
             if (result.success) {
                 setSaveSuccess(true);

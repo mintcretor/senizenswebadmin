@@ -19,6 +19,9 @@ import ReportsList from './pages/ReportsList';
 import Example from './pages/Example';
 import ProcedureReport from './pages/ProcedureReport';
 import MedicineLabelPrinter from './pages/MedicineLabelPrinter';
+import Medicationreportexport from './pages/Medicationreportexport';
+
+
 import Medicineimport from './pages/Medicineimport';
 import AdmitDocumentWord from './pages/AdmitDocumentWord';
 import ShiftScheduleTable from './pages/ShiftScheduleTable';
@@ -126,6 +129,7 @@ function App() {
           <Route path="/procedure-form" element={<Example />} />
           <Route path="/procedure-report" element={<ProcedureReport />} />
           <Route path="/medicine-print" element={<MedicineLabelPrinter />} />
+          <Route path="/medicine-export" element={<Medicationreportexport />} />
           <Route path="/medicine-import" element={<Medicineimport />} />
           <Route path="/admit-document" element={<AdmitDocumentWord />} />
           <Route path="/ShiftScheduleTable" element={<ShiftScheduleTable />} />
