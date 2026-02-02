@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Users, FileText, AlertCircle, Menu, RefreshCw, Eye, ChevronLeft, ChevronRight, Edit, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import api  from '../api/baseapi';
+import api, { getImageBaseURL } from '../api/baseapi';
 export default function VNPatientList() {
   const navigate = useNavigate();
 
@@ -41,7 +41,7 @@ export default function VNPatientList() {
 
       const response = await api.get(`/service-registrations?patientType=AN&departmentId=STROKE&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`);
 
-     
+
 
       const data = response.data;
       console.log('API Response:', data);
@@ -155,12 +155,29 @@ export default function VNPatientList() {
     });
   };
 
-  const patientImageUrl = '/images/logo.png';
   const safePatientData = Array.isArray(patientData) ? patientData : [];
 
   const PatientCard = ({ patient }) => {
     const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
+    const imgPath = patient.profile_image || '';
+    console.log('Rendering PatientCard for:', imgPath);
 
+    // ✅ แก้ไขการสร้าง URL
+    let fullUrl = '';
+    if (imgPath == '' || imgPath.toLowerCase() === 'null') {
+      // ถ้าเป็น full URL อยู่แล้ว
+      fullUrl = '/images/logo.png';
+    } else if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+      fullUrl = imgPath;
+      console.log('🖼️ Using Full Image URL:', fullUrl)
+    } else {
+      // ลบ / ตัวหน้าออก (ถ้ามี) เพราะ getImageBaseURL() มี / ต่อท้ายอยู่แล้ว
+      // const cleanPath = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
+      fullUrl = `${getImageBaseURL()}${imgPath}`;
+      console.log('🖼️ Constructed Image URL:', fullUrl);
+    }
+
+    const patientImageUrl = fullUrl || '/images/logo.png';
     return (
       <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-all duration-200">
         <div className="flex items-start space-x-4">

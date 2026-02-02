@@ -78,28 +78,28 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
       console.log('✅ Response:', response.data);
 
       const result = response.data;
-if (result.success && result.data) {
-  setUploadStatus('success');
-  const imgPath = result.data.imageUrl || result.data.url;
-  
-  // ✅ แก้ไขการสร้าง URL
-  let fullUrl;
-  if (imgPath.startsWith('http')) {
-    // ถ้าเป็น full URL อยู่แล้ว
-    fullUrl = imgPath;
-  } else {
-    // ลบ / ตัวหน้าออก (ถ้ามี) เพราะ getImageBaseURL() มี / ต่อท้ายอยู่แล้ว
-   // const cleanPath = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
-    fullUrl = `${getImageBaseURL()}${imgPath}`;
-    console.log('🖼️ Constructed Image URL:', fullUrl);
-  }
+      if (result.success && result.data) {
+        setUploadStatus('success');
+        const imgPath = result.data.imageUrl || result.data.url;
 
-  console.log('✅ Full image URL:', fullUrl);
-  onFileUpload(fullUrl);
-} else {
-  setUploadStatus('error');
-  console.error('❌ Upload failed:', result.message);
-}
+        // ✅ แก้ไขการสร้าง URL
+        let fullUrl;
+        if (imgPath.startsWith('http')) {
+          // ถ้าเป็น full URL อยู่แล้ว
+          fullUrl = imgPath;
+        } else {
+          // ลบ / ตัวหน้าออก (ถ้ามี) เพราะ getImageBaseURL() มี / ต่อท้ายอยู่แล้ว
+          // const cleanPath = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
+          fullUrl = `${getImageBaseURL()}${imgPath}`;
+          console.log('🖼️ Constructed Image URL:', fullUrl);
+        }
+
+        console.log('✅ Full image URL:', fullUrl);
+        onFileUpload(fullUrl);
+      } else {
+        setUploadStatus('error');
+        console.error('❌ Upload failed:', result.message);
+      }
     } catch (error) {
       setUploadStatus('error');
       console.error('❌ Upload error:', error);
@@ -119,14 +119,14 @@ if (result.success && result.data) {
       />
       <label
         htmlFor="imageUpload"
-        className="cursor-pointer flex flex-col items-center justify-center w-full h-32 sm:h-40 md:h-48 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
+        className="cursor-pointer flex flex-col items-center justify-center w-full h-48 sm:h-56 md:h-64 lg:h-72 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
       >
         {previewUrl ? (
-          <div className="relative w-full h-full">
+          <div className="relative w-full h-full flex items-center justify-center bg-gray-50 rounded-lg overflow-hidden">
             <img
               src={previewUrl}
               alt="Preview"
-              className="w-full h-full object-cover rounded-lg"
+              className="w-full h-full object-contain"
             />
             {uploadStatus === 'uploading' && (
               <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
@@ -530,25 +530,37 @@ const PatientForm = ({ mode = "add" }) => {
   };
 
   const savePatientData = async (patientData, allergies, emergencyContacts, imageUrl = null) => {
+    // ✅ แปลง full URL เป็น path อย่างเดียว
+    let imagePath = null;
+    if (imageUrl) {
+      if (imageUrl.startsWith('http')) {
+        // ถ้าเป็น full URL ให้ตัดเอาแค่ path
+        const baseUrl = getImageBaseURL();
+        imagePath = imageUrl.replace(baseUrl, '');
+      } else {
+        // ถ้าเป็น path อยู่แล้ว ใช้เลย
+        imagePath = imageUrl;
+      }
+    }
+
     const payload = {
       patientData: {
         ...patientData,
-        imageUrl
+        imageUrl: imagePath  // ✅ ส่งแค่ path ไปบันทึก
       },
       allergies: allergies || [],
       emergencyContacts: emergencyContacts || [],
       addresses: patientData.province || patientData.district || patientData.subDistrict ? [{
-      houseNumber: patientData.houseNumber,
-      village: patientData.village,
-      subDistrict: patientData.subDistrict,
-      district: patientData.district,
-      province: patientData.province
-    }] : []
+        houseNumber: patientData.houseNumber,
+        village: patientData.village,
+        subDistrict: patientData.subDistrict,
+        district: patientData.district,
+        province: patientData.province
+      }] : []
     };
 
     const endpoint = mode === "edit" ? `/patients/${id}` : '/patients';
 
-    // api instance จัดการ method และ headers ให้แล้ว
     if (mode === "edit") {
       return await api.put(endpoint, payload);
     } else {
@@ -865,6 +877,7 @@ const PatientForm = ({ mode = "add" }) => {
 
         {/* Responsive Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+          {/* Image Upload Column - Responsive */}
           {/* Image Upload Column - Responsive */}
           <div className="flex flex-col items-center justify-center p-2 sm:p-4 border border-dashed border-gray-300 rounded-lg h-full order-first lg:order-none">
             <FileUpload
