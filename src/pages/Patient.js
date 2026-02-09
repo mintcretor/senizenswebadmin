@@ -525,6 +525,14 @@ const Patient = () => {
     });
   };
 
+
+  const filePatient = (patient) => {
+    navigate(`/filePatient/${patient.id}`, {
+      state: { patient }
+    });
+  };
+
+
   const safePatientData = Array.isArray(patientData) ? patientData : [];
 
   const PatientCard = ({ patient }) => {
@@ -620,6 +628,19 @@ const Patient = () => {
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">ดู/</span>แก้ไข
+                </button>
+
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    filePatient(patient);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="ดูไฟล์ผู้ป่วย"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">ดู/</span>ไฟล์
                 </button>
               </div>
             </div>
