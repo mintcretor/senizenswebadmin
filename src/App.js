@@ -105,7 +105,7 @@ function App() {
 
           <Route path="/physical-therapy" element={<Physicaltherapy />} />
           <Route path="/Wellness" element={<Wellness />} />
-          <Route path="/filePatient/:id" element={<Patientdocument />} />
+          <Route path="/filePatient/:patientId" element={<Patientdocument />} />
           <Route path="/dialysis-center" element={<Dialysiscenter />} />
           <Route path="/Settings" element={<ServiceManagementSystem />} />
           <Route path="/Patient/:id" element={<PatientDetails />} />
