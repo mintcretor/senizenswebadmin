@@ -535,120 +535,91 @@ const Patient = () => {
 
   const safePatientData = Array.isArray(patientData) ? patientData : [];
 
-  const PatientCard = ({ patient }) => {
-    const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
-    const imgPath = patient.profile_image || '';
-    console.log('Rendering PatientCard for:', imgPath);
+const PatientCard = ({ patient }) => {
+  const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
+  const imgPath = patient.profile_image || '';
 
-    // ✅ แก้ไขการสร้าง URL
-    let fullUrl = '';
-    if (imgPath == '' || imgPath.toLowerCase() === 'null') {
-      // ถ้าเป็น full URL อยู่แล้ว
-      fullUrl = '/images/logo.png';
-    } else if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
-      fullUrl = imgPath;
-      console.log('🖼️ Using Full Image URL:', fullUrl)
-    } else {
-      // ลบ / ตัวหน้าออก (ถ้ามี) เพราะ getImageBaseURL() มี / ต่อท้ายอยู่แล้ว
-      // const cleanPath = imgPath.startsWith('/') ? imgPath.substring(1) : imgPath;
-      fullUrl = `${getImageBaseURL()}${imgPath}`;
-      console.log('🖼️ Constructed Image URL:', fullUrl);
-    }
+  let fullUrl = '';
+  if (!imgPath || imgPath.toLowerCase() === 'null') {
+    fullUrl = '/images/logo.png';
+  } else if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) {
+    fullUrl = imgPath;
+  } else {
+    fullUrl = `${getImageBaseURL()}${imgPath}`;
+  }
 
-    const patientImageUrl = fullUrl || '/images/logo.png';
-    return (
-      <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-all duration-200">
-        <div className="flex items-start space-x-4">
-          <div className="flex-shrink-0">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-100 rounded-lg overflow-hidden">
-              <img
-                src={patientImageUrl}
-                alt="รูปภาพคนไข้"
-                className="w-full h-full object-cover"
-              />
-            </div>
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden">
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Avatar */}
+          <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 rounded-xl overflow-hidden">
+            <img
+              src={fullUrl}
+              alt="รูปภาพคนไข้"
+              className="w-full h-full object-cover"
+              onError={(e) => { e.target.src = '/images/logo.png'; }}
+            />
           </div>
 
+          {/* Info */}
           <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-start">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs text-gray-500 font-mono mb-1">HN: {patient.hn}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-400 font-mono">HN: {patient.hn}</p>
                 <h3
-                  className="font-semibold text-gray-900 text-base sm:text-lg leading-tight truncate hover:text-blue-600 transition-colors cursor-pointer"
+                  className="font-semibold text-gray-900 text-sm sm:text-base leading-tight truncate hover:text-blue-600 cursor-pointer mt-0.5"
                   title={fullName}
                   onClick={() => handleEditPatient(patient)}
                 >
                   {fullName}
                 </h3>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
-                  <span>อายุ: {patient.age || '-'} ปี</span>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500">
+                  <span>อายุ {patient.age || '-'} ปี</span>
                   <span>เพศ: {patient.gender || '-'}</span>
+                  {(patient.mobile || patient.phone) && (
+                    <span>📞 {patient.mobile || patient.phone}</span>
+                  )}
                 </div>
               </div>
-
-              <div className="flex-shrink-0 ml-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeletePatient(patient.id, fullName);
-                  }}
-                  className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"
-                  title="ลบข้อมูล"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-sm text-gray-500 mb-3">
-                เบอร์ติดต่อ: <span className="font-medium text-gray-700">{patient.mobile || patient.phone || '-'}</span>
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddAnVn(patient);
-                  }}
-                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  title="เพิ่ม AN/VN"
-                >
-                  <ClipboardPlus className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">เพิ่ม </span>AN/VN
-                </button>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditPatient(patient);
-                  }}
-                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  title="ดู/แก้ไขประวัติ"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">ดู/</span>แก้ไข
-                </button>
-
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    filePatient(patient);
-                  }}
-                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  title="ดูไฟล์ผู้ป่วย"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">ดู/</span>ไฟล์
-                </button>
-              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeletePatient(patient.id, fullName); }}
+                className="flex-shrink-0 p-1.5 text-gray-300 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Action Buttons */}
+        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleAddAnVn(patient); }}
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            <ClipboardPlus className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">AN/VN</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleEditPatient(patient); }}
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            <Edit className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">แก้ไข</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); filePatient(patient); }}
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
+          >
+            <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">ไฟล์</span>
+          </button>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+};
 
   // Compact Pagination Component for Header
   const CompactPaginationComponent = () => {

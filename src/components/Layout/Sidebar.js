@@ -82,10 +82,23 @@ const Sidebar = ({ isSidebarOpen }) => {
             <Users size={20} className="flex-shrink-0" />
             {isOpen && <span>Patient</span>}
           </a>
+
+          <a href="/stroke-center" className={getLinkClass('/stroke-center')} title={!isOpen ? 'ศูนย์ฟื้นฟูโรคหลอดเลือดสมอง' : ''}>
+            <HeartPulse size={20} className="flex-shrink-0" />
+            {isOpen && <span className="text-sm">คลินิกเวชกรรมเดอะซีนิเซ่นส์</span>}
+          </a>
+
+
           <a href="/stroke-center" className={getLinkClass('/stroke-center')} title={!isOpen ? 'ศูนย์ฟื้นฟูโรคหลอดเลือดสมอง' : ''}>
             <HeartPulse size={20} className="flex-shrink-0" />
             {isOpen && <span className="text-sm">ศูนย์ฟื้นฟูโรคหลอดเลือดสมอง</span>}
           </a>
+
+           <a href="/senizens" className={getLinkClass('/senizens')} title={!isOpen ? 'คลินิกเวชกรรมเดอะซีนิเซ่นส์' : ''}>
+            <HeartPulse size={20} className="flex-shrink-0" />
+            {isOpen && <span className="text-sm">คลินิกเวชกรรมเดอะซีนิเซ่นส์</span>}
+          </a>
+
           <a href="/physical-therapy" className={getLinkClass('/physical-therapy')} title={!isOpen ? 'กายภาพบำบัด' : ''}>
             <PersonStanding size={20} className="flex-shrink-0" />
             {isOpen && <span>กายภาพบำบัด</span>}

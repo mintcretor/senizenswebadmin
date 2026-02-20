@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, FileText, AlertCircle, Menu, RefreshCw, Eye, ChevronLeft, ChevronRight, Edit, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import api  from '../api/baseapi';
 
-import api, { getImageBaseURL } from '../api/baseapi';
 export default function VNPatientList() {
   const navigate = useNavigate();
 
@@ -22,8 +22,6 @@ export default function VNPatientList() {
   const [totalPatients, setTotalPatients] = useState(0);
   const [paginationLoading, setPaginationLoading] = useState(false);
   const PATIENTS_PER_PAGE = 20;
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // API Configuration
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
@@ -41,8 +39,7 @@ export default function VNPatientList() {
       // Build query parameters
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
 
-      const response = await api.get(`/service-registrations?patientType=AN&departmentId=STROKE&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`);
-
+      const response = await api.get(`/service-registrations?patientType=VN&departmentId=OPD&page=${page}&limit=${PATIENTS_PER_PAGE}${searchParam}`);
 
 
       const data = response.data;
@@ -148,14 +145,7 @@ export default function VNPatientList() {
   }, []);
 
   const handleViewDetails = (patient) => {
-    setSelectedPatient(patient);
-    setShowDetailModal(true);
-  };
-
-    const filePatient = (patient) => {
-    navigate(`/filePatient/${patient.patient_id}`, {
-      state: { patient }
-    });
+    navigate(`/patient-details/${patient.patient_id}`);
   };
 
   const handleAddAnVn = (patient) => {
@@ -164,91 +154,83 @@ export default function VNPatientList() {
     });
   };
 
+  const patientImageUrl = '/images/logo.png';
   const safePatientData = Array.isArray(patientData) ? patientData : [];
 
   const PatientCard = ({ patient }) => {
     const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
-    const imgPath = patient.profile_image || '';
-
-    let fullUrl = '/images/logo.png';
-    if (imgPath && imgPath.toLowerCase() !== 'null') {
-      fullUrl = imgPath.startsWith('http') ? imgPath : `${getImageBaseURL()}${imgPath}`;
-    }
-
-
 
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-start gap-3">
-            {/* Avatar */}
-            <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 rounded-xl overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-all duration-200">
+        <div className="flex items-start space-x-4">
+          <div className="flex-shrink-0">
+            <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-100 rounded-lg overflow-hidden">
               <img
-                src={fullUrl}
+                src={patient.profile_image || patientImageUrl}
                 alt="รูปภาพคนไข้"
                 className="w-full h-full object-cover"
-                onError={(e) => { e.target.src = '/images/logo.png'; }}
               />
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              {/* HN / AN */}
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1">
-                <span className="text-xs text-gray-400 font-mono">HN: {patient.hn}</span>
-                <span className="text-gray-300 text-xs">|</span>
-                <span className="text-xs text-blue-600 font-mono font-semibold">AN: {patient.service_number}</span>
-              </div>
-
-              {/* Name */}
-              <h3
-                className="font-semibold text-gray-900 text-sm sm:text-base leading-tight truncate hover:text-blue-600 cursor-pointer"
-                title={fullName}
-                onClick={() => handleViewDetails(patient)}
-              >
-                {fullName}
-              </h3>
-
-              {/* Details */}
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500">
-                <span>อายุ {patient.age || '-'} ปี</span>
-                <span>ห้อง: {patient.room_number || 'ยังไม่ได้จัดห้อง'}</span>
-                {patient.bed_number && <span>เตียง: {patient.bed_number}</span>}
-              </div>
-
-              {/* แพ้ยา badge */}
-              {patient.drug_intolerance && (
-                <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                  แพ้ยา: {patient.drug_intolerance}
-                </span>
-              )}
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-100">
-            <button
-              onClick={(e) => { e.stopPropagation(); handleViewDetails(patient); }}
-              className="flex items-center justify-center gap-1.5 px-2 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              <Eye className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>ดูรายละเอียด</span>
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/stroke-center/edit/${patient.registration_id}`); }}
-              className="flex items-center justify-center gap-1.5 px-2 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              <Edit className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>แก้ไข VN</span>
-            </button>
 
-            <button
-                        onClick={(e) => { e.stopPropagation(); filePatient(patient); }}
-                        className="flex items-center justify-center gap-1.5 px-2 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors"
-                      >
-                        <FileText className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="truncate">ไฟล์</span>
-                      </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-xs text-gray-500 font-mono">HN: {patient.hn}</p>
+                  <span className="text-gray-300">|</span>
+                  <p className="text-xs text-blue-600 font-mono font-semibold">VN: {patient.service_number}</p>
+                </div>
+                <h3
+                  className="font-semibold text-gray-900 text-base sm:text-lg leading-tight truncate hover:text-blue-600 transition-colors cursor-pointer"
+                  title={fullName}
+                  onClick={() => handleViewDetails(patient)}
+                >
+                  {fullName}
+                </h3>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
+                  <span>อายุ: {patient.age || '-'} ปี</span>
+                  <span>ห้อง: {patient.room_number || 'ยังไม่ได้จัดห้อง'}</span>
+                  {patient.bed_number && <span>เตียง: {patient.bed_number}</span>}
+                </div>
+                {patient.drug_intolerance && (
+                  <div className="mt-2">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      แพ้ยา: {patient.drug_intolerance}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewDetails(patient);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="ดูรายละเอียด"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  ดูรายละเอียด
+                </button>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/PatientVN/edit/${patient.registration_id}`);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  title="แก้ไขข้อมูล VN"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  แก้ไข VN
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -301,7 +283,6 @@ export default function VNPatientList() {
     );
   };
 
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -332,129 +313,16 @@ export default function VNPatientList() {
     );
   }
 
-  const DetailModal = ({ patient, onClose }) => {
-    if (!patient) return null;
-    const fullName = `${patient.prename || ''}${patient.first_name || ''} ${patient.last_name || ''}`.trim();
-
-    let fullUrl = '/images/logo.png';
-    const imgPath = patient.profile_image || '';
-    if (imgPath && imgPath.toLowerCase() !== 'null') {
-      fullUrl = imgPath.startsWith('http') ? imgPath : `${getImageBaseURL()}${imgPath}`;
-    }
-
-    const InfoRow = ({ label, value, highlight }) => (
-      <div className="flex justify-between items-start py-2.5 border-b border-gray-100 last:border-0">
-        <span className="text-xs text-gray-500 flex-shrink-0 w-28">{label}</span>
-        <span className={`text-xs font-medium text-right flex-1 ${highlight ? 'text-blue-600' : 'text-gray-800'}`}>
-          {value || '-'}
-        </span>
-      </div>
-    );
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
-        <div
-          className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Modal Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900 text-sm">รายละเอียดผู้รับบริการ</h3>
-            <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-            </button>
-          </div>
-
-          {/* Scrollable content */}
-          <div className="overflow-y-auto flex-1 p-4">
-            {/* Profile section */}
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-              <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                <img src={fullUrl} alt={fullName} className="w-full h-full object-cover" onError={e => { e.target.src = '/images/logo.png'; }} />
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900 text-base">{fullName}</p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono">HN: {patient.hn}</span>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-mono font-semibold">AN: {patient.service_number}</span>
-                </div>
-                {patient.drug_intolerance && (
-                  <span className="inline-block mt-1.5 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                    ⚠️ แพ้ยา: {patient.drug_intolerance}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* ข้อมูลทั่วไป */}
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">ข้อมูลทั่วไป</p>
-            <div className="bg-gray-50 rounded-xl px-3 mb-4">
-              <InfoRow label="อายุ" value={patient.age ? `${patient.age} ปี` : null} />
-              <InfoRow label="เพศ" value={patient.gender} />
-              <InfoRow label="เบอร์ติดต่อ" value={patient.mobile || patient.phone} />
-              <InfoRow label="บัตรประชาชน" value={patient.id_card} />
-              <InfoRow label="วันเกิด" value={patient.birth_date} />
-            </div>
-
-            {/* ข้อมูลการรับบริการ */}
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">ข้อมูลการรับบริการ</p>
-            <div className="bg-gray-50 rounded-xl px-3 mb-4">
-              <InfoRow label="ห้อง" value={patient.room_number || 'ยังไม่ได้จัดห้อง'} highlight={!!patient.room_number} />
-              <InfoRow label="เตียง" value={patient.bed_number} />
-              <InfoRow label="วันที่รับ" value={patient.admission_date} />
-              <InfoRow label="วันที่จำหน่าย" value={patient.discharge_date || 'ยังรับอยู่'} />
-              <InfoRow label="แพทย์เจ้าของไข้" value={patient.doctor_name} />
-              <InfoRow label="วอร์ด/แผนก" value={patient.department_name} />
-            </div>
-
-            {/* ที่อยู่ */}
-            {(patient.province || patient.district) && (
-              <>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">ที่อยู่</p>
-                <div className="bg-gray-50 rounded-xl px-3 mb-4">
-                  <InfoRow label="จังหวัด" value={patient.province} />
-                  <InfoRow label="อำเภอ" value={patient.district} />
-                  <InfoRow label="ตำบล" value={patient.subdistrict} />
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Footer buttons */}
-          <div className="grid grid-cols-2 gap-2 p-4 border-t border-gray-100">
-            <button
-              onClick={() => { onClose(); navigate(`/stroke-center/edit/${patient.registration_id}`); }}
-              className="flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
-            >
-              <Edit className="h-4 w-4" /> แก้ไข VN
-            </button>
-            <button
-              onClick={onClose}
-              className="flex items-center justify-center gap-2 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors"
-            >
-              ปิด
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
         <div className="px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => navigate('/stroke-center/new')}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-2 sm:px-6 sm:py-3 flex items-center justify-center space-x-2 transition-colors font-medium"
-            >
-              <Plus size={20} />
-              <span className="hidden sm:inline">แก้ไข</span>
-            </button>
+           
             <div className="flex items-center space-x-3">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">
-                รายชื่อผู้ใช้บริการ (ศูนย์ฟื้นฟูผู้หลอดเลือดและสมอง)
+                รายชื่อผู้ใช้บริการ (คลินิกเวชกรรมเดอะซีนิเซ่นส์)
               </h1>
               {error && (
                 <div className="flex items-center text-yellow-600 text-sm">
@@ -496,7 +364,7 @@ export default function VNPatientList() {
             </div>
             <input
               type="text"
-              placeholder="ค้นหา ชื่อ นามสกุล, HN หรือ AN"
+              placeholder="ค้นหา ชื่อ นามสกุล, HN หรือ VN"
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="block w-full pl-10 pr-4 py-3 text-base border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 focus:bg-white transition-colors"
@@ -568,7 +436,7 @@ export default function VNPatientList() {
               <FileText className="h-8 w-8 text-gray-400" />
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">ยังไม่มีข้อมูลผู้รับบริการ</h3>
-            <p className="text-gray-500 mb-6">ยังไม่มีผู้รับบริการประเภท AN ในศูนย์ฟื้นฟูผู้หลอดเลือดและสมอง</p>
+            <p className="text-gray-500 mb-6">ยังไม่มีผู้รับบริการประเภท VN ในศูนย์ฟื้นฟูผู้หลอดเลือดและสมอง</p>
           </div>
         )}
 
@@ -617,13 +485,6 @@ export default function VNPatientList() {
           </div>
         )}
       </div>
-
-      {showDetailModal && (
-        <DetailModal
-          patient={selectedPatient}
-          onClose={() => { setShowDetailModal(false); setSelectedPatient(null); }}
-        />
-      )}
     </div>
   );
 }

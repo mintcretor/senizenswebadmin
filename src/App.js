@@ -37,6 +37,8 @@ import EditVNS from './pages/EditVNS';
 import NutritionManagement from './pages/NutritionManagement';
 import MealConsumptionTracking from './pages/MealConsumptionTracking';
 import Physicaltherapy from './pages/Physicaltherapy';
+import Senizens from './pages/Senizens';
+
 import Dialysiscenter from './pages/Dialysiscenter';
 import Wellness from './pages/Wellness';
 import Patientdocument from './pages/Patientdocument';
@@ -102,6 +104,7 @@ function App() {
           <Route path="/stroke-center" element={<VNPatientList />} />
           <Route path="/stroke-center/edit/:vnId" element={<EditVN />} />
           <Route path="/PatientVN/edit/:vnId" element={<EditVNS />} />
+          <Route path="/senizens" element={<Senizens />} />
 
           <Route path="/physical-therapy" element={<Physicaltherapy />} />
           <Route path="/Wellness" element={<Wellness />} />
