@@ -83,10 +83,6 @@ const Sidebar = ({ isSidebarOpen }) => {
             {isOpen && <span>Patient</span>}
           </a>
 
-          <a href="/stroke-center" className={getLinkClass('/stroke-center')} title={!isOpen ? 'ศูนย์ฟื้นฟูโรคหลอดเลือดสมอง' : ''}>
-            <HeartPulse size={20} className="flex-shrink-0" />
-            {isOpen && <span className="text-sm">คลินิกเวชกรรมเดอะซีนิเซ่นส์</span>}
-          </a>
 
 
           <a href="/stroke-center" className={getLinkClass('/stroke-center')} title={!isOpen ? 'ศูนย์ฟื้นฟูโรคหลอดเลือดสมอง' : ''}>

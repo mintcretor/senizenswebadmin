@@ -10,7 +10,7 @@ const API_URLS = [
 // ตรวจสอบว่ามี URL อย่างน้อย 1 ตัว
 if (API_URLS.length === 0) {
   console.error('❌ No API URLs configured!');
-  API_URLS.push('http://172.16.40.11:3001/api'); // fallback
+  API_URLS.push('https://api.thesenizens.com/api'); // fallback
 }
 
 console.log('📋 Available API URLs:', API_URLS);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Plus, Trash2, Upload, AlertCircle, CheckCircle, Pencil } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 // 1. นำเข้า api และ helper สำหรับ URL รูปภาพ
@@ -156,9 +156,233 @@ const FileUpload = ({ onFileUpload, isUploading, existingImageUrl }) => {
     </div>
   );
 };
+const DateField = ({ label, value, onChange, error, required = false }) => {
+  const [showPicker, setShowPicker] = useState(false);
+  const [viewMode, setViewMode] = useState('day'); // 'day' | 'month' | 'year'
+  const [viewDate, setViewDate] = useState(() => {
+  if (value) return new Date(value + 'T00:00:00');
+  return new Date();
+});
 
+  const selectedDate = value ? new Date(value + 'T00:00:00') : null;
+
+  const displayValue = selectedDate
+    ? `${String(selectedDate.getDate()).padStart(2, '0')}/${String(selectedDate.getMonth() + 1).padStart(2, '0')}/${selectedDate.getFullYear()}`
+    : '';
+
+  const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const thaiDays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+
+  const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
+
+  const handleSelectDay = (day) => {
+    const y = viewDate.getFullYear();
+    const m = viewDate.getMonth();
+    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    onChange(dateStr);
+    setShowPicker(false);
+  };
+useEffect(() => {
+  if (value) {
+    setViewDate(new Date(value + 'T00:00:00'));
+  }
+}, [value]);
+  const handleSelectMonth = (monthIndex) => {
+    setViewDate(new Date(viewDate.getFullYear(), monthIndex, 1));
+    setViewMode('day');
+  };
+
+  const handleSelectYear = (year) => {
+    setViewDate(new Date(year, viewDate.getMonth(), 1));
+    setViewMode('month');
+  };
+
+  const prevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+  const nextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+
+  const renderDayGrid = () => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    const cells = [];
+
+    for (let i = 0; i < firstDay; i++) cells.push(<div key={`e-${i}`} />);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const isSelected = selectedDate &&
+        selectedDate.getDate() === d &&
+        selectedDate.getMonth() === month &&
+        selectedDate.getFullYear() === year;
+      const isToday = new Date().getDate() === d &&
+        new Date().getMonth() === month &&
+        new Date().getFullYear() === year;
+
+      cells.push(
+        <button
+          key={d}
+          type="button"
+          onClick={() => handleSelectDay(d)}
+          className={`w-8 h-8 text-xs rounded-full flex items-center justify-center transition-colors
+            ${isSelected ? 'bg-blue-600 text-white font-bold' :
+              isToday ? 'border border-blue-400 text-blue-600 font-semibold' :
+              'hover:bg-blue-50 text-gray-700'}`}
+        >
+          {d}
+        </button>
+      );
+    }
+    return cells;
+  };
+
+  const renderMonthGrid = () => {
+    return thaiMonths.map((m, i) => {
+      const isSelected = selectedDate && selectedDate.getMonth() === i &&
+        selectedDate.getFullYear() === viewDate.getFullYear();
+      return (
+        <button
+          key={i}
+          type="button"
+          onClick={() => handleSelectMonth(i)}
+          className={`py-2 text-xs rounded-lg transition-colors
+            ${isSelected ? 'bg-blue-600 text-white font-bold' : 'hover:bg-blue-50 text-gray-700'}`}
+        >
+          {m}
+        </button>
+      );
+    });
+  };
+
+  const renderYearGrid = () => {
+    const currentYear = viewDate.getFullYear();
+    const startYear = currentYear - 6;
+    const years = Array.from({ length: 12 }, (_, i) => startYear + i);
+    return years.map(y => {
+      const isSelected = selectedDate && selectedDate.getFullYear() === y;
+      return (
+        <button
+          key={y}
+          type="button"
+          onClick={() => handleSelectYear(y)}
+          className={`py-2 text-xs rounded-lg transition-colors
+            ${isSelected ? 'bg-blue-600 text-white font-bold' : 'hover:bg-blue-50 text-gray-700'}`}
+        >
+          {y}
+        </button>
+      );
+    });
+  };
+
+  return (
+    <div className="flex flex-col relative">
+      <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+
+      {/* Input แสดงวันที่ */}
+      <div
+        className={`flex items-center px-3 py-2 border rounded-lg cursor-pointer bg-white
+          ${error ? 'border-red-500' : 'border-gray-300'}
+          ${showPicker ? 'ring-2 ring-blue-500 border-transparent' : 'hover:border-gray-400'}`}
+        onClick={() => { setShowPicker(!showPicker); setViewMode('day'); }}
+      >
+        <span className={`flex-1 text-sm ${displayValue ? 'text-gray-900' : 'text-gray-400'}`}>
+          {displayValue || 'วว/ดด/ปปปป'}
+        </span>
+        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+
+      {error && <span className="text-red-500 text-xs mt-1">{error}</span>}
+
+      {/* Popup ปฏิทิน */}
+      {showPicker && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+
+          <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-3 w-64">
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-2">
+              <button type="button" onClick={prevMonth}
+                className="p-1 hover:bg-gray-100 rounded-full text-gray-600">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              <div className="flex space-x-1">
+                <button type="button"
+                  onClick={() => setViewMode(viewMode === 'month' ? 'day' : 'month')}
+                  className="text-xs font-semibold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg">
+                  {thaiMonths[viewDate.getMonth()]}
+                </button>
+                <button type="button"
+                  onClick={() => setViewMode(viewMode === 'year' ? 'day' : 'year')}
+                  className="text-xs font-semibold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg">
+                  {viewDate.getFullYear()}
+                </button>
+              </div>
+
+              <button type="button" onClick={nextMonth}
+                className="p-1 hover:bg-gray-100 rounded-full text-gray-600">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Day View */}
+            {viewMode === 'day' && (
+              <>
+                <div className="grid grid-cols-7 mb-1">
+                  {thaiDays.map(d => (
+                    <div key={d} className="text-center text-xs text-gray-400 font-medium py-1">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-y-1">
+                  {renderDayGrid()}
+                </div>
+              </>
+            )}
+
+            {/* Month View */}
+            {viewMode === 'month' && (
+              <div className="grid grid-cols-3 gap-1">
+                {renderMonthGrid()}
+              </div>
+            )}
+
+            {/* Year View */}
+            {viewMode === 'year' && (
+              <div className="grid grid-cols-3 gap-1">
+                {renderYearGrid()}
+              </div>
+            )}
+
+            {/* ปุ่มล้างค่า */}
+            {selectedDate && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <button type="button"
+                  onClick={() => { onChange(''); setShowPicker(false); }}
+                  className="w-full text-xs text-gray-500 hover:text-red-500 py-1">
+                  ล้างวันที่
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 // InputField Component (เหมือนเดิม)
-const InputField = ({ label, placeholder, type = "text", value, onChange, error, onBlur, required = false, readOnly = false }) => {
+const InputField = ({ label, placeholder, type = "text", value, onChange, error, onBlur, required = false, readOnly = false, lang }) => {
   return (
     <div className="flex flex-col">
       <label className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
@@ -171,6 +395,7 @@ const InputField = ({ label, placeholder, type = "text", value, onChange, error,
         onChange={onChange}
         onBlur={onBlur}
         readOnly={readOnly}
+        lang={lang}
         className={`px-2 py-2 sm:px-3 sm:py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${error ? 'border-red-500' : 'border-gray-300'
           } ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
       />
@@ -365,6 +590,8 @@ const PatientForm = ({ mode = "add" }) => {
     phone: '',
     address: ''
   });
+  const [isEditContactModalOpen, setIsEditContactModalOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
 
   // Load initial data
   useEffect(() => {
@@ -769,6 +996,32 @@ const PatientForm = ({ mode = "add" }) => {
     showToast('ลบผู้ติดต่อฉุกเฉินสำเร็จ', 'success');
   };
 
+  const openEditContactModal = (contact) => {
+    setEditingContact({ ...contact });
+    setIsEditContactModalOpen(true);
+  };
+
+  const closeEditContactModal = () => {
+    setIsEditContactModalOpen(false);
+    setEditingContact(null);
+  };
+
+  const saveEditContact = () => {
+    if (!editingContact.name.trim() || !editingContact.relationship.trim() || !editingContact.phone.trim()) {
+      showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
+      return;
+    }
+    if (!/^\d{10}$/.test(editingContact.phone)) {
+      showToast('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก', 'error');
+      return;
+    }
+    setEmergencyContacts(prev =>
+      prev.map(c => c.id === editingContact.id ? { ...editingContact } : c)
+    );
+    closeEditContactModal();
+    showToast('แก้ไขผู้ติดต่อฉุกเฉินสำเร็จ', 'success');
+  };
+
   // Save data
   const handleSaveData = () => {
     openConfirmModal();
@@ -934,12 +1187,10 @@ const PatientForm = ({ mode = "add" }) => {
               error={errors.lastName}
               required
             />
-            <InputField
+            <DateField
               label="วัน / เดือน / ปีเกิด"
-              placeholder="วัน / เดือน / ปีเกิด"
-              type="date"
               value={patientData.birthDate}
-              onChange={(e) => updatePatientData('birthDate', e.target.value)}
+              onChange={(val) => updatePatientData('birthDate', val)}
               error={errors.birthDate}
               required
             />
@@ -1154,12 +1405,22 @@ const PatientForm = ({ mode = "add" }) => {
                       <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">{contact.phone}</td>
                       <td className="hidden md:table-cell px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm text-gray-900 max-w-32 truncate">{contact.address}</td>
                       <td className="px-2 sm:px-4 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
-                        <button
-                          onClick={() => removeContact(contact.id)}
-                          className="text-red-600 hover:text-red-800 transition-colors p-1"
-                        >
-                          <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => openEditContactModal(contact)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors p-1"
+                            title="แก้ไข"
+                          >
+                            <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </button>
+                          <button
+                            onClick={() => removeContact(contact.id)}
+                            className="text-red-600 hover:text-red-800 transition-colors p-1"
+                            title="ลบ"
+                          >
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1190,9 +1451,6 @@ const PatientForm = ({ mode = "add" }) => {
         </button>
       </div>
 
-      {/* Include Modals (Allergy, Contact, Confirm, VN) - Copy from original code */}
-      {/* ... (Modals ส่วนใหญ่ logic เหมือนเดิม สามารถใช้โค้ดเดิมได้เลย) ... */}
-
       {/* Allergy Modal */}
       {isAllergyModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1205,7 +1463,6 @@ const PatientForm = ({ mode = "add" }) => {
               </button>
             </div>
             <div className="space-y-4">
-              {/* ... Input fields for allergy ... */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทการแพ้</label>
                 <select
@@ -1299,6 +1556,67 @@ const PatientForm = ({ mode = "add" }) => {
         </div>
       )}
 
+
+      {/* Edit Emergency Contact Modal */}
+      {isEditContactModalOpen && editingContact && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800">แก้ไขผู้ติดต่อฉุกเฉิน</h3>
+              <button onClick={closeEditContactModal} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="ชื่อ-นามสกุล"
+                value={editingContact.name}
+                onChange={e => setEditingContact({ ...editingContact, name: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm sm:text-base"
+              />
+              <select
+                value={editingContact.relationship}
+                onChange={e => setEditingContact({ ...editingContact, relationship: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm sm:text-base"
+              >
+                <option value="">เลือกความสัมพันธ์</option>
+                <option value="บิดา">บิดา</option>
+                <option value="มารดา">มารดา</option>
+                <option value="สามี">สามี</option>
+                <option value="ภรรยา">ภรรยา</option>
+                <option value="บุตร">บุตร</option>
+                <option value="อื่นๆ">อื่นๆ</option>
+              </select>
+              <input
+                type="tel"
+                placeholder="เบอร์โทรศัพท์"
+                value={editingContact.phone}
+                onChange={e => setEditingContact({ ...editingContact, phone: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm sm:text-base"
+              />
+              <textarea
+                placeholder="ที่อยู่"
+                value={editingContact.address}
+                onChange={e => setEditingContact({ ...editingContact, address: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg text-sm sm:text-base"
+                rows="3"
+              />
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button onClick={closeEditContactModal} className="px-4 py-2 border rounded-lg text-sm sm:text-base">
+                ยกเลิก
+              </button>
+              <button
+                onClick={saveEditContact}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm sm:text-base hover:bg-blue-700"
+              >
+                บันทึกการแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Confirm Modal */}
       {isConfirmModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
